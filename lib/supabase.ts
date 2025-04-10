@@ -1,0 +1,31 @@
+import { createClient } from "@supabase/supabase-js"
+
+// Create a single supabase client for the browser
+const createBrowserClient = () => {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  return createClient(supabaseUrl, supabaseAnonKey)
+}
+
+// Create a single supabase client for server components
+const createServerClient = () => {
+  const supabaseUrl = process.env.SUPABASE_URL!
+  const supabaseServiceKey = process.env.SUPABASE_ANON_KEY! // Using anon key for server as well since we don't have a service key
+  return createClient(supabaseUrl, supabaseServiceKey)
+}
+
+// Client-side singleton
+let browserClient: ReturnType<typeof createClient> | null = null
+
+// Get the browser client (singleton pattern)
+export function getSupabaseBrowserClient() {
+  if (!browserClient) {
+    browserClient = createBrowserClient()
+  }
+  return browserClient
+}
+
+// Get the server client (created fresh each time)
+export function getSupabaseServerClient() {
+  return createServerClient()
+}
