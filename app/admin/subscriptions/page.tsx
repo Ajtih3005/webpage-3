@@ -112,7 +112,7 @@ export default function ManageSubscriptions() {
     try {
       const supabase = getSupabaseBrowserClient()
 
-      // Check if any courses are using this subscription
+      // Check if any courses are using this subscription (optional warning)
       const { count, error: countError } = await supabase
         .from("courses")
         .select("*", { count: "exact", head: true })
@@ -120,12 +120,7 @@ export default function ManageSubscriptions() {
 
       if (countError) throw countError
 
-      if (count && count > 0) {
-        alert(`Cannot delete this subscription plan because it is being used by ${count} courses.`)
-        return
-      }
-
-      // Check if any users have this subscription
+      // Check if any users have this subscription (optional warning)
       const { count: userCount, error: userCountError } = await supabase
         .from("user_subscriptions")
         .select("*", { count: "exact", head: true })
@@ -133,9 +128,15 @@ export default function ManageSubscriptions() {
 
       if (userCountError) throw userCountError
 
-      if (userCount && userCount > 0) {
-        alert(`Cannot delete this subscription plan because it is being used by ${userCount} users.`)
-        return
+      // Show warning but allow deletion
+      if ((count && count > 0) || (userCount && userCount > 0)) {
+        const courseWarning = count && count > 0 ? `${count} courses` : ""
+        const userWarning = userCount && userCount > 0 ? `${userCount} users` : ""
+        const andText = courseWarning && userWarning ? " and " : ""
+
+        const warningMessage = `Warning: This subscription is being used by ${courseWarning}${andText}${userWarning}. Deleting it may affect these items. Are you sure you want to proceed?`
+
+        if (!confirm(warningMessage)) return
       }
 
       // Delete the subscription
@@ -147,6 +148,7 @@ export default function ManageSubscriptions() {
       fetchSubscriptions()
     } catch (error) {
       console.error("Error deleting subscription:", error)
+      alert("Error deleting subscription: " + (error instanceof Error ? error.message : "Unknown error"))
     }
   }
 
