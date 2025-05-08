@@ -96,12 +96,27 @@ export default async function Updates() {
                     <p className="text-sm text-muted-foreground mb-4">{subscription.duration_days} days</p>
 
                     <ul className="space-y-2 text-sm">
-                      {subscription.features?.split(",").map((feature, index) => (
-                        <li key={index} className="flex items-start">
+                      {/* Fix: Check if features is an array first, otherwise handle as string or fallback */}
+                      {Array.isArray(subscription.features) ? (
+                        subscription.features.map((feature, index) => (
+                          <li key={index} className="flex items-start">
+                            <span className="text-green-500 mr-2">✓</span>
+                            {feature.trim()}
+                          </li>
+                        ))
+                      ) : typeof subscription.features === "string" ? (
+                        subscription.features.split(",").map((feature, index) => (
+                          <li key={index} className="flex items-start">
+                            <span className="text-green-500 mr-2">✓</span>
+                            {feature.trim()}
+                          </li>
+                        ))
+                      ) : (
+                        <li className="flex items-start">
                           <span className="text-green-500 mr-2">✓</span>
-                          {feature.trim()}
+                          Access to subscription content
                         </li>
-                      ))}
+                      )}
                     </ul>
                   </CardContent>
                   <CardFooter>

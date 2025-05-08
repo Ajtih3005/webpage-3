@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import QRCode from "qrcode.react"
+import { QRCodeSVG } from "qrcode.react" // Changed from default import to named import
 
 interface WhatsAppQRProps {
   phoneNumber?: string
@@ -30,12 +30,11 @@ export default function WhatsAppQR({ phoneNumber, groupInviteLink, size = 160, c
 
   return (
     <div className={`bg-white p-4 rounded-lg shadow-md ${className}`}>
-      <QRCode
+      <QRCodeSVG
         value={qrValue}
         size={size}
         level="H"
         includeMargin={true}
-        renderAs="svg"
         imageSettings={{
           src: "/images/logo.png",
           height: size * 0.2,

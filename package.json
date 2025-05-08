@@ -67,11 +67,11 @@
     "path": "latest",
     "@supabase/auth-helpers-nextjs": "latest",
     "razorpay": "latest",
-    "qrcode.react": "latest",
     "html2canvas": "latest",
     "jspdf": "latest",
     "framer-motion": "latest",
-    "nodemailer": "latest"
+    "nodemailer": "latest",
+    "qrcode.react": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",
