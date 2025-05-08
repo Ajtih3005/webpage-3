@@ -36,6 +36,9 @@ export default function AdminLogin() {
       // Store admin authentication status in localStorage instead of sessionStorage
       localStorage.setItem("adminAuthenticated", "true")
 
+      // Also store the admin password for API calls
+      localStorage.setItem("adminPassword", password)
+
       // Log to console for debugging
       console.log("Admin authenticated, redirecting to dashboard...")
 

@@ -85,9 +85,28 @@ export default function EditSubscription({ params }: { params: { id: string } })
 
   const [whatsappGroupLink, setWhatsappGroupLink] = useState("")
 
+  // Add these new state variables after the other state declarations
+  const [hasDiscount, setHasDiscount] = useState(false)
+  const [discountPercentage, setDiscountPercentage] = useState("0")
+  const [originalPrice, setOriginalPrice] = useState("")
+
   useEffect(() => {
     fetchSubscription()
   }, [subscriptionId])
+
+  // Add this function to calculate the discounted price
+  const calculateDiscountedPrice = (original: string, discount: string): string => {
+    if (!original || !discount) return original
+
+    const originalValue = Number.parseFloat(original)
+    const discountValue = Number.parseInt(discount)
+
+    if (isNaN(originalValue) || isNaN(discountValue)) return original
+    if (discountValue <= 0 || discountValue >= 100) return original
+
+    const discountedPrice = originalValue * (1 - discountValue / 100)
+    return discountedPrice.toFixed(2)
+  }
 
   async function fetchSubscription() {
     try {
@@ -105,6 +124,13 @@ export default function EditSubscription({ params }: { params: { id: string } })
         setDurationDays(data.duration_days.toString())
         setIsDefaultForNewUsers(data.is_default_for_new_users || false)
         setIsOneTimeOnly(data.is_one_time_only || false)
+
+        // Set discount information
+        setHasDiscount(data.has_discount || false)
+        setDiscountPercentage(data.discount_percentage?.toString() || "0")
+        if (data.has_discount && data.original_price) {
+          setOriginalPrice(data.original_price.toString())
+        }
 
         // Set activation settings
         setRequiresActivation(data.requires_activation || false)
@@ -213,6 +239,23 @@ export default function EditSubscription({ params }: { params: { id: string } })
       }
     }
 
+    if (hasDiscount) {
+      if (!originalPrice.trim()) {
+        newErrors.originalPrice = "Original price is required when using discount"
+      } else if (isNaN(Number.parseFloat(originalPrice)) || Number.parseFloat(originalPrice) <= 0) {
+        newErrors.originalPrice = "Original price must be a valid positive number"
+      }
+
+      if (!discountPercentage.trim()) {
+        newErrors.discountPercentage = "Discount percentage is required"
+      } else {
+        const discountValue = Number.parseInt(discountPercentage)
+        if (isNaN(discountValue) || discountValue <= 0 || discountValue >= 100) {
+          newErrors.discountPercentage = "Discount must be between 1 and 99 percent"
+        }
+      }
+    }
+
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -298,7 +341,9 @@ export default function EditSubscription({ params }: { params: { id: string } })
         .update({
           name,
           description: description || null,
-          price: Number.parseFloat(price),
+          price: hasDiscount
+            ? Number.parseFloat(calculateDiscountedPrice(originalPrice, discountPercentage))
+            : Number.parseFloat(price),
           duration_days: finalDurationDays,
           start_date: useDates ? (startDateStr ? new Date(startDateStr).toISOString() : null) : null,
           end_date: useDates ? calculatedEndDate : null,
@@ -309,6 +354,9 @@ export default function EditSubscription({ params }: { params: { id: string } })
           auto_activate_after_days: requiresActivation ? Number.parseInt(autoActivateAfterDays) : 0,
           activation_date: activationDate ? activationDate.toISOString() : null,
           whatsapp_group_link: whatsappGroupLink || null,
+          has_discount: hasDiscount,
+          discount_percentage: hasDiscount ? Number.parseInt(discountPercentage) : 0,
+          original_price: hasDiscount ? Number.parseFloat(originalPrice) : null,
         })
         .eq("id", subscriptionId)
 
@@ -496,19 +544,117 @@ export default function EditSubscription({ params }: { params: { id: string } })
                 )}
               </div>
 
-              {/* Price */}
-              <div className="space-y-2">
-                <Label htmlFor="price">Price (₹)</Label>
-                <Input
-                  id="price"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  placeholder="Enter price in rupees"
-                />
-                {errors.price && <p className="text-sm text-red-500">{errors.price}</p>}
+              {/* Price with Discount Option */}
+              <div className="space-y-4 border p-4 rounded-md">
+                <h3 className="font-medium text-lg">Pricing</h3>
+
+                {/* Discount Toggle */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="has-discount" className="font-medium">
+                      Apply Discount
+                    </Label>
+                    <p className="text-sm text-gray-500">Show original price with a discount applied</p>
+                  </div>
+                  <Switch
+                    id="has-discount"
+                    checked={hasDiscount}
+                    onCheckedChange={(checked) => {
+                      setHasDiscount(checked)
+                      if (checked && !originalPrice && price) {
+                        setOriginalPrice(price)
+                        setPrice(calculateDiscountedPrice(price, discountPercentage))
+                      } else if (!checked && originalPrice) {
+                        setPrice(originalPrice)
+                        setOriginalPrice("")
+                      }
+                    }}
+                  />
+                </div>
+
+                {hasDiscount ? (
+                  <>
+                    {/* Original Price */}
+                    <div className="space-y-2">
+                      <Label htmlFor="original-price">Original Price (₹)</Label>
+                      <Input
+                        id="original-price"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={originalPrice}
+                        onChange={(e) => {
+                          setOriginalPrice(e.target.value)
+                          setPrice(calculateDiscountedPrice(e.target.value, discountPercentage))
+                        }}
+                        placeholder="Enter original price in rupees"
+                      />
+                      {errors.originalPrice && <p className="text-sm text-red-500">{errors.originalPrice}</p>}
+                    </div>
+
+                    {/* Discount Percentage */}
+                    <div className="space-y-2">
+                      <Label htmlFor="discount-percentage">Discount Percentage (%)</Label>
+                      <Input
+                        id="discount-percentage"
+                        type="number"
+                        min="1"
+                        max="99"
+                        value={discountPercentage}
+                        onChange={(e) => {
+                          setDiscountPercentage(e.target.value)
+                          setPrice(calculateDiscountedPrice(originalPrice, e.target.value))
+                        }}
+                        placeholder="Enter discount percentage"
+                      />
+                      {errors.discountPercentage && <p className="text-sm text-red-500">{errors.discountPercentage}</p>}
+                    </div>
+
+                    {/* Final Price (Calculated) */}
+                    <div className="space-y-2">
+                      <Label htmlFor="price">Final Price (₹)</Label>
+                      <div className="flex items-center space-x-2">
+                        <Input
+                          id="price"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={price}
+                          onChange={(e) => setPrice(e.target.value)}
+                          placeholder="Discounted price"
+                          className="bg-gray-50"
+                          readOnly
+                        />
+                      </div>
+                      <div className="text-sm text-green-600 font-medium">
+                        {originalPrice && discountPercentage && Number.parseInt(discountPercentage) > 0 ? (
+                          <div className="flex items-center space-x-2">
+                            <span className="line-through text-gray-500">₹{originalPrice}</span>
+                            <span>₹{price}</span>
+                            <span className="bg-green-100 text-green-800 px-2 py-0.5 rounded-full text-xs">
+                              {discountPercentage}% OFF
+                            </span>
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  /* Regular Price (No Discount) */
+                  <div className="space-y-2">
+                    <Label htmlFor="price">Price (₹)</Label>
+                    <Input
+                      id="price"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={price}
+                      onChange={(e) => setPrice(e.target.value)}
+                      placeholder="Enter price in rupees"
+                    />
+                    {errors.price && <p className="text-sm text-red-500">{errors.price}</p>}
+                  </div>
+                )}
               </div>
 
               {/* WhatsApp Group Link */}

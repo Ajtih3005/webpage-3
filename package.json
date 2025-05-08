@@ -63,7 +63,6 @@
     "child_process": "latest",
     "fs": "latest",
     "xlsx": "latest",
-    "nodemailer": "latest",
     "crypto": "latest",
     "path": "latest",
     "@supabase/auth-helpers-nextjs": "latest",
@@ -71,7 +70,8 @@
     "qrcode.react": "latest",
     "html2canvas": "latest",
     "jspdf": "latest",
-    "framer-motion": "latest"
+    "framer-motion": "latest",
+    "nodemailer": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",

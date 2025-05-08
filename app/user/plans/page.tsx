@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { formatCurrency } from "@/lib/utils"
-import { AlertCircle, AlertTriangle, Check, Info } from "lucide-react"
+import { AlertCircle, AlertTriangle, Check, Info, Percent } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useRouter } from "next/navigation"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -20,15 +20,21 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Badge } from "@/components/ui/badge"
 
+// Update the SubscriptionPlan interface to include the features column
 interface SubscriptionPlan {
   id: number
   name: string
   description: string
   price: number
   duration_days: number
-  features?: string[]
+  features?: string[] | null
   userHasActive?: boolean
+  has_discount?: boolean
+  discount_percentage?: number
+  original_price?: number
+  features_list?: string[] | null
 }
 
 export default function PlansPage() {
@@ -47,6 +53,7 @@ export default function PlansPage() {
       return
     }
 
+    // Update the fetchPlans function to use the features column
     async function fetchPlans() {
       try {
         setLoading(true)
@@ -76,25 +83,33 @@ export default function PlansPage() {
 
         // Process the data to add features and check if user already has active subscription
         const processedPlans = data.map((plan) => {
-          let features = []
+          // Parse features from the database if it exists
+          let featuresList = []
 
-          if (plan.duration_days === 30) {
-            features = ["Access to all basic yoga sessions", "Monthly progress tracking", "Email support"]
-          } else if (plan.duration_days === 90) {
-            features = [
-              "Access to all basic and intermediate yoga sessions",
-              "Quarterly progress tracking",
-              "Priority email support",
-              "Access to community forums",
-            ]
-          } else if (plan.duration_days === 365) {
-            features = [
-              "Access to all yoga sessions (basic, intermediate, advanced)",
-              "Annual progress tracking",
-              "Priority email and phone support",
-              "Access to community forums",
-              "Exclusive workshops and events",
-            ]
+          // First try to use features from the database
+          if (plan.features && Array.isArray(plan.features)) {
+            featuresList = plan.features
+          }
+          // If no features in database, use the default features based on duration
+          else if (!plan.features || plan.features.length === 0) {
+            if (plan.duration_days === 30) {
+              featuresList = ["Access to all basic yoga sessions", "Monthly progress tracking", "Email support"]
+            } else if (plan.duration_days === 90) {
+              featuresList = [
+                "Access to all basic and intermediate yoga sessions",
+                "Quarterly progress tracking",
+                "Priority email support",
+                "Access to community forums",
+              ]
+            } else if (plan.duration_days === 365) {
+              featuresList = [
+                "Access to all yoga sessions (basic, intermediate, advanced)",
+                "Annual progress tracking",
+                "Priority email and phone support",
+                "Access to community forums",
+                "Exclusive workshops and events",
+              ]
+            }
           }
 
           // Check if user already has this subscription active
@@ -110,7 +125,7 @@ export default function PlansPage() {
 
           return {
             ...plan,
-            features,
+            features: featuresList,
             userHasActive: hasActiveSubscription,
           }
         })
@@ -140,6 +155,17 @@ export default function PlansPage() {
     }
 
     router.push(`/user/subscribe?plan=${planId}`)
+  }
+
+  // Get subscription period text
+  const getSubscriptionPeriod = (durationDays: number | undefined) => {
+    if (!durationDays) return "Subscription"
+
+    if (durationDays === 30) return "Monthly Subscription"
+    if (durationDays === 90) return "Quarterly Subscription"
+    if (durationDays === 365) return "Annual Subscription"
+
+    return `${durationDays}-Day Subscription`
   }
 
   if (loading) {
@@ -330,20 +356,36 @@ export default function PlansPage() {
                     <CardTitle>{plan.name}</CardTitle>
                     <CardDescription>{plan.description}</CardDescription>
                     <div className="mt-2">
-                      <span className="text-3xl font-bold">{formatCurrency(plan.price)}</span>
-                      <span className="text-sm text-muted-foreground ml-1">
-                        {plan.duration_days === 30 && "/ month"}
-                        {plan.duration_days === 90 && "/ quarter"}
-                        {plan.duration_days === 365 && "/ year"}
-                      </span>
+                      {plan.has_discount && plan.original_price && plan.discount_percentage ? (
+                        <div className="flex flex-col">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-muted-foreground line-through">
+                              {formatCurrency(plan.original_price)}
+                            </span>
+                            <Badge variant="outline" className="bg-green-50 text-green-700 flex items-center gap-1">
+                              <Percent className="h-3 w-3" />
+                              {plan.discount_percentage}% OFF
+                            </Badge>
+                          </div>
+                          <span className="text-3xl font-bold text-green-700">{formatCurrency(plan.price)}</span>
+                        </div>
+                      ) : (
+                        <span className="text-3xl font-bold">{formatCurrency(plan.price)}</span>
+                      )}
+                      <div className="flex items-center mt-1">
+                        <Badge variant="secondary" className="font-normal">
+                          {getSubscriptionPeriod(plan.duration_days)}
+                        </Badge>
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent>
+                    <h4 className="font-medium text-sm mb-3 text-green-700">What's included:</h4>
                     <ul className="space-y-2">
                       {plan.features?.map((feature, index) => (
                         <li key={index} className="flex items-start">
                           <Check className="h-5 w-5 text-green-500 mr-2 shrink-0" />
-                          <span>{feature}</span>
+                          <span className="text-sm">{feature}</span>
                         </li>
                       ))}
                     </ul>

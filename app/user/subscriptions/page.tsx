@@ -17,10 +17,12 @@ import {
   Info,
   Package,
   CalendarClock,
+  Check,
 } from "lucide-react"
 import Link from "next/link"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useRouter } from "next/navigation"
+import { Badge } from "@/components/ui/badge"
 
 interface Subscription {
   id: string
@@ -37,6 +39,11 @@ interface Subscription {
     description: string
     price: number
     duration_days: number
+    features?: string[] | null
+    features_list?: string[] | null
+    has_discount?: boolean
+    discount_percentage?: number
+    original_price?: number
   }
 }
 
@@ -76,7 +83,18 @@ export default function UserSubscriptionsPage() {
             is_active,
             activation_date,
             admin_activated,
-            subscription:subscriptions (id, name, description, price, duration_days)
+            subscription:subscriptions (
+              id, 
+              name, 
+              description, 
+              price, 
+              duration_days, 
+              features,
+              features_list,
+              has_discount,
+              discount_percentage,
+              original_price
+            )
           `)
           .eq("user_id", userId)
           .order("end_date", { ascending: false })
@@ -165,6 +183,40 @@ export default function UserSubscriptionsPage() {
     if (diffDays === 0) return "Today"
     if (diffDays === 1) return "Tomorrow"
     return `In ${diffDays} days`
+  }
+
+  // Get subscription period text
+  const getSubscriptionPeriod = (durationDays: number | undefined) => {
+    if (!durationDays) return "Subscription"
+
+    if (durationDays === 30) return "Monthly Subscription"
+    if (durationDays === 90) return "Quarterly Subscription"
+    if (durationDays === 365) return "Annual Subscription"
+
+    return `${durationDays}-Day Subscription`
+  }
+
+  // Get default features based on subscription duration
+  const getDefaultFeatures = (durationDays: number) => {
+    if (durationDays === 30) {
+      return ["Access to all basic yoga sessions", "Monthly progress tracking", "Email support"]
+    } else if (durationDays === 90) {
+      return [
+        "Access to all basic and intermediate yoga sessions",
+        "Quarterly progress tracking",
+        "Priority email support",
+        "Access to community forums",
+      ]
+    } else if (durationDays === 365) {
+      return [
+        "Access to all yoga sessions (basic, intermediate, advanced)",
+        "Annual progress tracking",
+        "Priority email and phone support",
+        "Access to community forums",
+        "Exclusive workshops and events",
+      ]
+    }
+    return ["Access to yoga sessions"]
   }
 
   if (loading) {
@@ -269,59 +321,114 @@ export default function UserSubscriptionsPage() {
                 </Card>
               ) : (
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                  {activeSubscriptions.map((subscription) => (
-                    <Card key={subscription.id} className="overflow-hidden border-green-100">
-                      <div className="h-2 bg-green-600 w-full"></div>
-                      <CardHeader className="pb-2">
-                        <div className="flex items-center justify-between mb-2">
-                          <CardTitle className="text-lg">{subscription.subscription?.name || "Subscription"}</CardTitle>
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                            <CheckCircle className="mr-1 h-3 w-3" />
-                            Active
-                          </span>
-                        </div>
-                        <CardDescription>
-                          {subscription.subscription?.description || "No description available"}
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-3 pt-2">
-                          {subscription.subscription?.price !== undefined && (
-                            <div className="flex justify-between items-center">
-                              <span className="text-sm font-medium">Price:</span>
-                              <span className="font-semibold">{formatCurrency(subscription.subscription.price)}</span>
-                            </div>
-                          )}
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm font-medium">Activated On:</span>
-                            <span>{formatDate(subscription.activation_date || subscription.start_date)}</span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm font-medium">End Date:</span>
-                            <span>{formatDate(subscription.end_date)}</span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm font-medium">Remaining:</span>
-                            <span className="text-green-600 font-medium flex items-center">
-                              <Clock className="mr-1 h-4 w-4" />
-                              {getTimeRemaining(subscription.end_date)}
+                  {activeSubscriptions.map((subscription) => {
+                    // Get features from subscription or use defaults
+                    const features =
+                      subscription.subscription?.features ||
+                      (subscription.subscription?.duration_days
+                        ? getDefaultFeatures(subscription.subscription.duration_days)
+                        : ["Access to yoga sessions"])
+
+                    return (
+                      <Card key={subscription.id} className="overflow-hidden border-green-100">
+                        <div className="h-2 bg-green-600 w-full"></div>
+                        <CardHeader className="pb-2">
+                          <div className="flex items-center justify-between mb-2">
+                            <CardTitle className="text-lg">
+                              {subscription.subscription?.name || "Subscription"}
+                            </CardTitle>
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              <CheckCircle className="mr-1 h-3 w-3" />
+                              Active
                             </span>
                           </div>
-                        </div>
-                      </CardContent>
-                      <CardFooter className="flex justify-between gap-2 pt-2">
-                        <Button variant="outline" size="sm" className="flex-1" asChild>
-                          <Link href="/user/access-course">
-                            <Calendar className="mr-1 h-4 w-4" />
-                            Access Content
-                          </Link>
-                        </Button>
-                        <Button size="sm" className="flex-1" asChild>
-                          <Link href="/user/dashboard">Dashboard</Link>
-                        </Button>
-                      </CardFooter>
-                    </Card>
-                  ))}
+                          <CardDescription>
+                            {subscription.subscription?.description || "No description available"}
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-3 pt-2">
+                            {subscription.subscription?.price !== undefined && (
+                              <div className="flex justify-between items-center">
+                                <span className="text-sm font-medium">Price:</span>
+                                {subscription.subscription.has_discount &&
+                                subscription.subscription.original_price &&
+                                subscription.subscription.discount_percentage ? (
+                                  <div className="flex flex-col items-end">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-sm text-muted-foreground line-through">
+                                        {formatCurrency(subscription.subscription.original_price)}
+                                      </span>
+                                      <Badge
+                                        variant="outline"
+                                        className="bg-green-50 text-green-700 flex items-center gap-1 text-xs"
+                                      >
+                                        {subscription.subscription.discount_percentage}% OFF
+                                      </Badge>
+                                    </div>
+                                    <span className="font-semibold">
+                                      {formatCurrency(subscription.subscription.price)}
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <span className="font-semibold">
+                                    {formatCurrency(subscription.subscription.price)}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm font-medium">Type:</span>
+                              <span className="text-green-600">
+                                {getSubscriptionPeriod(subscription.subscription?.duration_days)}
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm font-medium">Activated On:</span>
+                              <span>{formatDate(subscription.activation_date || subscription.start_date)}</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm font-medium">End Date:</span>
+                              <span>{formatDate(subscription.end_date)}</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm font-medium">Remaining:</span>
+                              <span className="text-green-600 font-medium flex items-center">
+                                <Clock className="mr-1 h-4 w-4" />
+                                {getTimeRemaining(subscription.end_date)}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Features section */}
+                          {features && features.length > 0 && (
+                            <div className="mt-4 pt-4 border-t">
+                              <h4 className="font-medium text-sm mb-3 text-green-700">What's included:</h4>
+                              <ul className="space-y-2">
+                                {features.map((feature, index) => (
+                                  <li key={index} className="flex items-start">
+                                    <Check className="h-4 w-4 text-green-500 mr-2 shrink-0 mt-0.5" />
+                                    <span className="text-sm">{feature}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </CardContent>
+                        <CardFooter className="flex justify-between gap-2 pt-2">
+                          <Button variant="outline" size="sm" className="flex-1" asChild>
+                            <Link href="/user/access-course">
+                              <Calendar className="mr-1 h-4 w-4" />
+                              Access Content
+                            </Link>
+                          </Button>
+                          <Button size="sm" className="flex-1" asChild>
+                            <Link href="/user/dashboard">Dashboard</Link>
+                          </Button>
+                        </CardFooter>
+                      </Card>
+                    )
+                  })}
                 </div>
               )}
             </TabsContent>
@@ -329,66 +436,121 @@ export default function UserSubscriptionsPage() {
             {pendingSubscriptions.length > 0 && (
               <TabsContent value="pending">
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                  {pendingSubscriptions.map((subscription) => (
-                    <Card key={subscription.id} className="overflow-hidden border-amber-100">
-                      <div className="h-2 bg-amber-500 w-full"></div>
-                      <CardHeader className="pb-2">
-                        <div className="flex items-center justify-between mb-2">
-                          <CardTitle className="text-lg">{subscription.subscription?.name || "Subscription"}</CardTitle>
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
-                            <CalendarClock className="mr-1 h-3 w-3" />
-                            Pending
-                          </span>
-                        </div>
-                        <CardDescription>
-                          {subscription.subscription?.description || "No description available"}
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-3 pt-2">
-                          {subscription.subscription?.price !== undefined && (
-                            <div className="flex justify-between items-center">
-                              <span className="text-sm font-medium">Price:</span>
-                              <span className="font-semibold">{formatCurrency(subscription.subscription.price)}</span>
-                            </div>
-                          )}
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm font-medium">Registration Date:</span>
-                            <span>{formatDate(subscription.start_date)}</span>
+                  {pendingSubscriptions.map((subscription) => {
+                    // Get features from subscription or use defaults
+                    const features =
+                      subscription.subscription?.features ||
+                      (subscription.subscription?.duration_days
+                        ? getDefaultFeatures(subscription.subscription.duration_days)
+                        : ["Access to yoga sessions"])
+
+                    return (
+                      <Card key={subscription.id} className="overflow-hidden border-amber-100">
+                        <div className="h-2 bg-amber-500 w-full"></div>
+                        <CardHeader className="pb-2">
+                          <div className="flex items-center justify-between mb-2">
+                            <CardTitle className="text-lg">
+                              {subscription.subscription?.name || "Subscription"}
+                            </CardTitle>
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                              <CalendarClock className="mr-1 h-3 w-3" />
+                              Pending
+                            </span>
                           </div>
-                          {subscription.activation_date && (
+                          <CardDescription>
+                            {subscription.subscription?.description || "No description available"}
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-3 pt-2">
+                            {subscription.subscription?.price !== undefined && (
+                              <div className="flex justify-between items-center">
+                                <span className="text-sm font-medium">Price:</span>
+                                {subscription.subscription.has_discount &&
+                                subscription.subscription.original_price &&
+                                subscription.subscription.discount_percentage ? (
+                                  <div className="flex flex-col items-end">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-sm text-muted-foreground line-through">
+                                        {formatCurrency(subscription.subscription.original_price)}
+                                      </span>
+                                      <Badge
+                                        variant="outline"
+                                        className="bg-amber-50 text-amber-700 flex items-center gap-1 text-xs"
+                                      >
+                                        {subscription.subscription.discount_percentage}% OFF
+                                      </Badge>
+                                    </div>
+                                    <span className="font-semibold">
+                                      {formatCurrency(subscription.subscription.price)}
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <span className="font-semibold">
+                                    {formatCurrency(subscription.subscription.price)}
+                                  </span>
+                                )}
+                              </div>
+                            )}
                             <div className="flex justify-between items-center">
-                              <span className="text-sm font-medium">Activation Date:</span>
-                              <span className="text-amber-600 font-medium">
-                                {formatDate(subscription.activation_date)}
+                              <span className="text-sm font-medium">Registration Date:</span>
+                              <span>{formatDate(subscription.start_date)}</span>
+                            </div>
+                            {subscription.activation_date && (
+                              <div className="flex justify-between items-center">
+                                <span className="text-sm font-medium">Activation Date:</span>
+                                <span className="text-amber-600 font-medium">
+                                  {formatDate(subscription.activation_date)}
+                                </span>
+                              </div>
+                            )}
+                            {subscription.activation_date && (
+                              <div className="flex justify-between items-center">
+                                <span className="text-sm font-medium">Activates:</span>
+                                <span className="text-amber-600 font-medium flex items-center">
+                                  <CalendarClock className="mr-1 h-4 w-4" />
+                                  {getTimeUntilActivation(subscription.activation_date)}
+                                </span>
+                              </div>
+                            )}
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm font-medium">Type:</span>
+                              <span className="text-amber-600">
+                                {getSubscriptionPeriod(subscription.subscription?.duration_days)}
                               </span>
                             </div>
-                          )}
-                          {subscription.activation_date && (
                             <div className="flex justify-between items-center">
-                              <span className="text-sm font-medium">Activates:</span>
-                              <span className="text-amber-600 font-medium flex items-center">
-                                <CalendarClock className="mr-1 h-4 w-4" />
-                                {getTimeUntilActivation(subscription.activation_date)}
-                              </span>
+                              <span className="text-sm font-medium">Duration:</span>
+                              <span>{subscription.subscription?.duration_days || 30} days</span>
+                            </div>
+                          </div>
+
+                          {/* Features section */}
+                          {features && features.length > 0 && (
+                            <div className="mt-4 pt-4 border-t border-amber-100">
+                              <h4 className="font-medium text-sm mb-3 text-amber-700">What you'll get:</h4>
+                              <ul className="space-y-2">
+                                {features.map((feature, index) => (
+                                  <li key={index} className="flex items-start">
+                                    <Check className="h-4 w-4 text-amber-500 mr-2 shrink-0 mt-0.5" />
+                                    <span className="text-sm">{feature}</span>
+                                  </li>
+                                ))}
+                              </ul>
                             </div>
                           )}
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm font-medium">Duration:</span>
-                            <span>{subscription.subscription?.duration_days || 30} days</span>
-                          </div>
-                        </div>
-                      </CardContent>
-                      <CardFooter className="pt-2">
-                        <Alert className="w-full bg-amber-50 border-amber-100">
-                          <Info className="h-4 w-4 text-amber-600" />
-                          <AlertDescription className="text-amber-700 text-xs">
-                            This subscription is pending activation. You'll be notified when it becomes active.
-                          </AlertDescription>
-                        </Alert>
-                      </CardFooter>
-                    </Card>
-                  ))}
+                        </CardContent>
+                        <CardFooter className="pt-2">
+                          <Alert className="w-full bg-amber-50 border-amber-100">
+                            <Info className="h-4 w-4 text-amber-600" />
+                            <AlertDescription className="text-amber-700 text-xs">
+                              This subscription is pending activation. You'll be notified when it becomes active.
+                            </AlertDescription>
+                          </Alert>
+                        </CardFooter>
+                      </Card>
+                    )
+                  })}
                 </div>
               </TabsContent>
             )}
@@ -428,6 +590,12 @@ export default function UserSubscriptionsPage() {
                               <span>{formatCurrency(subscription.subscription.price)}</span>
                             </div>
                           )}
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm font-medium text-gray-500">Type:</span>
+                            <span className="text-gray-600">
+                              {getSubscriptionPeriod(subscription.subscription?.duration_days)}
+                            </span>
+                          </div>
                           <div className="flex justify-between items-center">
                             <span className="text-sm font-medium text-gray-500">Start Date:</span>
                             <span>{formatDate(subscription.activation_date || subscription.start_date)}</span>
@@ -470,6 +638,13 @@ export default function UserSubscriptionsPage() {
                     const isActive = subscription.is_active && new Date(subscription.end_date) > new Date()
                     const isPending = !subscription.is_active && new Date(subscription.end_date) > new Date()
                     const isExpired = new Date(subscription.end_date) <= new Date()
+
+                    // Get features from subscription or use defaults
+                    const features =
+                      subscription.subscription?.features ||
+                      (subscription.subscription?.duration_days
+                        ? getDefaultFeatures(subscription.subscription.duration_days)
+                        : ["Access to yoga sessions"])
 
                     return (
                       <Card
@@ -524,11 +699,46 @@ export default function UserSubscriptionsPage() {
                             {subscription.subscription?.price !== undefined && (
                               <div className="flex justify-between items-center">
                                 <span className={`text-sm font-medium ${isExpired && "text-gray-500"}`}>Price:</span>
-                                <span className={isActive ? "font-semibold" : ""}>
-                                  {formatCurrency(subscription.subscription.price)}
-                                </span>
+                                {subscription.subscription.has_discount &&
+                                subscription.subscription.original_price &&
+                                subscription.subscription.discount_percentage ? (
+                                  <div className="flex flex-col items-end">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-sm text-muted-foreground line-through">
+                                        {formatCurrency(subscription.subscription.original_price)}
+                                      </span>
+                                      <Badge
+                                        variant="outline"
+                                        className={`flex items-center gap-1 text-xs ${
+                                          isActive
+                                            ? "bg-green-50 text-green-700"
+                                            : isPending
+                                              ? "bg-amber-50 text-amber-700"
+                                              : "bg-gray-50 text-gray-700"
+                                        }`}
+                                      >
+                                        {subscription.subscription.discount_percentage}% OFF
+                                      </Badge>
+                                    </div>
+                                    <span className={isActive ? "font-semibold" : ""}>
+                                      {formatCurrency(subscription.subscription.price)}
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <span className={isActive ? "font-semibold" : ""}>
+                                    {formatCurrency(subscription.subscription.price)}
+                                  </span>
+                                )}
                               </div>
                             )}
+                            <div className="flex justify-between items-center">
+                              <span className={`text-sm font-medium ${isExpired && "text-gray-500"}`}>Type:</span>
+                              <span
+                                className={isActive ? "text-green-600" : isPending ? "text-amber-600" : "text-gray-600"}
+                              >
+                                {getSubscriptionPeriod(subscription.subscription?.duration_days)}
+                              </span>
+                            </div>
                             <div className="flex justify-between items-center">
                               <span className={`text-sm font-medium ${isExpired && "text-gray-500"}`}>
                                 {isPending ? "Registration Date:" : "Start Date:"}
@@ -564,6 +774,35 @@ export default function UserSubscriptionsPage() {
                               )}
                             </div>
                           </div>
+
+                          {/* Features section */}
+                          {features && features.length > 0 && (
+                            <div
+                              className={`mt-4 pt-4 border-t ${
+                                isActive ? "border-green-100" : isPending ? "border-amber-100" : "border-gray-200"
+                              }`}
+                            >
+                              <h4
+                                className={`font-medium text-sm mb-3 ${
+                                  isActive ? "text-green-700" : isPending ? "text-amber-700" : "text-gray-700"
+                                }`}
+                              >
+                                {isExpired ? "What was included:" : "What's included:"}
+                              </h4>
+                              <ul className="space-y-2">
+                                {features.map((feature, index) => (
+                                  <li key={index} className="flex items-start">
+                                    <Check
+                                      className={`h-4 w-4 mr-2 shrink-0 mt-0.5 ${
+                                        isActive ? "text-green-500" : isPending ? "text-amber-500" : "text-gray-400"
+                                      }`}
+                                    />
+                                    <span className={`text-sm ${isExpired && "text-gray-500"}`}>{feature}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
                         </CardContent>
                         <CardFooter className="pt-2">
                           {isActive ? (

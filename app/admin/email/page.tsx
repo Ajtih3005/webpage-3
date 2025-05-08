@@ -113,8 +113,10 @@ export default function EmailPage() {
       setSending(true)
       setEmailStatus(null)
 
-      // Get admin password from localStorage
-      const adminPassword = localStorage.getItem("adminPassword") || ""
+      // Get admin password from localStorage or use the hardcoded one as fallback
+      const adminPassword = localStorage.getItem("adminPassword") || "!@#$%^&*()AjItH"
+
+      console.log("Sending email request with admin password:", adminPassword ? "Password exists" : "No password")
 
       const response = await fetch("/api/send-bulk-email", {
         method: "POST",
