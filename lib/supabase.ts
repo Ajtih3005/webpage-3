@@ -1,31 +1,38 @@
-import { createClient } from "@supabase/supabase-js"
+import { createClient as supabaseCreateClient, type SupabaseClient } from "@supabase/supabase-js"
 
-// Create a single supabase client for the browser
-const createBrowserClient = () => {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  return createClient(supabaseUrl, supabaseAnonKey)
-}
+const supabase: SupabaseClient | null = null
 
-// Create a single supabase client for server components
-const createServerClient = () => {
-  const supabaseUrl = process.env.SUPABASE_URL!
-  const supabaseServiceKey = process.env.SUPABASE_ANON_KEY! // Using anon key for server as well since we don't have a service key
-  return createClient(supabaseUrl, supabaseServiceKey)
-}
+// For client-side usage
+export const getSupabaseBrowserClient = () => {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-// Client-side singleton
-let browserClient: ReturnType<typeof createClient> | null = null
-
-// Get the browser client (singleton pattern)
-export function getSupabaseBrowserClient() {
-  if (!browserClient) {
-    browserClient = createBrowserClient()
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error("Supabase URL and anon key must be defined")
   }
-  return browserClient
+
+  return supabaseCreateClient(supabaseUrl, supabaseAnonKey)
 }
 
-// Get the server client (created fresh each time)
-export function getSupabaseServerClient() {
-  return createServerClient()
+// For server-side usage
+export const getSupabaseServerClient = () => {
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error("Supabase URL and anon key must be defined")
+  }
+
+  return supabaseCreateClient(supabaseUrl, supabaseAnonKey)
+}
+
+export const createClient = () => {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error("Supabase URL and anon key must be defined")
+  }
+
+  return supabaseCreateClient(supabaseUrl, supabaseAnonKey)
 }

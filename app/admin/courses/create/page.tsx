@@ -19,6 +19,7 @@ import { format } from "date-fns"
 import { cn, isValidYoutubeUrl } from "@/lib/utils"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 // Update the component to include multiple batches functionality
 export default function CreateCourse() {
@@ -36,6 +37,17 @@ export default function CreateCourse() {
   const [subscriptions, setSubscriptions] = useState<{ id: number; name: string }[]>([])
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [dbConnectionStatus, setDbConnectionStatus] = useState<"unknown" | "success" | "error">("unknown")
+  const [dbErrorMessage, setDbErrorMessage] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [schedulingType, setSchedulingType] = useState<"date" | "day" | "week">("date")
+  const [subscriptionDay, setSubscriptionDay] = useState<number>(1)
+  const [subscriptionWeek, setSubscriptionWeek] = useState<number>(1)
+  const [scheduledDate, setScheduledDate] = useState<Date | undefined>(new Date())
+  const handleDateSelect = (date: Date | undefined) => {
+    setScheduledDate(date)
+  }
 
   // Available languages
   const availableLanguages = ["English", "Hindi", "Kannada"]
@@ -45,6 +57,16 @@ export default function CreateCourse() {
 
   useEffect(() => {
     fetchSubscriptions()
+
+    // Check for subscription ID in URL query params
+    const params = new URLSearchParams(window.location.search)
+    const subscriptionParam = params.get("subscription")
+    if (subscriptionParam) {
+      setSubscriptionId(subscriptionParam)
+      console.log(`Pre-selected subscription ID: ${subscriptionParam}`)
+    }
+
+    testDatabaseConnection()
   }, [])
 
   // Handle scheduled session toggle
@@ -59,29 +81,76 @@ export default function CreateCourse() {
     }
   }, [isScheduledSession])
 
+  // Test database connection
+  async function testDatabaseConnection() {
+    try {
+      console.log("Testing database connection...")
+      const supabase = getSupabaseBrowserClient()
+
+      const { data, error } = await supabase.from("courses").select("id").limit(1)
+
+      if (error) {
+        console.error("Database connection error:", error)
+        setDbConnectionStatus("error")
+        setDbErrorMessage(error.message)
+        return false
+      }
+
+      console.log("Database connection successful, found courses:", data)
+      setDbConnectionStatus("success")
+      setDbErrorMessage(null)
+      return true
+    } catch (e) {
+      console.error("Exception testing database:", e)
+      setDbConnectionStatus("error")
+      setDbErrorMessage(e instanceof Error ? e.message : String(e))
+      return false
+    }
+  }
+
   async function fetchSubscriptions() {
     try {
+      console.log("Fetching subscriptions...")
       const supabase = getSupabaseBrowserClient()
 
       const { data, error } = await supabase.from("subscriptions").select("id, name")
 
-      if (error) throw error
+      if (error) {
+        console.error("Error fetching subscriptions:", error)
+        throw error
+      }
 
+      console.log("Fetched subscriptions:", data)
       setSubscriptions(data || [])
     } catch (error) {
-      console.error("Error fetching subscriptions:", error)
+      console.error("Exception fetching subscriptions:", error)
     }
   }
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
 
+    // Log all form values for debugging
+    console.log("Validating form with values:", {
+      title,
+      youtubeLink,
+      date,
+      selectedLanguages,
+      isPredefinedBatch,
+      selectedBatches,
+      customBatches,
+    })
+
     if (!title.trim()) newErrors.title = "Title is required"
+
+    // More detailed YouTube validation
     if (!youtubeLink.trim()) {
       newErrors.youtubeLink = "YouTube link is required"
     } else if (!isValidYoutubeUrl(youtubeLink)) {
-      newErrors.youtubeLink = "Please enter a valid YouTube URL"
+      console.error("Invalid YouTube URL:", youtubeLink)
+      newErrors.youtubeLink = "Please enter a valid YouTube URL (e.g., https://www.youtube.com/watch?v=XXXX)"
     }
+
     if (!date) newErrors.date = "Date is required"
     if (selectedLanguages.length === 0) newErrors.languages = "Please select at least one language"
 
@@ -102,6 +171,7 @@ export default function CreateCourse() {
     }
 
     setErrors(newErrors)
+    console.log("Validation errors:", newErrors)
     return Object.keys(newErrors).length === 0
   }
 
@@ -139,80 +209,137 @@ export default function CreateCourse() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!validateForm()) return
+    setIsSubmitting(true)
+    setError("")
 
     try {
-      setLoading(true)
-      const supabase = getSupabaseBrowserClient()
-
-      // Make sure we have a valid date, defaulting to today if none is selected
-      if (!date) {
-        console.error("No date selected, using current date")
-        setDate(new Date())
+      // Validate form
+      if (!title) {
+        throw new Error("Title is required")
       }
 
-      // Format the date as YYYY-MM-DD, ensuring we're using the date in the correct timezone
-      const formattedDate = date
-        ? new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().split("T")[0]
-        : new Date().toISOString().split("T")[0]
+      if (!youtubeLink) {
+        throw new Error("YouTube link is required")
+      }
 
-      console.log("Submitting with date:", formattedDate, "Original date object:", date)
+      if (schedulingType === "date" && !scheduledDate) {
+        throw new Error("Scheduled date is required")
+      }
 
-      // Create courses for each selected language
-      for (const language of selectedLanguages) {
-        if (isPredefinedBatch && selectedBatches.length > 0) {
-          // Create multiple courses for predefined batches
-          const coursesToInsert = selectedBatches.map((batchNumber) => ({
-            title,
-            description,
-            youtube_link: youtubeLink,
-            scheduled_date: formattedDate,
-            is_predefined_batch: true,
-            batch_number: batchNumber,
-            custom_batch_time: null,
-            subscription_id: subscriptionId && subscriptionId !== "none" ? Number.parseInt(subscriptionId) : null,
-            language,
-          }))
+      if (schedulingType === "day" && (!subscriptionDay || subscriptionDay < 1)) {
+        throw new Error("Valid subscription day is required")
+      }
 
-          console.log("Inserting courses with date:", formattedDate, "First course:", coursesToInsert[0])
-          const { data, error } = await supabase.from("courses").insert(coursesToInsert).select()
+      if (schedulingType === "week" && (!subscriptionWeek || subscriptionWeek < 1)) {
+        throw new Error("Valid subscription week is required")
+      }
 
-          if (error) {
-            console.error("Error inserting courses:", error)
-            throw error
+      // Prepare course data
+      const courseData: any = {
+        title,
+        description,
+        youtube_link: youtubeLink,
+        language: selectedLanguages[0], // Assuming only one language is selected
+        scheduling_type: schedulingType,
+        is_predefined_batch: isPredefinedBatch, // Set the is_predefined_batch flag
+      }
+
+      // Add the appropriate scheduling field based on type
+      if (schedulingType === "date") {
+        // Ensure we're using the full date with time
+        courseData.scheduled_date = scheduledDate ? scheduledDate.toISOString().split("T")[0] : null
+        courseData.subscription_day = null
+        courseData.subscription_week = null
+      } else if (schedulingType === "day") {
+        courseData.scheduled_date = null
+        courseData.subscription_day = subscriptionDay
+        courseData.subscription_week = null
+      } else if (schedulingType === "week") {
+        courseData.scheduled_date = null
+        courseData.subscription_day = null
+        courseData.subscription_week = subscriptionWeek
+      }
+
+      // Add subscription ID if selected
+      if (subscriptionId && subscriptionId !== "none") {
+        courseData.subscription_id = Number.parseInt(subscriptionId)
+      }
+
+      // Handle batch information based on whether it's predefined or custom
+      if (isPredefinedBatch) {
+        // For predefined batches, we need to create a course entry for each selected batch
+        if (selectedBatches && selectedBatches.length > 0) {
+          // Create an array to hold all course entries
+          const courseEntries = []
+
+          // Create a separate course entry for each selected batch
+          for (const batchNumber of selectedBatches) {
+            const batchCourseData = {
+              ...courseData,
+              batch_number: batchNumber,
+              custom_batch_time: null,
+            }
+            courseEntries.push(batchCourseData)
           }
 
-          console.log("Inserted courses:", data)
-        } else if (!isPredefinedBatch && customBatches.length > 0) {
-          // Create multiple courses for custom batches
-          const coursesToInsert = customBatches.map((batch) => ({
-            title,
-            description,
-            youtube_link: youtubeLink,
-            scheduled_date: formattedDate,
-            is_predefined_batch: false,
-            batch_number: null,
-            custom_batch_time: batch.time,
-            subscription_id: subscriptionId && subscriptionId !== "none" ? Number.parseInt(subscriptionId) : null,
-            language,
-          }))
+          console.log(`Creating ${courseEntries.length} course entries for selected batches:`, courseEntries)
 
-          console.log("Inserting custom batch courses with date:", formattedDate)
-          const { data, error } = await supabase.from("courses").insert(coursesToInsert).select()
+          // Insert all course entries
+          const { data, error } = await getSupabaseBrowserClient().from("courses").insert(courseEntries).select()
 
-          if (error) {
-            console.error("Error inserting custom batch courses:", error)
-            throw error
+          if (error) throw error
+
+          console.log("Courses created successfully:", data)
+          router.push("/admin/courses")
+          return // Exit early since we've handled the insert
+        }
+      } else {
+        // For custom batches, create a course entry for each custom batch time
+        if (customBatches && customBatches.length > 0) {
+          // Create an array to hold all course entries
+          const courseEntries = []
+
+          // Create a separate course entry for each custom batch time
+          for (const batch of customBatches) {
+            if (batch.time.trim()) {
+              // Only include batches with non-empty times
+              const customBatchCourseData = {
+                ...courseData,
+                batch_number: null,
+                custom_batch_time: batch.time,
+              }
+              courseEntries.push(customBatchCourseData)
+            }
           }
+
+          console.log(`Creating ${courseEntries.length} course entries for custom batches:`, courseEntries)
+
+          // Insert all course entries
+          const { data, error } = await getSupabaseBrowserClient().from("courses").insert(courseEntries).select()
+
+          if (error) throw error
+
+          console.log("Courses created successfully:", data)
+          router.push("/admin/courses")
+          return // Exit early since we've handled the insert
         }
       }
 
+      // This code will only run if no batches were selected (which shouldn't happen due to validation)
+      console.log("No batches selected, submitting single course data:", courseData)
+
+      // Insert course
+      const { data, error } = await getSupabaseBrowserClient().from("courses").insert([courseData]).select()
+
+      if (error) throw error
+
+      console.log("Course created successfully:", data)
       router.push("/admin/courses")
     } catch (error) {
       console.error("Error creating course:", error)
-      alert("Error creating course. Please check the console for details.")
+      setError(error instanceof Error ? error.message : "An unknown error occurred")
     } finally {
-      setLoading(false)
+      setIsSubmitting(false)
     }
   }
 
@@ -220,6 +347,22 @@ export default function CreateCourse() {
     <AdminLayout>
       <div className="space-y-6">
         <h1 className="text-3xl font-bold">Create Course</h1>
+
+        {dbConnectionStatus === "error" && (
+          <Alert variant="destructive">
+            <AlertTitle>Database Connection Error</AlertTitle>
+            <AlertDescription>
+              {dbErrorMessage || "Could not connect to the database. Please check your connection."}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {dbConnectionStatus === "success" && (
+          <Alert variant="default" className="bg-green-50 border-green-200">
+            <AlertTitle>Database Connected</AlertTitle>
+            <AlertDescription>Successfully connected to the database.</AlertDescription>
+          </Alert>
+        )}
 
         <Card>
           <form onSubmit={handleSubmit}>
@@ -283,41 +426,118 @@ export default function CreateCourse() {
                 {errors.languages && <p className="text-sm text-red-500">{errors.languages}</p>}
               </div>
 
-              {/* Scheduled Date */}
+              {/* Add this new section right before the scheduled date field in the form */}
               <div className="space-y-2">
-                <Label>Scheduled Date</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn("w-full justify-start text-left font-normal", !date && "text-muted-foreground")}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {date ? format(date, "PPP") : "Select a date"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar
-                      mode="single"
-                      selected={date}
-                      onSelect={(newDate) => {
-                        if (newDate) {
-                          console.log("Date selected:", newDate, "ISO string:", newDate.toISOString())
-                          // Create a new Date object to ensure we're not dealing with references
-                          const selectedDate = new Date(newDate)
-                          setDate(selectedDate)
-                        } else {
-                          console.log("Date selection cleared")
-                          setDate(undefined)
-                        }
-                      }}
-                      initialFocus
-                      disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
-                    />
-                  </PopoverContent>
-                </Popover>
-                {errors.date && <p className="text-sm text-red-500">{errors.date}</p>}
+                <Label htmlFor="scheduling-type">Scheduling Type</Label>
+                <Select
+                  value={schedulingType}
+                  onValueChange={(value) => setSchedulingType(value as "date" | "day" | "week")}
+                >
+                  <SelectTrigger id="scheduling-type">
+                    <SelectValue placeholder="Select scheduling type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="date">Specific Date</SelectItem>
+                    <SelectItem value="day">Subscription Day</SelectItem>
+                    <SelectItem value="week">Subscription Week</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-sm text-muted-foreground">Choose how this course should be scheduled for users</p>
               </div>
+
+              {schedulingType === "date" && (
+                <div className="space-y-2">
+                  <Label htmlFor="scheduled-date">Scheduled Date</Label>
+                  <div className="grid gap-2">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          id="scheduled-date"
+                          variant={"outline"}
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !scheduledDate && "text-muted-foreground",
+                          )}
+                          type="button"
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {scheduledDate ? format(scheduledDate, "PPP") : <span>Pick a date</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <Calendar mode="single" selected={scheduledDate} onSelect={handleDateSelect} initialFocus />
+                      </PopoverContent>
+                    </Popover>
+
+                    {/* Manual date input */}
+                    <div className="flex flex-col space-y-2">
+                      <Label htmlFor="manual-date">Or enter date manually (YYYY-MM-DD)</Label>
+                      <Input
+                        id="manual-date"
+                        type="date"
+                        value={scheduledDate ? format(scheduledDate, "yyyy-MM-dd") : ""}
+                        onChange={(e) => {
+                          const dateValue = e.target.value
+                          if (dateValue) {
+                            setScheduledDate(new Date(dateValue))
+                          }
+                        }}
+                      />
+                    </div>
+                    {/* Add this right after the manual date input */}
+                    <div className="flex flex-col space-y-2">
+                      <Label htmlFor="manual-time">Time (optional)</Label>
+                      <Input
+                        id="manual-time"
+                        type="time"
+                        onChange={(e) => {
+                          const timeValue = e.target.value
+                          if (timeValue && scheduledDate) {
+                            const [hours, minutes] = timeValue.split(":").map(Number)
+                            const newDate = new Date(scheduledDate)
+                            newDate.setHours(hours, minutes)
+                            setScheduledDate(newDate)
+                          }
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {schedulingType === "day" && (
+                <div className="space-y-2">
+                  <Label htmlFor="subscription-day">Subscription Day</Label>
+                  <Input
+                    id="subscription-day"
+                    type="number"
+                    min="1"
+                    value={subscriptionDay}
+                    onChange={(e) => setSubscriptionDay(Number.parseInt(e.target.value) || 1)}
+                    placeholder="Day number (e.g., 1, 2, 3...)"
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Day number from when user starts subscription (Day 1, Day 2, etc.)
+                  </p>
+                </div>
+              )}
+
+              {schedulingType === "week" && (
+                <div className="space-y-2">
+                  <Label htmlFor="subscription-week">Subscription Week</Label>
+                  <Input
+                    id="subscription-week"
+                    type="number"
+                    min="1"
+                    value={subscriptionWeek}
+                    onChange={(e) => setSubscriptionWeek(Number.parseInt(e.target.value) || 1)}
+                    placeholder="Week number (e.g., 1, 2, 3...)"
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Week number from when user starts subscription (Week 1, Week 2, etc.)
+                  </p>
+                </div>
+              )}
 
               {/* Batch Selection */}
               <div className="space-y-4">
@@ -413,7 +633,15 @@ export default function CreateCourse() {
                   <div className="space-y-4">
                     <div className="flex justify-between items-center">
                       <Label>Custom Batch Times</Label>
-                      <Button type="button" variant="outline" size="sm" onClick={addCustomBatch}>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          addCustomBatch()
+                        }}
+                      >
                         <Plus className="h-4 w-4 mr-2" /> Add Batch
                       </Button>
                     </div>
@@ -436,7 +664,10 @@ export default function CreateCourse() {
                               type="button"
                               variant="outline"
                               size="icon"
-                              onClick={() => removeCustomBatch(batch.id)}
+                              onClick={(e) => {
+                                e.preventDefault()
+                                removeCustomBatch(batch.id)
+                              }}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -465,14 +696,26 @@ export default function CreateCourse() {
                     ))}
                   </SelectContent>
                 </Select>
+                {subscriptionId && subscriptionId !== "none" && (
+                  <p className="text-sm text-blue-600 mt-1">
+                    This course will be created for the selected subscription plan.
+                  </p>
+                )}
               </div>
             </CardContent>
             <CardFooter className="flex justify-between">
-              <Button type="button" variant="outline" onClick={() => router.push("/admin/courses")}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={(e) => {
+                  e.preventDefault()
+                  router.push("/admin/courses")
+                }}
+              >
                 Cancel
               </Button>
-              <Button type="submit" disabled={loading}>
-                {loading ? "Creating..." : "Create Course"}
+              <Button type="submit" disabled={loading || dbConnectionStatus === "error" || isSubmitting}>
+                {isSubmitting ? "Creating..." : "Create Course"}
               </Button>
             </CardFooter>
           </form>

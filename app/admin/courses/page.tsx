@@ -8,9 +8,11 @@ import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Pencil, Plus, Search, Trash2, ChevronDown, ChevronRight } from "lucide-react"
+import { Pencil, Plus, Search, Trash2, ChevronDown, ChevronRight, SortAsc } from "lucide-react"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { formatDate, getBatchLabel } from "@/lib/utils"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { format } from "date-fns"
 
 interface Course {
   id: number
@@ -24,6 +26,9 @@ interface Course {
   subscription_id: number | null
   language: string
   created_at: string
+  scheduling_type: string
+  subscription_day: number | null
+  subscription_week: number | null
 }
 
 interface GroupedCourse {
@@ -39,7 +44,12 @@ interface GroupedCourse {
     custom_batch_time: string | null
     subscription_id: number | null
   }[]
+  scheduling_type: string
+  subscription_day: number | null
+  subscription_week: number | null
 }
+
+type SortOption = "date" | "title" | "subscription" | "language"
 
 export default function ManageCourses() {
   const router = useRouter()
@@ -48,9 +58,12 @@ export default function ManageCourses() {
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [openGroups, setOpenGroups] = useState<{ [key: string]: boolean }>({})
+  const [sortOption, setSortOption] = useState<SortOption>("date")
+  const [subscriptionNames, setSubscriptionNames] = useState<{ [key: number]: string }>({})
 
   useEffect(() => {
     fetchCourses()
+    fetchSubscriptionNames()
   }, [])
 
   async function fetchCourses() {
@@ -81,6 +94,24 @@ export default function ManageCourses() {
     }
   }
 
+  async function fetchSubscriptionNames() {
+    try {
+      const supabase = getSupabaseBrowserClient()
+      const { data, error } = await supabase.from("subscriptions").select("id, name")
+
+      if (error) throw error
+
+      const namesMap: { [key: number]: string } = {}
+      data?.forEach((sub) => {
+        namesMap[sub.id] = sub.name
+      })
+
+      setSubscriptionNames(namesMap)
+    } catch (error) {
+      console.error("Error fetching subscription names:", error)
+    }
+  }
+
   const groupCoursesByTitleAndDate = (courses: Course[]): GroupedCourse[] => {
     const grouped: { [key: string]: GroupedCourse } = {}
 
@@ -96,6 +127,9 @@ export default function ManageCourses() {
           scheduled_date: course.scheduled_date,
           language: course.language,
           batches: [],
+          scheduling_type: course.scheduling_type,
+          subscription_day: course.subscription_day,
+          subscription_week: course.subscription_week,
         }
       }
 
@@ -109,16 +143,44 @@ export default function ManageCourses() {
       })
     })
 
-    // Convert to array and sort by date (newest first)
-    return Object.values(grouped).sort((a, b) => {
-      return new Date(b.scheduled_date).getTime() - new Date(a.scheduled_date).getTime()
+    // Convert to array
+    return Object.values(grouped)
+  }
+
+  // Sort the grouped courses based on the selected sort option
+  const sortGroupedCourses = (courses: GroupedCourse[]): GroupedCourse[] => {
+    return [...courses].sort((a, b) => {
+      switch (sortOption) {
+        case "date":
+          return new Date(b.scheduled_date).getTime() - new Date(a.scheduled_date).getTime()
+        case "title":
+          return a.title.localeCompare(b.title)
+        case "language":
+          return a.language.localeCompare(b.language)
+        case "subscription":
+          // Count paid batches (with subscription_id) in each course
+          const aPaidBatches = a.batches.filter((batch) => batch.subscription_id !== null).length
+          const bPaidBatches = b.batches.filter((batch) => batch.subscription_id !== null).length
+
+          // Sort by number of paid batches (descending)
+          if (aPaidBatches !== bPaidBatches) {
+            return bPaidBatches - aPaidBatches
+          }
+
+          // If tied on subscription, sort by date (newest first)
+          return new Date(b.scheduled_date).getTime() - new Date(a.scheduled_date).getTime()
+        default:
+          return 0
+      }
     })
   }
 
-  const filteredGroupedCourses = groupedCourses.filter(
-    (course) =>
-      course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (course.description && course.description.toLowerCase().includes(searchQuery.toLowerCase())),
+  const filteredGroupedCourses = sortGroupedCourses(
+    groupedCourses.filter(
+      (course) =>
+        course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (course.description && course.description.toLowerCase().includes(searchQuery.toLowerCase())),
+    ),
   )
 
   const handleDeleteCourse = async (id: number) => {
@@ -145,6 +207,21 @@ export default function ManageCourses() {
     }))
   }
 
+  const getSortLabel = (option: SortOption): string => {
+    switch (option) {
+      case "date":
+        return "Date (Newest)"
+      case "title":
+        return "Title"
+      case "language":
+        return "Language"
+      case "subscription":
+        return "Subscription"
+      default:
+        return "Sort"
+    }
+  }
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -161,14 +238,31 @@ export default function ManageCourses() {
             <CardDescription>View, edit, and delete courses from the system</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center mb-6">
-              <Search className="mr-2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search courses..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="max-w-sm"
-              />
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center">
+                <Search className="mr-2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search courses..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="max-w-sm"
+                />
+              </div>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="ml-2">
+                    <SortAsc className="mr-2 h-4 w-4" />
+                    Sort by: {getSortLabel(sortOption)}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setSortOption("date")}>Date (Newest)</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setSortOption("title")}>Title</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setSortOption("language")}>Language</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setSortOption("subscription")}>Subscription</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
 
             {loading ? (
@@ -186,6 +280,7 @@ export default function ManageCourses() {
                       <TableHead>Date</TableHead>
                       <TableHead>Language</TableHead>
                       <TableHead>Batches</TableHead>
+                      <TableHead>Scheduling</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -193,6 +288,8 @@ export default function ManageCourses() {
                     {filteredGroupedCourses.map((course) => {
                       const groupKey = `${course.title}_${course.scheduled_date}_${course.language}`
                       const isOpen = openGroups[groupKey]
+                      const paidBatches = course.batches.filter((batch) => batch.subscription_id !== null).length
+                      const totalBatches = course.batches.length
 
                       return (
                         <>
@@ -208,9 +305,25 @@ export default function ManageCourses() {
                             </TableCell>
                             <TableCell>
                               <div className="flex items-center">
-                                <span className="mr-2">{course.batches.length} batches</span>
+                                <span className="mr-2">
+                                  {course.batches.length} batches
+                                  {paidBatches > 0 && (
+                                    <span className="ml-1 text-xs text-gray-500">({paidBatches} paid)</span>
+                                  )}
+                                </span>
                                 {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                               </div>
+                            </TableCell>
+                            <TableCell>
+                              {course.scheduling_type === "date" && (
+                                <span>Date: {format(new Date(course.scheduled_date), "MMM d, yyyy")}</span>
+                              )}
+                              {course.scheduling_type === "day" && (
+                                <span>Day {course.subscription_day} of subscription</span>
+                              )}
+                              {course.scheduling_type === "week" && (
+                                <span>Week {course.subscription_week} of subscription</span>
+                              )}
                             </TableCell>
                             <TableCell>
                               <Button
@@ -242,9 +355,11 @@ export default function ManageCourses() {
                                 </TableCell>
                                 <TableCell>
                                   {batch.subscription_id ? (
-                                    <Badge>Required</Badge>
+                                    <Badge className="cursor-help" title={`Subscription ID: ${batch.subscription_id}`}>
+                                      {subscriptionNames[batch.subscription_id] || "Paid Access"}
+                                    </Badge>
                                   ) : (
-                                    <Badge variant="outline">Free</Badge>
+                                    <Badge variant="outline">Free Access</Badge>
                                   )}
                                 </TableCell>
                                 <TableCell></TableCell>

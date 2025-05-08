@@ -1,33 +1,25 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { UserLayout } from "@/components/user-layout"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { formatDate, getBatchLabel } from "@/lib/utils"
-import {
-  Calendar,
-  CheckCircle,
-  Clock,
-  Play,
-  AlertCircle,
-  Home,
-  BookOpen,
-  Maximize,
-  Minimize,
-  Globe,
-} from "lucide-react"
-import Link from "next/link"
+import { Calendar, Loader2, Clock, PlayCircle, Info, Bug, MessageSquare } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
-
-// Add these imports at the top
-import { SubscriptionSelector } from "@/components/subscription-selector"
-import { Dialog, DialogContent } from "@/components/ui/dialog"
+import { Badge } from "@/components/ui/badge"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 interface Batch {
   id: number
@@ -48,6 +40,14 @@ interface Course {
   completedVideo: boolean
   videoDuration?: number // in seconds
   batches: Batch[] // Array of batch information
+  hasAccess?: boolean
+  eligibleSubscriptions?: any[]
+  batch_number?: string | null
+  custom_batch_time?: string | null
+  is_predefined_batch?: boolean
+  scheduling_type?: string
+  subscription_day?: number | null
+  subscription_week?: number | null
 }
 
 interface GroupedCourse {
@@ -62,234 +62,71 @@ interface GroupedCourse {
   completedVideo: boolean
   videoDuration?: number
   eligibleSubscriptions: any[]
+  hasAccess?: boolean
+  scheduling_type?: string
+  subscription_day?: number | null
+  subscription_week?: number | null
+}
+
+// Add a new interface for Subscription
+interface Subscription {
+  id: number
+  name: string
+  description: string | null
+  whatsapp_group_link: string | null
 }
 
 export default function AccessCourse() {
+  const router = useRouter()
   const [todayCourses, setTodayCourses] = useState<Course[]>([])
   const [groupedTodayCourses, setGroupedTodayCourses] = useState<GroupedCourse[]>([])
   const [upcomingCourses, setUpcomingCourses] = useState<Course[]>([])
   const [groupedUpcomingCourses, setGroupedUpcomingCourses] = useState<GroupedCourse[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedCourse, setSelectedCourse] = useState<GroupedCourse | null>(null)
-  const [selectedBatch, setSelectedBatch] = useState<Batch | null>(null)
-  const [accessError, setAccessError] = useState<string | null>(null)
-  const [isFullscreen, setIsFullscreen] = useState(false)
-  const [isVideoPlaying, setIsVideoPlaying] = useState(false)
-  const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null)
-  const [sessionEndTime, setSessionEndTime] = useState<Date | null>(null)
-  const [hasCompletedVideo, setHasCompletedVideo] = useState(false)
-  const [videoContainerRef, setVideoContainerRef] = useState<HTMLDivElement | null>(null)
   const [selectedLanguage, setSelectedLanguage] = useState<string>("English")
   const [availableLanguages, setAvailableLanguages] = useState<string[]>(["English"])
-  const [waitingForAccess, setWaitingForAccess] = useState(false)
-  const [waitingCountdown, setWaitingCountdown] = useState(10)
-  const [timeUntilSession, setTimeUntilSession] = useState<string | null>(null)
-  const [sessionCountdown, setSessionCountdown] = useState<number | null>(null)
-  const [videoDuration, setVideoDuration] = useState<number | null>(null)
-  const [remainingTime, setRemainingTime] = useState<number | null>(null)
-  const [sessionInProgress, setSessionInProgress] = useState(false)
-  const [sessionStarted, setSessionStarted] = useState(false)
-  const [lateJoin, setLateJoin] = useState(false)
-  const [elapsedTime, setElapsedTime] = useState(0)
-  const [markingAttendance, setMarkingAttendance] = useState(false)
-  const [attendanceError, setAttendanceError] = useState<string | null>(null)
-  const [userDbId, setUserDbId] = useState<number | null>(null)
-  const [youtubeEmbedUrl, setYoutubeEmbedUrl] = useState<string>("")
-  const iframeRef = useRef<HTMLIFrameElement>(null)
-  const countdownInterval = useRef<NodeJS.Timeout | null>(null)
-  const sessionInterval = useRef<NodeJS.Timeout | null>(null)
-  const videoTimer = useRef<NodeJS.Timeout | null>(null)
-  const sessionCheckInterval = useRef<NodeJS.Timeout | null>(null)
-  const startVideoTimeout = useRef<NodeJS.Timeout | null>(null)
+  const [viewMode, setViewMode] = useState<"today" | "upcoming">("today")
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
+  const [debugInfo, setDebugInfo] = useState<string>("")
+  const [showWhatsAppDialog, setShowWhatsAppDialog] = useState(false)
+  const [showSubscriptionDialog, setShowSubscriptionDialog] = useState(false)
 
-  // Add these state variables to the component
-  const [showSubscriptionSelector, setShowSubscriptionSelector] = useState(false)
-  const [eligibleSubscriptions, setEligibleSubscriptions] = useState<any[]>([])
-  const [selectedSubscriptionId, setSelectedSubscriptionId] = useState<number | null>(null)
+  // Add these new state variables at the top of the component
+  const [userSubscriptions, setUserSubscriptions] = useState<Subscription[]>([])
+  const [loadingSubscriptions, setLoadingSubscriptions] = useState(false)
+  const [accessCounts, setAccessCounts] = useState<{ [key: string]: number }>({})
 
   useEffect(() => {
-    fetchUserData()
     fetchCourses()
 
-    // Cleanup intervals on unmount
-    return () => {
-      if (countdownInterval.current) clearInterval(countdownInterval.current)
-      if (sessionInterval.current) clearInterval(sessionInterval.current)
-      if (videoTimer.current) clearInterval(videoTimer.current)
-      if (sessionCheckInterval.current) clearInterval(sessionCheckInterval.current)
-      if (startVideoTimeout.current) clearTimeout(startVideoTimeout.current)
+    // Set up a timer to refresh the session status every minute
+    const intervalId = setInterval(() => {
+      setRefreshTrigger((prev) => prev + 1)
+    }, 60000)
+
+    return () => clearInterval(intervalId)
+  }, [refreshTrigger])
+
+  // Add this useEffect to fetch subscriptions when dialog opens
+  useEffect(() => {
+    if (showWhatsAppDialog) {
+      fetchUserSubscriptions()
+    }
+  }, [showWhatsAppDialog])
+
+  useEffect(() => {
+    // Check if user has already seen the WhatsApp notification
+    const hasSeenWhatsAppNotification = localStorage.getItem("hasSeenWhatsAppNotification")
+
+    if (!hasSeenWhatsAppNotification) {
+      // Show the dialog after a short delay
+      const timer = setTimeout(() => {
+        setShowWhatsAppDialog(true)
+      }, 1000)
+
+      return () => clearTimeout(timer)
     }
   }, [])
-
-  // Fetch user data including database ID
-  async function fetchUserData() {
-    try {
-      const supabase = getSupabaseBrowserClient()
-
-      // Get auth user ID from localStorage
-      const authUserId = localStorage.getItem("userId")
-      if (!authUserId) {
-        console.error("User ID not found in localStorage")
-        setAttendanceError("User ID not found. Please log in again.")
-        return
-      }
-
-      console.log("Fetching user data for auth ID:", authUserId)
-
-      // Get user's database ID
-      const { data, error } = await supabase.from("users").select("id, email").eq("auth_id", authUserId).limit(1)
-
-      if (error) {
-        console.error("Error fetching user data:", error)
-        setAttendanceError("Error fetching user data. Please try again.")
-        return
-      }
-
-      if (data && data.length > 0) {
-        setUserDbId(data[0].id)
-        console.log("User DB ID set:", data[0].id)
-      } else {
-        console.log("User not found in database with auth_id. Trying user_id field...")
-
-        // Try with user_id field instead
-        const { data: userData, error: userError } = await supabase
-          .from("users")
-          .select("id, email")
-          .eq("user_id", authUserId)
-          .limit(1)
-
-        if (userError) {
-          console.error("Error in second user fetch attempt:", userError)
-          setAttendanceError("Error fetching user data. Please try again.")
-          return
-        }
-
-        if (userData && userData.length > 0) {
-          setUserDbId(userData[0].id)
-          console.log("User DB ID set from user_id field:", userData[0].id)
-        } else {
-          // As a fallback, use the auth user ID directly
-          console.log("Using auth user ID as fallback:", authUserId)
-          setUserDbId(Number.parseInt(authUserId, 10) || null)
-
-          if (isNaN(Number.parseInt(authUserId, 10))) {
-            console.error("Auth user ID is not a valid number for fallback")
-            setAttendanceError("User not found in database. Please contact support.")
-          }
-        }
-      }
-    } catch (error) {
-      console.error("Error in fetchUserData:", error)
-      setAttendanceError("An unexpected error occurred. Please try again.")
-    }
-  }
-
-  // Effect for language filter
-  useEffect(() => {
-    if (selectedLanguage && groupedTodayCourses.length > 0) {
-      // Find courses in the selected language
-      const coursesInLanguage = groupedTodayCourses.filter((course) => course.language === selectedLanguage)
-
-      if (coursesInLanguage.length > 0) {
-        setSelectedCourse(coursesInLanguage[0])
-        if (coursesInLanguage[0].batches.length > 0) {
-          setSelectedBatch(coursesInLanguage[0].batches[0])
-        }
-      }
-    }
-  }, [selectedLanguage, groupedTodayCourses])
-
-  // Effect for waiting countdown
-  useEffect(() => {
-    if (waitingForAccess && waitingCountdown > 0) {
-      countdownInterval.current = setInterval(() => {
-        setWaitingCountdown((prev) => {
-          if (prev <= 1) {
-            clearInterval(countdownInterval.current!)
-            return 0
-          }
-          return prev - 1
-        })
-      }, 1000)
-
-      return () => {
-        if (countdownInterval.current) clearInterval(countdownInterval.current)
-      }
-    } else if (waitingForAccess && waitingCountdown === 0 && selectedCourse && selectedBatch) {
-      // When countdown reaches zero, start the video
-      console.log("Waiting countdown reached zero, starting video...")
-      startVideo()
-    }
-  }, [waitingForAccess, waitingCountdown, selectedCourse, selectedBatch])
-
-  // Effect for session countdown
-  useEffect(() => {
-    if (sessionCountdown !== null) {
-      sessionInterval.current = setInterval(() => {
-        setSessionCountdown((prev) => {
-          if (prev === null || prev <= 1) {
-            clearInterval(sessionInterval.current!)
-            // When countdown reaches zero, check if we should start the session
-            checkAndStartSession()
-            return 0
-          }
-          return prev - 1
-        })
-      }, 1000)
-
-      return () => {
-        if (sessionInterval.current) clearInterval(sessionInterval.current)
-      }
-    }
-  }, [sessionCountdown])
-
-  // Effect for remaining time
-  useEffect(() => {
-    if (isVideoPlaying && remainingTime !== null) {
-      const timer = setInterval(() => {
-        setRemainingTime((prev) => {
-          if (prev === null || prev <= 1) {
-            clearInterval(timer)
-            handleVideoEnd()
-            return 0
-          }
-          return prev - 1
-        })
-      }, 1000)
-
-      return () => clearInterval(timer)
-    }
-  }, [isVideoPlaying, remainingTime])
-
-  // Effect to check if session has started
-  useEffect(() => {
-    if (selectedCourse && selectedBatch && !sessionInProgress) {
-      // Start a timer to check if the session should start
-      sessionCheckInterval.current = setInterval(() => {
-        const { canAccess, isLive, elapsedSeconds } = checkSessionStatus(selectedCourse, selectedBatch)
-
-        if (isLive && !sessionStarted) {
-          console.log("Session is now live, elapsed seconds:", elapsedSeconds)
-          setSessionStarted(true)
-          setLateJoin(elapsedSeconds > 0)
-          setElapsedTime(elapsedSeconds)
-
-          // If we're not already waiting or playing, show the access button
-          if (!waitingForAccess && !isVideoPlaying) {
-            setAccessError(null)
-            setTimeUntilSession(null)
-            setSessionCountdown(null)
-          }
-        }
-      }, 5000) // Check every 5 seconds
-
-      return () => {
-        if (sessionCheckInterval.current) {
-          clearInterval(sessionCheckInterval.current)
-        }
-      }
-    }
-  }, [selectedCourse, selectedBatch, sessionInProgress, sessionStarted])
 
   // Group courses by title, date, and language
   const groupCourses = (courses: Course[]): GroupedCourse[] => {
@@ -311,7 +148,11 @@ export default function AccessCourse() {
           attended: course.attended,
           completedVideo: course.completedVideo,
           videoDuration: course.videoDuration,
-          eligibleSubscriptions: course.eligibleSubscriptions,
+          eligibleSubscriptions: course.eligibleSubscriptions || [],
+          hasAccess: course.hasAccess,
+          scheduling_type: course.scheduling_type,
+          subscription_day: course.subscription_day,
+          subscription_week: course.subscription_week,
         }
       }
 
@@ -320,7 +161,7 @@ export default function AccessCourse() {
         id: course.id,
         batch_number: course.batch_number,
         custom_batch_time: course.custom_batch_time,
-        is_predefined_batch: course.is_predefined_batch,
+        is_predefined_batch: course.is_predefined_batch || false,
       })
 
       // If any batch is attended, mark the course as attended
@@ -337,25 +178,10 @@ export default function AccessCourse() {
     return Object.values(grouped)
   }
 
-  // Format time in HH:MM:SS
-  const formatTime = (seconds: number): string => {
-    const hours = Math.floor(seconds / 3600)
-    const minutes = Math.floor((seconds % 3600) / 60)
-    const secs = seconds % 60
-
-    return [
-      hours > 0 ? hours : null,
-      minutes.toString().padStart(hours > 0 ? 2 : 1, "0"),
-      secs.toString().padStart(2, "0"),
-    ]
-      .filter(Boolean)
-      .join(":")
-  }
-
   // Parse time string to get hours and minutes
   const parseTimeString = (timeStr: string): { hour: number; minute: number } => {
     // Handle formats like "5:30 to 6:30" or "5:30 AM to 6:30 AM"
-    const timeMatch = timeStr.match(/(\d+):(\d+)\s*(AM|PM)?/)
+    const timeMatch = timeStr?.match(/(\d+):(\d+)\s*(AM|PM)?/)
     if (!timeMatch) return { hour: 0, minute: 0 }
 
     let hour = Number.parseInt(timeMatch[1])
@@ -375,8 +201,9 @@ export default function AccessCourse() {
 
     let startHour = 0
     let startMinute = 0
+    const batch_number = batch.batch_number
 
-    if (batch.is_predefined_batch && batch.batch_number) {
+    if (batch.is_predefined_batch && batch_number) {
       // Parse predefined batch times
       const batchNum = Number.parseInt(batch.batch_number)
       if (batchNum === 1) {
@@ -409,97 +236,269 @@ export default function AccessCourse() {
     return today
   }
 
-  // Update the checkSessionStatus function to use local date comparison instead of strict date matching
-  const checkSessionStatus = (
-    course: GroupedCourse,
-    batch: Batch,
-  ): { canAccess: boolean; isLive: boolean; elapsedSeconds: number; message: string; timeUntil: number | null } => {
+  // Check if a session is currently live
+  const isSessionLive = (course: GroupedCourse, batch: Batch): boolean => {
     const now = new Date()
     const userLocalDate = now.toLocaleDateString("en-CA") // Format as YYYY-MM-DD
-
-    // Convert both dates to local date strings for comparison
     const scheduledLocalDate = new Date(course.scheduled_date).toLocaleDateString("en-CA")
 
     // Allow access if it's the same calendar date in user's local time zone
     if (scheduledLocalDate !== userLocalDate) {
-      return {
-        canAccess: false,
-        isLive: false,
-        elapsedSeconds: 0,
-        message: `This course is scheduled for ${formatDate(course.scheduled_date)}. Videos are only available on the scheduled date.`,
-        timeUntil: null,
-      }
+      return false
     }
 
     // Get scheduled start time
     const scheduledStart = getScheduledStartTime(course, batch)
 
-    // Calculate video duration (default to 30 minutes if not specified)
-    const duration = course.videoDuration || 1800
+    // Calculate video duration (default to 60 minutes if not specified)
+    const duration = course.videoDuration || 3600 // 60 minutes default instead of 30
 
     // Calculate end time (start time + duration)
     const scheduledEnd = new Date(scheduledStart.getTime() + duration * 1000)
 
-    // Calculate time until session starts (in seconds)
-    const timeUntilStart = Math.floor((scheduledStart.getTime() - now.getTime()) / 1000)
-
-    // Calculate elapsed time since session started (in seconds)
-    const elapsedSeconds = Math.floor((now.getTime() - scheduledStart.getTime()) / 1000)
-
-    // Check if we're within the session time (with 5 minutes early access)
-    const earlyAccessSeconds = 5 * 60 // 5 minutes early access
-    const isWithinTimeWindow =
-      timeUntilStart <= earlyAccessSeconds && // Can access 5 minutes before
-      now < scheduledEnd // Session hasn't ended
+    // Add a 15-minute buffer to the end time to ensure users can access the full session
+    const bufferedEnd = new Date(scheduledEnd.getTime() + 15 * 60 * 1000)
 
     // Check if the session is actually live (has started but not ended)
-    const isLive = now >= scheduledStart && now < scheduledEnd
+    // We consider a session "live" if the current time is after the start time
+    // and before the buffered end time
+    return now >= scheduledStart && now < bufferedEnd
+  }
 
-    console.log("Session status check:", {
-      now: now.toLocaleTimeString(),
-      scheduledStart: scheduledStart.toLocaleTimeString(),
-      scheduledEnd: scheduledEnd.toLocaleTimeString(),
-      timeUntilStart,
-      elapsedSeconds,
-      isWithinTimeWindow,
-      isLive,
-    })
-
-    if (!isWithinTimeWindow) {
-      if (timeUntilStart > 0) {
-        // Session hasn't started yet
-        const hoursUntil = Math.floor(timeUntilStart / 3600)
-        const minutesUntil = Math.floor((timeUntilStart % 3600) / 60)
-
-        return {
-          canAccess: false,
-          isLive: false,
-          elapsedSeconds: 0,
-          message: `This course will be available at ${scheduledStart.toLocaleTimeString()}. Time remaining: ${hoursUntil}h ${minutesUntil}m`,
-          timeUntil: timeUntilStart,
-        }
-      } else {
-        // Session has ended
-        return {
-          canAccess: false,
-          isLive: false,
-          elapsedSeconds: 0,
-          message: `This course was available from ${scheduledStart.toLocaleTimeString()} to ${scheduledEnd.toLocaleTimeString()}. The session has ended.`,
-          timeUntil: null,
-        }
+  // Find the active batch in a course
+  const findActiveBatch = (course: GroupedCourse): Batch | null => {
+    for (const batch of course.batches) {
+      if (isSessionLive(course, batch)) {
+        return batch
       }
     }
+    return null
+  }
 
-    return {
-      canAccess: true,
-      isLive,
-      elapsedSeconds: Math.max(0, elapsedSeconds),
-      message: "",
-      timeUntil: isLive ? null : Math.max(0, timeUntilStart),
+  // Get time until session starts
+  const getTimeUntilSession = (course: GroupedCourse, batch: Batch): string | null => {
+    const now = new Date()
+    const scheduledStart = getScheduledStartTime(course, batch)
+
+    // If session has already started, return null
+    if (now >= scheduledStart) {
+      return null
+    }
+
+    // Calculate time difference in milliseconds
+    const diffMs = scheduledStart.getTime() - now.getTime()
+
+    // Convert to hours and minutes
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
+    const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60))
+
+    if (diffHours > 0) {
+      return `${diffHours}h ${diffMinutes}m`
+    } else {
+      return `${diffMinutes}m`
     }
   }
 
-  // Update the fetchCourses function to show all available courses regardless of date or attendance
+  // Handle joining a session
+  const handleJoinSession = (course: GroupedCourse) => {
+    const activeBatch = findActiveBatch(course)
+
+    if (!activeBatch) {
+      toast({
+        title: "Session not available",
+        description: "This session is not currently active.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!course.hasAccess) {
+      toast({
+        title: "Access Denied",
+        description: "You don't have access to this course. Please subscribe to the required plan.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Navigate to the video player page with the batch ID
+    router.push(`/user/access-course/${activeBatch.id}`)
+  }
+
+  // Add this new function to fetch user's subscriptions
+  const fetchUserSubscriptions = async () => {
+    try {
+      setLoadingSubscriptions(true)
+      const userId = localStorage.getItem("userId")
+      if (!userId) {
+        throw new Error("User ID not found")
+      }
+
+      const supabase = getSupabaseBrowserClient()
+
+      // Get user's active subscriptions with WhatsApp links
+      const { data: userSubs, error: subsError } = await supabase
+        .from("user_subscriptions")
+        .select(`
+          subscription_id,
+          subscriptions (
+            id,
+            name,
+            description,
+            whatsapp_group_link
+          )
+        `)
+        .eq("user_id", userId)
+        .eq("is_active", true)
+
+      if (subsError) throw subsError
+
+      // Format subscriptions for display
+      const formattedSubs: Subscription[] = userSubs
+        ?.filter((sub) => sub.subscriptions.whatsapp_group_link)
+        .map((sub) => ({
+          id: sub.subscriptions.id,
+          name: sub.subscriptions.name,
+          description: sub.subscriptions.description,
+          whatsapp_group_link: sub.subscriptions.whatsapp_group_link,
+        }))
+
+      setUserSubscriptions(formattedSubs || [])
+
+      // Fetch access counts for each subscription
+      if (formattedSubs && formattedSubs.length > 0) {
+        const { data: accessData, error: accessError } = await supabase
+          .from("link_usages")
+          .select(`
+            link_id,
+            generated_links(target_ids)
+          `)
+          .eq("user_id", userId)
+
+        if (!accessError && accessData) {
+          const counts: { [key: string]: number } = {}
+
+          // Process access data to count usage per subscription
+          accessData.forEach((access) => {
+            if (access.generated_links && access.generated_links.target_ids) {
+              const targetIds = access.generated_links.target_ids
+              if (Array.isArray(targetIds) && targetIds.length > 0) {
+                const subId = targetIds[0].toString()
+                counts[subId] = (counts[subId] || 0) + 1
+              }
+            }
+          })
+
+          setAccessCounts(counts)
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching user subscriptions:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load your subscriptions. Please try again later.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingSubscriptions(false)
+    }
+  }
+
+  // Add this function to handle subscription selection
+  const handleSelectSubscription = async (subscription: Subscription) => {
+    try {
+      const userId = localStorage.getItem("userId")
+      if (!userId) {
+        throw new Error("User ID not found")
+      }
+
+      const supabase = getSupabaseBrowserClient()
+      const subId = subscription.id.toString()
+
+      // Check if user has already accessed this subscription's WhatsApp group
+      const accessCount = accessCounts[subId] || 0
+
+      if (accessCount >= 1) {
+        // User has already used their free access
+        toast({
+          title: "Access Limit Reached",
+          description: "You've already accessed this WhatsApp group. Please contact admin for additional access.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      // Generate a one-time use link
+      const response = await fetch("/api/links/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: `WhatsApp Group for ${subscription.name}`,
+          description: `One-time access link for WhatsApp group`,
+          linkType: "whatsapp",
+          targetUrl: subscription.whatsapp_group_link,
+          targetType: "user",
+          targetIds: [userId],
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hour expiration
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to generate WhatsApp access link")
+      }
+
+      const data = await response.json()
+
+      // Open the WhatsApp group link
+      if (subscription.whatsapp_group_link) {
+        window.open(subscription.whatsapp_group_link, "_blank")
+
+        // Record usage
+        await fetch(`/api/links/use/${data.link.token}`, {
+          method: "POST",
+        })
+
+        // Update local state
+        setAccessCounts((prev) => ({
+          ...prev,
+          [subId]: (prev[subId] || 0) + 1,
+        }))
+      }
+
+      // Close the dialog
+      setShowWhatsAppDialog(false)
+    } catch (error) {
+      console.error("Error handling subscription selection:", error)
+      toast({
+        title: "Error",
+        description: "Failed to access WhatsApp group. Please try again later.",
+        variant: "destructive",
+      })
+    } finally {
+      localStorage.setItem("hasSeenWhatsAppNotification", "true")
+    }
+  }
+
+  // Modify the function to handle joining the WhatsApp channel
+  const handleJoinWhatsApp = () => {
+    // Show the subscription selection dialog
+    setShowSubscriptionDialog(true)
+
+    // Close the initial WhatsApp notification dialog
+    setShowWhatsAppDialog(false)
+
+    // Don't mark as seen yet - we'll do that after they select a subscription
+  }
+
+  // Add a function to dismiss the dialog
+  const handleDismissWhatsApp = () => {
+    localStorage.setItem("hasSeenWhatsAppNotification", "true")
+    setShowWhatsAppDialog(false)
+  }
+
+  // Update the fetchCourses function to check for full_availability
   async function fetchCourses() {
     try {
       setLoading(true)
@@ -514,28 +513,70 @@ export default function AccessCourse() {
       // Use local date in YYYY-MM-DD format
       const todayLocalDate = new Date().toLocaleDateString("en-CA")
 
+      // Debug info
+      let debugLog = `Today's date: ${todayLocalDate}\n`
+
       // Get user's subscriptions to check access - now we get all active subscriptions
       const { data: userSubscriptions, error: subError } = await supabase
         .from("user_subscriptions")
         .select(`
-        id, 
-        subscription_id, 
-        start_date, 
-        end_date, 
-        is_active,
-        subscription:subscriptions (
-          id,
-          name,
-          description
-        )
-      `)
+          id, 
+          subscription_id, 
+          start_date, 
+          end_date, 
+          is_active,
+          subscription:subscriptions (
+            id,
+            name,
+            description
+          )
+        `)
         .eq("user_id", userId)
         .eq("is_active", true)
 
       if (subError) throw subError
 
+      // Add full_availability property with default value
+      const processedSubscriptions =
+        userSubscriptions?.map((sub) => ({
+          ...sub,
+          subscription: {
+            ...sub.subscription,
+            full_availability: false, // Default value
+          },
+        })) || []
+
+      // Try to get full_availability from the database
+      try {
+        const { data: fullAvailabilityData, error: fullAvailabilityError } = await supabase
+          .from("subscriptions")
+          .select("id, full_availability")
+          .in(
+            "id",
+            processedSubscriptions.map((sub) => sub.subscription_id),
+          )
+
+        if (!fullAvailabilityError && fullAvailabilityData) {
+          // Update the processed subscriptions with the actual full_availability value
+          fullAvailabilityData.forEach((item) => {
+            const subscription = processedSubscriptions.find((sub) => sub.subscription_id === item.id)
+            if (subscription) {
+              subscription.subscription.full_availability = !!item.full_availability
+            }
+          })
+        }
+      } catch (err) {
+        console.log("Could not fetch full_availability, using default value", err)
+      }
+
       // Store all active subscription IDs
-      const activeSubscriptionIds = userSubscriptions?.map((sub) => sub.subscription_id) || []
+      const activeSubscriptionIds = processedSubscriptions?.map((sub) => sub.subscription_id) || []
+
+      // Check if any subscription has full_availability enabled
+      const hasFullAvailability = processedSubscriptions?.some((sub) => sub.subscription?.full_availability) || false
+
+      debugLog += `Active subscription IDs: ${JSON.stringify(activeSubscriptionIds)}\n`
+      debugLog += `Has full availability: ${hasFullAvailability}\n`
 
       // Fetch all courses
       const { data: allCourses, error: coursesError } = await supabase
@@ -545,21 +586,31 @@ export default function AccessCourse() {
 
       if (coursesError) throw coursesError
 
+      debugLog += `Total courses fetched: ${allCourses?.length || 0}\n`
+
       // Get courses for today based on the user's local date
       const todayData =
         allCourses?.filter((course) => {
           // Convert scheduled date to local date for comparison
+          if (!course.scheduled_date) return false
+
           const scheduledLocalDate = new Date(course.scheduled_date).toLocaleDateString("en-CA")
           return scheduledLocalDate === todayLocalDate
         }) || []
+
+      debugLog += `Today's courses: ${todayData.length}\n`
 
       // Get upcoming courses based on the user's local date
       const upcomingData =
         allCourses?.filter((course) => {
           // Convert scheduled date to local date for comparison
+          if (!course.scheduled_date) return false
+
           const scheduledLocalDate = new Date(course.scheduled_date).toLocaleDateString("en-CA")
           return scheduledLocalDate > todayLocalDate
         }) || []
+
+      debugLog += `Upcoming courses: ${upcomingData.length}\n`
 
       // Fetch user's course attendance records
       const { data: userCourses, error: attendanceError } = await supabase
@@ -579,15 +630,22 @@ export default function AccessCourse() {
       // Process today's courses
       const processedTodayCourses = todayData?.map((course) => {
         // Check if user has access to this course
-        const hasAccess =
-          !course.subscription_id || // Free course
-          activeSubscriptionIds.includes(course.subscription_id) // User has required subscription
+        let hasAccess = false
 
-        // For courses with subscription requirements, store which subscriptions give access
+        if (!course.subscription_id) {
+          // Free course
+          hasAccess = true
+        } else if (activeSubscriptionIds.includes(course.subscription_id)) {
+          // User has required subscription
+          hasAccess = true
+        }
+
+        // For courses with subscription requirements, store which subscriptions
         let eligibleSubscriptions = []
         if (course.subscription_id) {
           eligibleSubscriptions =
-            userSubscriptions?.filter((sub) => sub.subscription_id === course.subscription_id && sub.is_active) || []
+            processedSubscriptions?.filter((sub) => sub.subscription_id === course.subscription_id && sub.is_active) ||
+            []
         }
 
         // Check if user has already marked attendance
@@ -598,7 +656,7 @@ export default function AccessCourse() {
         const language = course.language || "English"
 
         // Set default video duration (in seconds) - in a real app, you would get this from the video metadata
-        const videoDuration = 1800 // 30 minutes by default
+        const videoDuration = course.video_duration || 1800 // 30 minutes by default
 
         return {
           ...course,
@@ -621,25 +679,42 @@ export default function AccessCourse() {
 
       // Process upcoming courses
       const processedUpcomingCourses = upcomingData?.map((course) => {
-        const hasAccess =
-          !course.subscription_id || // Free course
-          activeSubscriptionIds.includes(course.subscription_id) // User has required subscription
+        let hasAccess = false
+
+        if (!course.subscription_id) {
+          // Free course
+          hasAccess = true
+        } else if (activeSubscriptionIds.includes(course.subscription_id)) {
+          // User has required subscription
+          hasAccess = true
+        }
 
         // For courses with subscription requirements, store which subscriptions give access
         let eligibleSubscriptions = []
         if (course.subscription_id) {
           eligibleSubscriptions =
-            userSubscriptions?.filter((sub) => sub.subscription_id === course.subscription_id && sub.is_active) || []
+            processedSubscriptions?.filter((sub) => sub.subscription_id === course.subscription_id && sub.is_active) ||
+            []
         }
+
+        // Check if user has already marked attendance
+        const attended = attendanceMap.has(course.id) ? attendanceMap.get(course.id) : false
+        const completedVideo = completionMap.has(course.id) ? completionMap.get(course.id) : false
 
         // Set default language if not specified
         const language = course.language || "English"
+
+        // Set default video duration (in seconds) - in a real app, you would get this from the video metadata
+        const videoDuration = course.video_duration || 1800 // 30 minutes by default
 
         return {
           ...course,
           hasAccess,
           eligibleSubscriptions,
+          attended,
+          completedVideo,
           language,
+          videoDuration,
           batches: [
             {
               id: course.id,
@@ -651,936 +726,508 @@ export default function AccessCourse() {
         }
       })
 
-      setTodayCourses(processedTodayCourses || [])
-      setUpcomingCourses(processedUpcomingCourses || [])
+      setTodayCourses(processedTodayCourses)
+      setUpcomingCourses(processedUpcomingCourses)
 
-      // Group courses by title, date, and language
-      const groupedToday = groupCourses(processedTodayCourses || [])
-      const groupedUpcoming = groupCourses(processedUpcomingCourses || [])
-
+      // Group today's courses
+      const groupedToday = groupCourses(processedTodayCourses)
       setGroupedTodayCourses(groupedToday)
+
+      // Group upcoming courses
+      const groupedUpcoming = groupCourses(processedUpcomingCourses)
       setGroupedUpcomingCourses(groupedUpcoming)
 
-      // Get unique languages from today's courses
-      const languages = [...new Set(groupedToday.map((course) => course.language))]
+      // Set available languages based on today's courses
+      const languages = Array.from(new Set(groupedToday.map((course) => course.language)))
       setAvailableLanguages(languages.length > 0 ? languages : ["English"])
 
-      // Set default language to first available
-      if (languages.length > 0) {
-        setSelectedLanguage(languages[0])
-      }
+      // Set debug info
+      debugLog += `Processed today's courses: ${processedTodayCourses.length}\n`
+      debugLog += `Processed upcoming courses: ${processedUpcomingCourses.length}\n`
+      debugLog += `Grouped today's courses: ${groupedToday.length}\n`
+      debugLog += `Grouped upcoming courses: ${groupedUpcoming.length}\n`
+      debugLog += `Available languages: ${languages.join(", ")}\n`
 
-      // Auto-select the first course if available
-      if (groupedToday.length > 0) {
-        setSelectedCourse(groupedToday[0])
-        if (groupedToday[0].batches.length > 0) {
-          setSelectedBatch(groupedToday[0].batches[0])
-        }
-      }
-    } catch (error) {
+      setDebugInfo(debugLog)
+    } catch (error: any) {
       console.error("Error fetching courses:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load courses. Please try again later.",
+        variant: "destructive",
+      })
+      setDebugInfo(`Error: ${error.message}`)
     } finally {
       setLoading(false)
     }
   }
 
-  // Update the handleRequestAccess function to check for multiple subscriptions
-  const handleRequestAccess = () => {
-    if (!selectedCourse || !selectedBatch) return
-
-    // Get today's date in YYYY-MM-DD format
-    const today = new Date().toLocaleDateString("en-CA")
-
-    // Convert scheduled date to local date for comparison
-    const scheduledLocalDate = new Date(selectedCourse.scheduled_date).toLocaleDateString("en-CA")
-
-    // Allow access if it's the same calendar date in user's local time zone
-    if (scheduledLocalDate !== today) {
-      setAccessError("This course is only available on the scheduled date.")
-      return
-    }
-
-    // Check if the course is available at the current time
-    const { canAccess, isLive, message, timeUntil } = checkSessionStatus(selectedCourse, selectedBatch)
-
-    if (!canAccess) {
-      setAccessError(message)
-      return
-    }
-
-    if (selectedCourse.completedVideo) {
-      setAccessError("You have already completed this video session.")
-      return
-    }
-
-    // Check if this course requires a subscription
-    if (selectedCourse.subscription_id) {
-      // If the course has eligible subscriptions, check how many
-      if (selectedCourse.eligibleSubscriptions && selectedCourse.eligibleSubscriptions.length > 0) {
-        if (selectedCourse.eligibleSubscriptions.length === 1) {
-          // If only one subscription is eligible, use it automatically
-          setSelectedSubscriptionId(selectedCourse.eligibleSubscriptions[0].id)
-          continueWithAccess()
-        } else {
-          // If multiple subscriptions are eligible, show the selector
-          setEligibleSubscriptions(selectedCourse.eligibleSubscriptions)
-          setShowSubscriptionSelector(true)
-          return
-        }
-      } else {
-        setAccessError("You don't have an active subscription that gives access to this course.")
-        return
-      }
-    } else {
-      // Free course, continue with access
-      continueWithAccess()
-    }
-  }
-
-  // Add a new function to continue with access after subscription selection
-  const continueWithAccess = () => {
-    if (!selectedCourse || !selectedBatch) return
-
-    console.log("Continuing with access...")
-
-    // If the session hasn't started yet but we're in the early access window
-    const now = new Date()
-    const scheduledStart = getScheduledStartTime(selectedCourse, selectedBatch)
-    const isEarlyAccess = now < scheduledStart
-
-    // Prepare the YouTube embed URL in advance
-    const embedUrl = getYoutubeEmbedUrlWithStartTime(
-      selectedCourse.youtube_link,
-      lateJoin ? elapsedTime : 0,
-      true, // This is a live session
-    )
-    setYoutubeEmbedUrl(embedUrl)
-    console.log("YouTube embed URL set:", embedUrl)
-
-    if (isEarlyAccess) {
-      // Show a message that we're waiting for the session to start
-      setAccessError(null)
-      setWaitingForAccess(true)
-      setWaitingCountdown(10)
-      console.log("Early access mode, starting countdown:", waitingCountdown)
-
-      // Calculate seconds until the session starts
-      const secondsUntilStart = Math.floor((scheduledStart.getTime() - now.getTime()) / 1000)
-
-      // After 10 seconds of preparation, wait until the scheduled time to start the video
-      startVideoTimeout.current = setTimeout(() => {
-        if (secondsUntilStart <= 0) {
-          // If the session has already started, start the video immediately
-          startVideo()
-        } else {
-          // Otherwise, show a countdown until the session starts
-          setWaitingForAccess(false)
-          setTimeUntilSession(formatTime(secondsUntilStart))
-          setSessionCountdown(secondsUntilStart)
-
-          // Set a timeout to start the video at the exact scheduled time
-          const startTimeout = setTimeout(() => {
-            startVideo()
-          }, secondsUntilStart * 1000)
-
-          // Clean up the timeout if the component unmounts
-          return () => clearTimeout(startTimeout)
-        }
-      }, 5000) // 5-second preparation buffer instead of 10
-    } else {
-      // Start the waiting period (reduced to 5 seconds)
-      setWaitingForAccess(true)
-      setWaitingCountdown(5)
-      setAccessError(null)
-      console.log("Session already started, starting 5-second countdown")
-
-      // After 5 seconds, start the video
-      startVideoTimeout.current = setTimeout(() => {
-        if (selectedCourse && selectedBatch) {
-          console.log("Countdown complete, starting video now")
-          startVideo()
-        }
-      }, 5000)
-    }
-  }
-
-  // Add a new function to continue with access after subscription selection
-  const startVideo = () => {
-    if (!selectedCourse || !selectedBatch) {
-      console.error("Cannot start video: course or batch is null")
-      return
-    }
-
-    console.log("Starting video playback...")
-
-    // Try to mark attendance when the video starts, but don't block video playback
-    try {
-      handleMarkAttendance(selectedBatch.id)
-    } catch (error) {
-      console.error("Error marking attendance, but continuing with video playback:", error)
-    }
-
-    // Set the video to playing
-    setIsVideoPlaying(true)
-    setSessionInProgress(true)
-    setWaitingForAccess(false)
-
-    // Set the start time of the session
-    setSessionStartTime(new Date())
-
-    // Calculate the end time of the session based on the video duration
-    const duration = selectedCourse.videoDuration || 1800 // Default to 30 minutes
-    const endTime = new Date(Date.now() + duration * 1000)
-    setSessionEndTime(endTime)
-
-    // Set the remaining time
-    setRemainingTime(duration)
-
-    // Make sure the YouTube embed URL is set
-    if (!youtubeEmbedUrl) {
-      const embedUrl = getYoutubeEmbedUrlWithStartTime(
-        selectedCourse.youtube_link,
-        lateJoin ? elapsedTime : 0,
-        true, // This is a live session
-      )
-      setYoutubeEmbedUrl(embedUrl)
-      console.log("YouTube embed URL set in startVideo:", embedUrl)
-    }
-
-    console.log("Video playback started successfully")
-  }
-
-  const handleVideoEnd = () => {
-    if (!selectedCourse || !selectedBatch) return
-
-    // Mark the video as completed
-    handleMarkVideoCompleted(selectedBatch.id)
-
-    // Stop the video
-    setIsVideoPlaying(false)
-    setSessionInProgress(false)
-  }
-
-  // Add a handler for subscription selection
-  const handleSubscriptionSelect = (subscriptionId: number) => {
-    setSelectedSubscriptionId(subscriptionId)
-    setShowSubscriptionSelector(false)
-    continueWithAccess()
-  }
-
-  const handleMarkAttendance = async (courseId: number) => {
-    try {
-      setMarkingAttendance(true)
-      setAttendanceError(null)
-
-      // Get the user ID from localStorage if userDbId is not available
-      const userId = userDbId || localStorage.getItem("userId")
-
-      if (!userId) {
-        console.error("User ID not available")
-        setAttendanceError("User ID not found. Please refresh the page and try again.")
-        toast({
-          title: "Error",
-          description: "User ID not found. Please refresh the page and try again.",
-          variant: "destructive",
-        })
-        return
-      }
-
-      const supabase = getSupabaseBrowserClient()
-      console.log("Marking attendance for user:", userId, "course:", courseId)
-
-      // Check if record already exists
-      const { data: existingRecord, error: checkError } = await supabase
-        .from("user_courses")
-        .select("id, attended")
-        .eq("user_id", userId)
-        .eq("course_id", courseId)
-        .maybeSingle() // Use maybeSingle instead of single to avoid errors
-
-      if (checkError && checkError.code !== "PGRST116") {
-        // PGRST116 is "no rows returned" error, which is expected if no record exists
-        console.error("Error checking attendance:", checkError)
-        throw checkError
-      }
-
-      if (existingRecord) {
-        // Update existing record
-        const { error: updateError } = await supabase
-          .from("user_courses")
-          .update({
-            attended: true,
-            attended_at: new Date().toISOString(),
-          })
-          .eq("id", existingRecord.id)
-
-        if (updateError) throw updateError
-      } else {
-        // Create new record
-        const { error: insertError } = await supabase.from("user_courses").insert([
-          {
-            user_id: userId,
-            course_id: courseId,
-            attended: true,
-            attended_at: new Date().toISOString(),
-          },
-        ])
-
-        if (insertError) throw insertError
-      }
-
-      // Show success message
-      toast({
-        title: "Success",
-        description: "Attendance marked successfully!",
-      })
-
-      // Update local state
-      setTodayCourses((prevCourses) =>
-        prevCourses.map((course) => (course.id === courseId ? { ...course, attended: true } : course)),
-      )
-
-      // Also update the grouped courses
-      if (selectedCourse) {
-        setSelectedCourse({
-          ...selectedCourse,
-          attended: true,
-        })
-      }
-    } catch (error) {
-      console.error("Error marking attendance:", error)
-      setAttendanceError(`Error marking attendance: ${error.message || "Unknown error"}`)
-      toast({
-        title: "Error",
-        description: `Failed to mark attendance: ${error.message || "Unknown error"}`,
-        variant: "destructive",
-      })
-    } finally {
-      setMarkingAttendance(false)
-    }
-  }
-
-  const handleMarkVideoCompleted = async (courseId: number) => {
-    try {
-      // Get the user ID from localStorage if userDbId is not available
-      const userId = userDbId || localStorage.getItem("userId")
-
-      if (!userId) {
-        console.error("User ID not available")
-        return
-      }
-
-      const supabase = getSupabaseBrowserClient()
-
-      // Check if record already exists
-      const { data: existingRecord, error: checkError } = await supabase
-        .from("user_courses")
-        .select("id")
-        .eq("user_id", userId)
-        .eq("course_id", courseId)
-        .maybeSingle()
-
-      if (checkError && checkError.code !== "PGRST116") {
-        throw checkError
-      }
-
-      if (existingRecord) {
-        // Update existing record
-        const { error: updateError } = await supabase
-          .from("user_courses")
-          .update({
-            completed_video: true,
-            completed_at: new Date().toISOString(),
-          })
-          .eq("id", existingRecord.id)
-
-        if (updateError) throw updateError
-      } else {
-        // Create new record
-        const { error: insertError } = await supabase.from("user_courses").insert([
-          {
-            user_id: userId,
-            course_id: courseId,
-            completed_video: true,
-            completed_at: new Date().toISOString(),
-          },
-        ])
-
-        if (insertError) throw insertError
-      }
-
-      // Update local state
-      setTodayCourses((prevCourses) =>
-        prevCourses.map((course) => (course.id === courseId ? { ...course, completedVideo: true } : course)),
-      )
-
-      if (selectedCourse) {
-        setSelectedCourse({
-          ...selectedCourse,
-          completedVideo: true,
-        })
-      }
-
-      setHasCompletedVideo(true)
-
-      toast({
-        title: "Success",
-        description: "Video completion recorded successfully!",
-      })
-    } catch (error) {
-      console.error("Error marking video completion:", error)
-      toast({
-        title: "Error",
-        description: "Failed to record video completion. Please try again.",
-        variant: "destructive",
-      })
-    }
-  }
-
-  const handleCourseSelect = (course: GroupedCourse) => {
-    setSelectedCourse(course)
-
-    // Select the first batch by default
-    if (course.batches.length > 0) {
-      setSelectedBatch(course.batches[0])
-    } else {
-      setSelectedBatch(null)
-    }
-
-    setAccessError(null)
-    setIsVideoPlaying(false)
-    setHasCompletedVideo(course.completedVideo || false)
-    setWaitingForAccess(false)
-    setWaitingCountdown(10)
-    setSessionStarted(false)
-    setLateJoin(false)
-    setElapsedTime(0)
-    setSessionInProgress(false)
-    setYoutubeEmbedUrl("")
-
-    // Reset video times
-    setSessionStartTime(null)
-    setSessionEndTime(null)
-
-    // Check if course is available now or calculate time until available
-    if (course.batches.length > 0) {
-      const batch = course.batches[0]
-      const { canAccess, isLive, elapsedSeconds, message, timeUntil } = checkSessionStatus(course, batch)
-
-      if (isLive) {
-        setSessionStarted(true)
-        setLateJoin(elapsedSeconds > 0)
-        setElapsedTime(elapsedSeconds)
-        setAccessError(null)
-        setTimeUntilSession(null)
-        setSessionCountdown(null)
-      } else if (!canAccess) {
-        setAccessError(message)
-        if (timeUntil !== null) {
-          setSessionCountdown(timeUntil)
-          setTimeUntilSession(formatTime(timeUntil))
-        }
-      } else {
-        setSessionCountdown(null)
-        setTimeUntilSession(null)
-      }
-    }
-  }
-
-  const handleBatchSelect = (batch: Batch) => {
-    if (!selectedCourse) return
-
-    setSelectedBatch(batch)
-    setAccessError(null)
-    setIsVideoPlaying(false)
-    setWaitingForAccess(false)
-    setWaitingCountdown(10)
-    setSessionStarted(false)
-    setLateJoin(false)
-    setElapsedTime(0)
-    setSessionInProgress(false)
-    setYoutubeEmbedUrl("")
-
-    // Reset video times
-    setSessionStartTime(null)
-    setSessionEndTime(null)
-
-    // Check if batch is available now or calculate time until available
-    const { canAccess, isLive, elapsedSeconds, message, timeUntil } = checkSessionStatus(selectedCourse, batch)
-
-    if (isLive) {
-      setSessionStarted(true)
-      setLateJoin(elapsedSeconds > 0)
-      setElapsedTime(elapsedSeconds)
-      setAccessError(null)
-      setTimeUntilSession(null)
-      setSessionCountdown(null)
-    } else if (!canAccess) {
-      setAccessError(message)
-      if (timeUntil !== null) {
-        setSessionCountdown(timeUntil)
-        setTimeUntilSession(formatTime(timeUntil))
-      }
-    } else {
-      setSessionCountdown(null)
-      setTimeUntilSession(null)
-    }
-  }
-
-  const checkAndStartSession = () => {
-    if (!selectedCourse || !selectedBatch) return
-
-    const { isLive, elapsedSeconds } = checkSessionStatus(selectedCourse, selectedBatch)
-
-    if (isLive) {
-      setSessionStarted(true)
-      setLateJoin(elapsedSeconds > 0)
-      setElapsedTime(elapsedSeconds)
-      setAccessError(null)
-    }
-  }
-
-  // Update the YouTube embed URL function to disable all controls for live sessions
-  const getYoutubeEmbedUrlWithStartTime = (youtubeLink: string, startSeconds = 0, isLiveSession = true) => {
-    // Extract video ID from various YouTube URL formats
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/
-    const match = youtubeLink.match(regExp)
-
-    if (!match || match[2].length !== 11) {
-      console.error("Invalid YouTube URL:", youtubeLink)
-      return "https://www.youtube.com/embed/dQw4w9WgXcQ" // Fallback to a default video
-    }
-
-    const videoId = match[2]
-    const baseUrl = `https://www.youtube.com/embed/${videoId}`
-
-    if (isLiveSession) {
-      // For live sessions: disable controls but keep it simple to avoid errors
-      return `${baseUrl}?start=${Math.floor(startSeconds)}&controls=0&rel=0&showinfo=0&modestbranding=1&autoplay=1`
-    } else {
-      // For previous sessions: allow basic controls
-      return `${baseUrl}?start=${Math.floor(startSeconds)}&controls=1&rel=0&showinfo=0&modestbranding=1`
-    }
-  }
-
-  // Add a function to render the live indicator and custom controls
-  const renderVideoOverlay = (isLive: boolean) => {
-    if (!isLive) return null
-
-    return (
-      <div className="absolute top-2 left-2 z-10 flex items-center">
-        <div className="bg-red-600 text-white text-xs font-bold px-2 py-1 rounded flex items-center">
-          <div className="w-2 h-2 bg-white rounded-full mr-1 animate-pulse"></div>
-          LIVE
-        </div>
-      </div>
-    )
-  }
-
-  const toggleFullscreen = () => {
-    if (!videoContainerRef) return
-
-    try {
-      if (!document.fullscreenElement) {
-        // Enter fullscreen
-        if (videoContainerRef.requestFullscreen) {
-          videoContainerRef.requestFullscreen()
-        } else if ((videoContainerRef as any).mozRequestFullScreen) {
-          ;(videoContainerRef as any).mozRequestFullScreen()
-        } else if ((videoContainerRef as any).webkitRequestFullscreen) {
-          ;(videoContainerRef as any).webkitRequestFullscreen()
-        } else if ((videoContainerRef as any).msRequestFullscreen) {
-          ;(videoContainerRef as any).msRequestFullscreen()
-        }
-        setIsFullscreen(true)
-      } else {
-        // Exit fullscreen
-        if (document.exitFullscreen) {
-          document.exitFullscreen()
-        } else if ((document as any).mozCancelFullScreen) {
-          ;(document as any).mozCancelFullScreen()
-        } else if ((document as any).webkitExitFullscreen) {
-          ;(document as any).webkitExitFullscreen()
-        } else if ((document as any).msExitFullscreen) {
-          ;(document as any).msExitFullscreen()
-        }
-        setIsFullscreen(false)
-      }
-    } catch (err) {
-      console.error("Fullscreen error:", err)
-    }
-  }
-
   return (
     <UserLayout>
-      <div className="space-y-6">
-        <h1 className="text-3xl font-bold">Access Course</h1>
+      {/* Hero section with background image */}
+      <div
+        className="relative bg-cover bg-center py-12 mb-8"
+        style={{
+          backgroundImage: "url('/images/yoga-pattern-bg.jpg')",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }}
+      >
+        <div className="absolute inset-0 bg-black/40"></div>
+        <div className="container relative z-10 text-center">
+          <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">Your Yoga Journey</h1>
+          <p className="text-xl text-white/90 max-w-2xl mx-auto">
+            Access your scheduled sessions and continue your practice
+          </p>
+        </div>
+      </div>
 
-        {attendanceError && (
-          <Alert variant="destructive" className="mb-4">
-            <AlertCircle className="h-4 w-4 mr-2" />
-            <AlertDescription>{attendanceError}</AlertDescription>
-          </Alert>
+      <div className="container relative pb-12">
+        {/* Tab navigation with animated indicator */}
+        <div className="relative mb-8 bg-white rounded-lg shadow-md p-2 flex justify-center">
+          <div className="flex space-x-2 relative z-10">
+            <Button
+              variant={viewMode === "today" ? "default" : "ghost"}
+              onClick={() => setViewMode("today")}
+              className="relative px-6 py-2 rounded-md transition-all duration-300"
+              size="lg"
+            >
+              Today's Sessions
+            </Button>
+            <Button
+              variant={viewMode === "upcoming" ? "default" : "ghost"}
+              onClick={() => setViewMode("upcoming")}
+              className="relative px-6 py-2 rounded-md transition-all duration-300"
+              size="lg"
+            >
+              Upcoming Sessions
+            </Button>
+          </div>
+        </div>
+
+        {/* Debug information - only visible in development */}
+        {process.env.NODE_ENV === "development" && (
+          <div className="mb-4 p-4 bg-gray-100 rounded-md">
+            <div className="flex items-center mb-2">
+              <Bug className="h-4 w-4 mr-2" />
+              <h3 className="font-medium">Debug Information</h3>
+            </div>
+            <pre className="text-xs overflow-auto max-h-40 p-2 bg-gray-200 rounded">{debugInfo}</pre>
+          </div>
         )}
 
-        <Tabs defaultValue="today" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="today">Today's Courses</TabsTrigger>
-            <TabsTrigger value="upcoming">Upcoming Courses</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="today" className="space-y-6 mt-6">
-            {loading ? (
-              <div className="text-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-                <p className="mt-4 text-gray-600">Loading courses...</p>
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-12 space-y-4">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            <p className="text-lg text-muted-foreground">Loading your sessions...</p>
+          </div>
+        ) : (
+          <>
+            {viewMode === "today" && groupedTodayCourses.length === 0 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-8 text-center">
+                <Info className="h-12 w-12 text-amber-500 mx-auto mb-4" />
+                <h3 className="text-xl font-medium text-amber-800 mb-2">No Sessions Today</h3>
+                <p className="text-amber-700">There are no yoga sessions scheduled for today.</p>
               </div>
-            ) : groupedTodayCourses.length === 0 ? (
-              <Card>
-                <CardContent className="flex flex-col items-center justify-center py-12">
-                  <Calendar className="h-12 w-12 text-gray-400 mb-4" />
-                  <h3 className="text-xl font-medium mb-2">No Courses Today</h3>
-                  <p className="text-gray-500">There are no scheduled courses for today.</p>
-                </CardContent>
-              </Card>
-            ) : (
-              <>
-                {/* Language selector - only show if there are multiple languages available */}
-                {availableLanguages.length > 1 && (
-                  <div className="flex items-center space-x-2">
-                    <Globe className="h-5 w-5 text-gray-500" />
-                    <span className="text-sm font-medium">Language:</span>
-                    <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
-                      <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Select language" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableLanguages.map((lang) => (
-                          <SelectItem key={lang} value={lang}>
-                            {lang}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
+            )}
 
-                <div className="grid md:grid-cols-3 gap-6">
-                  <div className="md:col-span-1 space-y-4">
-                    <h2 className="text-lg font-medium">Available Courses</h2>
-                    {groupedTodayCourses
-                      .filter((course) => course.language === selectedLanguage)
-                      .map((course) => (
+            {viewMode === "upcoming" && groupedUpcomingCourses.length === 0 && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-8 text-center">
+                <Info className="h-12 w-12 text-blue-500 mx-auto mb-4" />
+                <h3 className="text-xl font-medium text-blue-800 mb-2">No Upcoming Sessions</h3>
+                <p className="text-blue-700">There are no upcoming yoga sessions scheduled at this time.</p>
+              </div>
+            )}
+
+            {viewMode === "today" && groupedTodayCourses.length > 0 && (
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-2xl font-bold">Today's Sessions</h2>
+                  <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Select Language" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableLanguages.map((language) => (
+                        <SelectItem key={language} value={language}>
+                          {language}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {groupedTodayCourses
+                    .filter((course) => course.language === selectedLanguage)
+                    .map((course) => {
+                      const activeBatch = findActiveBatch(course)
+                      const isLive = activeBatch !== null
+
+                      return (
                         <Card
-                          key={`${course.title}_${course.scheduled_date}_${course.language}`}
-                          className={`cursor-pointer hover:border-primary transition-colors ${
-                            selectedCourse?.title === course.title &&
-                            selectedCourse?.scheduled_date === course.scheduled_date &&
-                            selectedCourse?.language === course.language
-                              ? "border-primary"
-                              : ""
+                          key={`${course.title}_${course.scheduled_date}`}
+                          className={`h-full flex flex-col overflow-hidden transition-all duration-300 hover:shadow-lg ${
+                            isLive ? "border-green-400 shadow-green-100" : "border-gray-200"
                           }`}
-                          onClick={() => handleCourseSelect(course)}
                         >
-                          <CardContent className="p-4">
+                          <div className={`h-3 w-full ${isLive ? "bg-green-500" : "bg-gray-200"}`}></div>
+                          <CardHeader className="pb-2">
                             <div className="flex justify-between items-start">
-                              <div>
-                                <h3 className="font-medium">{course.title}</h3>
-                                <div className="flex items-center text-sm text-gray-500 mt-1">
-                                  <Clock className="h-4 w-4 mr-1" />
-                                  <span>
-                                    {course.batches.length} {course.batches.length === 1 ? "batch" : "batches"}{" "}
-                                    available
-                                  </span>
-                                </div>
-                                <div className="flex items-center text-sm text-gray-500 mt-1">
-                                  <Globe className="h-4 w-4 mr-1" />
-                                  <span>{course.language}</span>
-                                </div>
-                              </div>
-                              <div className="flex flex-col items-end">
-                                {course.attended && <CheckCircle className="h-5 w-5 text-green-500 mb-1" />}
-                                {course.completedVideo && <Badge className="bg-green-500">Completed</Badge>}
+                              <CardTitle className="text-xl">{course.title}</CardTitle>
+                              {isLive ? (
+                                <Badge className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-full">
+                                  LIVE NOW
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="px-3 py-1 rounded-full">
+                                  OFFLINE
+                                </Badge>
+                              )}
+                            </div>
+                            {course.description && (
+                              <CardDescription className="mt-2 text-sm">{course.description}</CardDescription>
+                            )}
+                          </CardHeader>
+
+                          <CardContent className="flex-grow pt-2">
+                            <div className="flex items-center space-x-2 mb-4 text-sm text-gray-600 bg-gray-50 p-2 rounded-md">
+                              <Calendar className="h-4 w-4 text-primary" />
+                              <span>{formatDate(course.scheduled_date)}</span>
+                            </div>
+
+                            {/* Join Now button with enhanced styling */}
+                            <Button
+                              className={`w-full mb-4 py-6 text-base font-medium transition-all duration-300 ${
+                                isLive && course.hasAccess
+                                  ? "bg-green-600 hover:bg-green-700 shadow-md hover:shadow-lg"
+                                  : ""
+                              }`}
+                              disabled={!isLive || !course.hasAccess}
+                              onClick={() => handleJoinSession(course)}
+                            >
+                              <PlayCircle className="mr-2 h-5 w-5" />
+                              {isLive ? "Join Live Session" : "Session Offline"}
+                            </Button>
+
+                            <div className="space-y-3">
+                              <h3 className="text-sm font-medium flex items-center">
+                                <Clock className="h-4 w-4 mr-1 text-primary" />
+                                Batch Details:
+                              </h3>
+                              <div className="space-y-2">
+                                {course.batches.map((batch) => {
+                                  const batchIsLive = isSessionLive(course, batch)
+                                  const timeUntil = getTimeUntilSession(course, batch)
+
+                                  return (
+                                    <div
+                                      key={batch.id}
+                                      className={`border rounded-md p-3 transition-all ${
+                                        batchIsLive
+                                          ? "border-green-300 bg-green-50"
+                                          : "border-gray-200 hover:border-gray-300"
+                                      }`}
+                                    >
+                                      <div className="flex justify-between items-center mb-2">
+                                        <span className="font-medium">{getBatchLabel(batch)}</span>
+                                        {batchIsLive ? (
+                                          <Badge className="bg-green-500 text-white">LIVE</Badge>
+                                        ) : (
+                                          <Badge variant="outline">OFFLINE</Badge>
+                                        )}
+                                      </div>
+
+                                      {!batchIsLive && timeUntil && (
+                                        <div className="flex items-center text-sm text-muted-foreground bg-gray-100 px-2 py-1 rounded">
+                                          <Clock className="h-3 w-3 mr-1" />
+                                          <span>Starts in {timeUntil}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )
+                                })}
                               </div>
                             </div>
                           </CardContent>
+
+                          {!course.hasAccess && (
+                            <CardFooter className="pt-0 bg-amber-50">
+                              <Alert className="w-full border-amber-300 bg-amber-50">
+                                <AlertDescription className="text-sm flex items-center text-amber-800">
+                                  <Info className="h-4 w-4 mr-2 text-amber-500" />
+                                  Subscription required for access
+                                </AlertDescription>
+                              </Alert>
+                            </CardFooter>
+                          )}
                         </Card>
-                      ))}
-                  </div>
-
-                  <div className="md:col-span-2">
-                    {selectedCourse ? (
-                      <Card>
-                        <CardHeader>
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <CardTitle>{selectedCourse.title}</CardTitle>
-                              <CardDescription>
-                                {formatDate(selectedCourse.scheduled_date)} • {selectedCourse.batches.length}{" "}
-                                {selectedCourse.batches.length === 1 ? "batch" : "batches"}
-                              </CardDescription>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              {selectedCourse.subscription_id && (
-                                <Badge className="bg-primary">Subscription Required</Badge>
-                              )}
-                              <Badge variant="outline">{selectedCourse.language}</Badge>
-                            </div>
-                          </div>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                          {selectedCourse.description && <p>{selectedCourse.description}</p>}
-
-                          {/* Batch selection */}
-                          {selectedCourse.batches.length > 0 && (
-                            <div className="space-y-2">
-                              <h3 className="text-sm font-medium">Available Batches:</h3>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-                                {selectedCourse.batches.map((batch) => (
-                                  <div
-                                    key={batch.id}
-                                    className={`p-2 border rounded-md cursor-pointer hover:border-primary transition-colors ${
-                                      selectedBatch?.id === batch.id ? "border-primary bg-primary/5" : ""
-                                    }`}
-                                    onClick={() => handleBatchSelect(batch)}
-                                  >
-                                    {batch.is_predefined_batch && batch.batch_number ? (
-                                      <span>
-                                        Batch {batch.batch_number}: {getBatchLabel(batch.batch_number)}
-                                      </span>
-                                    ) : (
-                                      <span>{batch.custom_batch_time}</span>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Navigation buttons above video */}
-                          <div className="flex justify-between mb-2">
-                            <Button variant="outline" size="sm" asChild>
-                              <Link href="/user/dashboard">
-                                <Home className="mr-2 h-4 w-4" />
-                                Go to Dashboard
-                              </Link>
-                            </Button>
-                            <Button variant="outline" size="sm">
-                              <BookOpen className="mr-2 h-4 w-4" />
-                              View Course Page
-                            </Button>
-                          </div>
-
-                          {accessError && (
-                            <Alert variant="destructive">
-                              <AlertCircle className="h-4 w-4" />
-                              <AlertDescription>{accessError}</AlertDescription>
-                            </Alert>
-                          )}
-
-                          {timeUntilSession && (
-                            <Alert>
-                              <Clock className="h-4 w-4" />
-                              <AlertDescription>
-                                Time until session starts:{" "}
-                                {sessionCountdown !== null ? formatTime(sessionCountdown) : timeUntilSession}
-                              </AlertDescription>
-                            </Alert>
-                          )}
-
-                          {waitingForAccess ? (
-                            <div className="aspect-video rounded-md overflow-hidden bg-gray-100 flex items-center justify-center">
-                              <div className="text-center p-6">
-                                <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary mx-auto mb-4"></div>
-                                <h3 className="text-xl font-medium mb-2">Preparing Your Session</h3>
-                                <p className="text-gray-500 mb-4">
-                                  Your session will begin in {waitingCountdown} seconds...
-                                </p>
-                              </div>
-                            </div>
-                          ) : isVideoPlaying && selectedBatch ? (
-                            <div className="relative" ref={(el) => setVideoContainerRef(el)}>
-                              {/* Custom video controls */}
-                              <div className="absolute top-2 right-2 z-10 flex space-x-2">
-                                <Button
-                                  variant="secondary"
-                                  size="icon"
-                                  className="bg-black/50 hover:bg-black/70 text-white"
-                                  onClick={toggleFullscreen}
-                                >
-                                  {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
-                                </Button>
-                              </div>
-
-                              {/* Live indicator */}
-                              <div className="absolute top-2 left-2 z-10 flex items-center">
-                                <div className="bg-red-600 text-white text-xs font-bold px-2 py-1 rounded flex items-center">
-                                  <div className="w-2 h-2 bg-white rounded-full mr-1 animate-pulse"></div>
-                                  LIVE
-                                </div>
-                              </div>
-
-                              <div className="aspect-video rounded-md overflow-hidden bg-gray-100 relative">
-                                <iframe
-                                  ref={iframeRef}
-                                  src={youtubeEmbedUrl}
-                                  className="w-full h-full"
-                                  title={selectedCourse.title}
-                                  allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
-                                  allowFullScreen={false}
-                                ></iframe>
-                              </div>
-
-                              {/* Remaining time indicator */}
-                              {remainingTime !== null && (
-                                <div className="mt-2 text-sm text-gray-600 flex items-center">
-                                  <Clock className="h-4 w-4 mr-1" />
-                                  <span>Remaining time: {formatTime(remainingTime)}</span>
-                                </div>
-                              )}
-
-                              {hasCompletedVideo && (
-                                <Alert className="mt-4 bg-green-50 text-green-800 border-green-200">
-                                  <CheckCircle className="h-4 w-4" />
-                                  <AlertDescription>
-                                    You have completed this video session. Thank you for attending!
-                                  </AlertDescription>
-                                </Alert>
-                              )}
-                            </div>
-                          ) : (
-                            <div className="aspect-video rounded-md overflow-hidden bg-gray-100 flex items-center justify-center">
-                              <div className="text-center p-6">
-                                <Play className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                                <h3 className="text-xl font-medium mb-2">Ready to Start?</h3>
-                                <p className="text-gray-500 mb-4">Click the button below to access the live session.</p>
-                                {sessionStarted ? (
-                                  <Button onClick={handleRequestAccess} disabled={markingAttendance}>
-                                    {markingAttendance ? (
-                                      <>
-                                        <div className="animate-spin h-4 w-4 mr-2 border-2 border-b-transparent rounded-full"></div>
-                                        Preparing...
-                                      </>
-                                    ) : (
-                                      <>
-                                        <Play className="mr-2 h-4 w-4" />
-                                        {lateJoin ? "Join Session in Progress" : "Access Session"}
-                                      </>
-                                    )}
-                                  </Button>
-                                ) : (
-                                  <Button disabled={!sessionStarted}>
-                                    <Clock className="mr-2 h-4 w-4" />
-                                    Waiting for Session to Start
-                                  </Button>
-                                )}
-                              </div>
-                            </div>
-                          )}
-
-                          <div className="flex justify-between items-center pt-4">
-                            <div className="flex items-center">
-                              <Clock className="h-5 w-5 text-gray-500 mr-2" />
-                              <span className="text-sm text-gray-500">
-                                {selectedBatch &&
-                                  (selectedBatch.is_predefined_batch && selectedBatch.batch_number
-                                    ? getBatchLabel(selectedBatch.batch_number)
-                                    : selectedBatch.custom_batch_time)}
-                              </span>
-                            </div>
-                            {selectedCourse.attended ? (
-                              <Badge className="bg-green-500">Attendance Marked</Badge>
-                            ) : (
-                              <p className="text-sm text-gray-500">
-                                Attendance will be marked automatically when you join the session
-                              </p>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ) : (
-                      <Card>
-                        <CardContent className="flex flex-col items-center justify-center py-12">
-                          <Play className="h-12 w-12 text-gray-400 mb-4" />
-                          <h3 className="text-xl font-medium mb-2">No Course Selected</h3>
-                          <p className="text-gray-500">Please select a course from the list to view its content.</p>
-                        </CardContent>
-                      </Card>
-                    )}
-                  </div>
+                      )
+                    })}
                 </div>
-              </>
-            )}
-          </TabsContent>
-
-          <TabsContent value="upcoming" className="space-y-6 mt-6">
-            {loading ? (
-              <div className="text-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-                <p className="mt-4 text-gray-600">Loading upcoming courses...</p>
               </div>
-            ) : groupedUpcomingCourses.length === 0 ? (
-              <Card>
-                <CardContent className="flex flex-col items-center justify-center py-12">
-                  <Calendar className="h-12 w-12 text-gray-400 mb-4" />
-                  <h3 className="text-xl font-medium mb-2">No Upcoming Courses</h3>
-                  <p className="text-gray-500">There are no upcoming courses scheduled at this time.</p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-4">
-                <h2 className="text-lg font-medium">Upcoming Courses</h2>
-                <div className="grid md:grid-cols-2 gap-4">
+            )}
+
+            {/* Upcoming Sessions with enhanced styling */}
+            {viewMode === "upcoming" && (
+              <>
+                <h2 className="text-2xl font-bold mb-4">Upcoming Sessions</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {groupedUpcomingCourses.map((course) => (
-                    <Card key={`${course.title}_${course.scheduled_date}_${course.language}`}>
-                      <CardHeader>
+                    <Card
+                      key={`${course.title}_${course.scheduled_date}_${course.language}`}
+                      className="h-full flex flex-col overflow-hidden transition-all duration-300 hover:shadow-lg border-blue-200"
+                    >
+                      <div className="h-3 w-full bg-blue-400"></div>
+                      <CardHeader className="pb-2">
                         <div className="flex justify-between items-start">
-                          <CardTitle>{course.title}</CardTitle>
-                          <div className="flex items-center space-x-2">
-                            {course.subscription_id && <Badge className="bg-primary">Subscription Required</Badge>}
-                            <Badge variant="outline">{course.language}</Badge>
-                          </div>
+                          <CardTitle className="text-xl">{course.title}</CardTitle>
+                          <Badge
+                            variant="outline"
+                            className="bg-blue-100 text-blue-800 border-blue-300 px-3 py-1 rounded-full"
+                          >
+                            UPCOMING
+                          </Badge>
                         </div>
-                        <CardDescription>
-                          {formatDate(course.scheduled_date)} • {course.batches.length}{" "}
-                          {course.batches.length === 1 ? "batch" : "batches"}
-                        </CardDescription>
+                        {course.description && (
+                          <CardDescription className="mt-2 text-sm">{course.description}</CardDescription>
+                        )}
                       </CardHeader>
-                      <CardContent>
-                        {course.description && <p className="mb-4">{course.description}</p>}
-                        <div className="space-y-2">
-                          <h3 className="text-sm font-medium">Available Batches:</h3>
-                          <div className="space-y-1">
+                      <CardContent className="flex-grow pt-2">
+                        <div className="flex items-center space-x-2 mb-4 text-sm text-gray-600 bg-blue-50 p-2 rounded-md">
+                          <Calendar className="h-4 w-4 text-blue-500" />
+                          <span>{formatDate(course.scheduled_date)}</span>
+                        </div>
+
+                        <div className="space-y-3">
+                          <h3 className="text-sm font-medium flex items-center">
+                            <Clock className="h-4 w-4 mr-1 text-blue-500" />
+                            Batch Details:
+                          </h3>
+                          <div className="space-y-2">
                             {course.batches.map((batch) => (
-                              <div key={batch.id} className="text-sm text-gray-600">
-                                •{" "}
-                                {batch.is_predefined_batch && batch.batch_number
-                                  ? getBatchLabel(batch.batch_number)
-                                  : batch.custom_batch_time}
+                              <div
+                                key={batch.id}
+                                className="border border-gray-200 rounded-md p-3 hover:border-blue-300 transition-all"
+                              >
+                                <div className="flex justify-between items-center">
+                                  <span className="font-medium">{getBatchLabel(batch)}</span>
+                                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                                    SCHEDULED
+                                  </Badge>
+                                </div>
                               </div>
                             ))}
                           </div>
                         </div>
                       </CardContent>
+
+                      {!course.hasAccess && (
+                        <CardFooter className="pt-0 bg-amber-50">
+                          <Alert className="w-full border-amber-300 bg-amber-50">
+                            <AlertDescription className="text-sm flex items-center text-amber-800">
+                              <Info className="h-4 w-4 mr-2 text-amber-500" />
+                              Subscription required for access
+                            </AlertDescription>
+                          </Alert>
+                        </CardFooter>
+                      )}
                     </Card>
                   ))}
                 </div>
-              </div>
+              </>
             )}
-          </TabsContent>
-        </Tabs>
+          </>
+        )}
       </div>
-      {showSubscriptionSelector && (
-        <Dialog open={showSubscriptionSelector} onOpenChange={setShowSubscriptionSelector}>
-          <DialogContent className="sm:max-w-md">
-            <SubscriptionSelector
-              subscriptions={eligibleSubscriptions}
-              onSelect={handleSubscriptionSelect}
-              onCancel={() => setShowSubscriptionSelector(false)}
-            />
-          </DialogContent>
-        </Dialog>
-      )}
+
+      {/* Initial WhatsApp Channel Notification */}
+      <Dialog open={showWhatsAppDialog} onOpenChange={setShowWhatsAppDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-center">Join Our WhatsApp Channel</DialogTitle>
+            <DialogDescription className="text-center pt-2">
+              Stay updated with class schedules, announcements, and yoga tips!
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col items-center justify-center p-4">
+            <div className="bg-green-50 p-4 rounded-lg mb-4 w-full">
+              <div className="flex items-center">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="text-green-600 mr-2"
+                >
+                  <path d="M3 7.8c0-1.68 0-2.52.327-3.162a3 3 0 0 1 1.311-1.311C5.28 3 6.12 3 7.8 3h8.4c1.68 0 2.52 0 3.162.327a3 3 0 0 1 1.311 1.311C21 5.28 21 6.12 21 7.8v8.4c0 1.68 0 2.52-.327 3.162a3 3 0 0 1-1.311 1.311C18.72 21 17.88 21 16.2 21H7.8c-1.68 0-2.52 0-3.162-.327a3 3 0 0 1-1.311-1.311C3 18.72 3 17.88 3 16.2V7.8Z"></path>
+                  <path d="m7.5 12 3 3 6-6"></path>
+                </svg>
+                <span className="text-green-800">Get instant notifications</span>
+              </div>
+            </div>
+
+            <div className="bg-blue-50 p-4 rounded-lg mb-4 w-full">
+              <div className="flex items-center">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="text-blue-600 mr-2"
+                >
+                  <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"></path>
+                  <path d="m9 12 2 2 4-4"></path>
+                </svg>
+                <span className="text-blue-800">Connect with your yoga community</span>
+              </div>
+            </div>
+
+            <div className="bg-purple-50 p-4 rounded-lg w-full">
+              <div className="flex items-center">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="text-purple-600 mr-2"
+                >
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="9" cy="7" r="4"></circle>
+                  <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                </svg>
+                <span className="text-purple-800">Ask questions directly to instructors</span>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="flex flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={handleDismissWhatsApp} className="sm:w-1/2">
+              Remind Me Later
+            </Button>
+            <Button onClick={handleJoinWhatsApp} className="bg-green-600 hover:bg-green-700 sm:w-1/2">
+              Join WhatsApp Channel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Subscription Selection Dialog */}
+      <Dialog open={showSubscriptionDialog} onOpenChange={setShowSubscriptionDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-center">Join Your WhatsApp Groups</DialogTitle>
+            <DialogDescription className="text-center pt-2">
+              Select a subscription to join its WhatsApp group
+            </DialogDescription>
+          </DialogHeader>
+
+          {loadingSubscriptions ? (
+            <div className="flex flex-col items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
+              <p className="text-sm text-muted-foreground">Loading your subscriptions...</p>
+            </div>
+          ) : userSubscriptions.length === 0 ? (
+            <div className="py-6 text-center">
+              <MessageSquare className="h-12 w-12 text-muted-foreground mx-auto mb-3 opacity-50" />
+              <h3 className="text-lg font-medium mb-2">No WhatsApp Groups Available</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                None of your active subscriptions have WhatsApp groups set up.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4 py-4">
+              <p className="text-sm text-amber-700 bg-amber-50 p-3 rounded-md mb-4 flex items-start">
+                <Info className="h-4 w-4 mr-2 mt-0.5 text-amber-500 flex-shrink-0" />
+                <span>
+                  You can access each WhatsApp group once for free. After that, you'll need to contact an admin for
+                  additional access.
+                </span>
+              </p>
+
+              {userSubscriptions.map((subscription) => {
+                const accessCount = accessCounts[subscription.id.toString()] || 0
+                const canAccess = accessCount < 1
+
+                return (
+                  <div key={subscription.id} className="border rounded-lg p-4 hover:border-green-300 transition-all">
+                    <div className="flex justify-between items-start mb-2">
+                      <h3 className="font-medium">{subscription.name}</h3>
+                      <Badge
+                        className={
+                          canAccess
+                            ? "bg-green-100 text-green-800 border-green-300"
+                            : "bg-gray-100 text-gray-800 border-gray-300"
+                        }
+                      >
+                        {canAccess ? "Available" : "Access Used"}
+                      </Badge>
+                    </div>
+                    {subscription.description && (
+                      <p className="text-sm text-muted-foreground mb-3">{subscription.description}</p>
+                    )}
+                    <Button
+                      onClick={() => handleSelectSubscription(subscription)}
+                      className="w-full"
+                      variant={canAccess ? "default" : "outline"}
+                      disabled={!canAccess}
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="mr-2"
+                      >
+                        <path d="M3 21l1.65-3.8a9 9 0 1 1 3.4 2.9L3 21" />
+                        <path d="M9 10a.5.5 0 0 0 1 0V9a.5.5 0 0 0-1 0v1Z" />
+                        <path d="M14 10a.5.5 0 0 0 1 0V9a.5.5 0 0 0-1 0v1Z" />
+                        <path d="M9 14a5 5 0 0 0 6 0" />
+                      </svg>
+                      {canAccess ? "Join WhatsApp Group" : "Contact Admin for Access"}
+                    </Button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowSubscriptionDialog(false)
+                localStorage.setItem("hasSeenWhatsAppNotification", "true")
+              }}
+              className="w-full"
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </UserLayout>
   )
 }

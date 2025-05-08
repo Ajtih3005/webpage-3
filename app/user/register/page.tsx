@@ -14,12 +14,24 @@ import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { generateUserId } from "@/lib/utils"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
+import { countries } from "@/lib/utils"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { X } from "lucide-react"
 
 export default function UserRegister() {
   const router = useRouter()
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
+  const [country, setCountry] = useState("India")
   const [phoneNumber, setPhoneNumber] = useState("")
+  const [whatsappSameAsPhone, setWhatsappSameAsPhone] = useState(true)
   const [whatsappNumber, setWhatsappNumber] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
@@ -28,6 +40,7 @@ export default function UserRegister() {
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [showWhatsAppDialog, setShowWhatsAppDialog] = useState(false)
 
   const validateForm = () => {
     if (!name.trim()) return "Name is required"
@@ -40,12 +53,10 @@ export default function UserRegister() {
 
     if (!phoneNumber.trim()) {
       return "Phone number is required"
-    } else if (!/^\d{10}$/.test(phoneNumber.replace(/\D/g, ""))) {
-      return "Please enter a valid 10-digit phone number"
     }
 
-    if (whatsappNumber && !/^\d{10}$/.test(whatsappNumber.replace(/\D/g, ""))) {
-      return "Please enter a valid 10-digit WhatsApp number"
+    if (!whatsappSameAsPhone && !whatsappNumber.trim()) {
+      return "WhatsApp number is required if different from phone number"
     }
 
     if (!password) {
@@ -61,6 +72,7 @@ export default function UserRegister() {
     return null
   }
 
+  // Update the handleSubmit function to ensure it calls the auto-assign-free-subscription API
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -100,23 +112,50 @@ export default function UserRegister() {
             name,
             email,
             phone_number: phoneNumber,
-            whatsapp_number: whatsappNumber || null,
+            whatsapp_number: whatsappSameAsPhone ? phoneNumber : whatsappNumber,
             preferred_batch: preferredBatch || null,
             password, // In a real app, you'd hash this
+            country,
           },
         ])
         .select()
 
       if (error) throw error
 
-      // Redirect to login page
-      router.push("/user/login?registered=true")
+      // Assign the free subscription to the new user
+      try {
+        const response = await fetch("/api/auto-assign-free-subscription", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ userId }),
+        })
+
+        if (!response.ok) {
+          console.error("Failed to assign free subscription:", await response.text())
+          // Continue with registration even if subscription assignment fails
+        } else {
+          console.log("Successfully assigned free 30-day subscription to new user")
+        }
+      } catch (subscriptionError) {
+        console.error("Error assigning free subscription:", subscriptionError)
+        // Continue with registration even if subscription assignment fails
+      }
+
+      // Show WhatsApp dialog instead of redirecting
+      setShowWhatsAppDialog(true)
     } catch (error) {
       console.error("Registration error:", error)
       setError("An error occurred during registration. Please try again.")
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleWhatsAppRedirect = () => {
+    window.open("https://chat.whatsapp.com/H81SwZ9TxAPLqoU43yTYDW", "_blank")
+    router.push("/user/login?registered=true")
   }
 
   return (
@@ -157,6 +196,23 @@ export default function UserRegister() {
                   />
                 </div>
 
+                {/* Country */}
+                <div className="space-y-2">
+                  <Label htmlFor="country">Country</Label>
+                  <Select value={country} onValueChange={setCountry}>
+                    <SelectTrigger id="country">
+                      <SelectValue placeholder="Select your country" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {countries.map((country) => (
+                        <SelectItem key={country} value={country}>
+                          {country}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 {/* Phone Number */}
                 <div className="space-y-2">
                   <Label htmlFor="phone">Phone Number</Label>
@@ -171,14 +227,29 @@ export default function UserRegister() {
 
                 {/* WhatsApp Number */}
                 <div className="space-y-2">
-                  <Label htmlFor="whatsapp">WhatsApp Number (Optional)</Label>
-                  <Input
-                    id="whatsapp"
-                    type="tel"
-                    placeholder="Enter your WhatsApp number if different"
-                    value={whatsappNumber}
-                    onChange={(e) => setWhatsappNumber(e.target.value)}
-                  />
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="whatsapp-same"
+                      checked={whatsappSameAsPhone}
+                      onChange={(e) => setWhatsappSameAsPhone(e.target.checked)}
+                      className="rounded border-gray-300 text-primary focus:ring-primary"
+                    />
+                    <Label htmlFor="whatsapp-same">WhatsApp number is same as phone number</Label>
+                  </div>
+
+                  {!whatsappSameAsPhone && (
+                    <div className="mt-2">
+                      <Label htmlFor="whatsapp">WhatsApp Number</Label>
+                      <Input
+                        id="whatsapp"
+                        type="tel"
+                        placeholder="Enter your WhatsApp number"
+                        value={whatsappNumber}
+                        onChange={(e) => setWhatsappNumber(e.target.value)}
+                      />
+                    </div>
+                  )}
                 </div>
 
                 {/* Preferred Batch */}
@@ -271,6 +342,37 @@ export default function UserRegister() {
           </form>
         </Card>
       </div>
+      {/* WhatsApp Group Dialog */}
+      <Dialog open={showWhatsAppDialog} onOpenChange={setShowWhatsAppDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="flex justify-between items-center">
+              <DialogTitle>Registration Successful</DialogTitle>
+              <Button
+                variant="ghost"
+                className="h-8 w-8 p-0"
+                onClick={() => {
+                  setShowWhatsAppDialog(false)
+                  router.push("/user/login?registered=true")
+                }}
+              >
+                <X className="h-4 w-4" />
+                <span className="sr-only">Close</span>
+              </Button>
+            </div>
+            <DialogDescription>You have been successfully registered!</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p>For updates on upcoming sessions and easier access to course materials, join our WhatsApp group.</p>
+            <p className="font-medium">It is highly recommended to join the group for the best experience.</p>
+          </div>
+          <DialogFooter>
+            <Button type="button" className="w-full" onClick={handleWhatsAppRedirect}>
+              OK - Redirect to WhatsApp
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

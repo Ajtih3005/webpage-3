@@ -2,13 +2,16 @@
 
 import { useEffect, useState } from "react"
 import { UserLayout } from "@/components/user-layout"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
-import { formatDate, getBatchLabel } from "@/lib/utils"
-import { PlayCircle, Calendar, Clock } from "lucide-react"
+import { formatDate } from "@/lib/utils"
+import { PlayCircle, Calendar, ChevronDown, ChevronUp, Clock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { toast } from "@/hooks/use-toast"
 
 interface Course {
   id: number
@@ -41,6 +44,7 @@ export default function PreviousSessions() {
   const [previousCourses, setPreviousCourses] = useState<Course[]>([])
   const [groupedCourses, setGroupedCourses] = useState<GroupedCourse[]>([])
   const [loading, setLoading] = useState(true)
+  const [expandedCourseId, setExpandedCourseId] = useState<number | null>(null)
   const router = useRouter()
 
   useEffect(() => {
@@ -85,51 +89,91 @@ export default function PreviousSessions() {
 
       const userId = localStorage.getItem("userId")
       if (!userId) {
-        throw new Error("User ID not found")
+        toast({
+          title: "Error",
+          description: "User ID not found. Please log in again.",
+          variant: "destructive",
+        })
+        return
       }
 
       const supabase = getSupabaseBrowserClient()
 
-      // Calculate dates for the previous 2 days
+      // First, get the user's active subscriptions
+      const { data: userSubscriptions, error: subError } = await supabase
+        .from("user_subscriptions")
+        .select(`
+    id, 
+    subscription_id, 
+    start_date, 
+    end_date, 
+    is_active,
+    subscription:subscriptions (
+      id,
+      name,
+      description
+    )
+  `)
+        .eq("user_id", userId)
+        .eq("is_active", true)
+
+      if (subError) throw subError
+
+      // Check if any subscription has full_availability enabled
+      const hasFullAvailability = false
+
+      // Calculate dates for fetching previous sessions
       const today = new Date()
-      const twoDaysAgo = new Date(today)
-      twoDaysAgo.setDate(today.getDate() - 2)
+
+      let startDate: Date
+      if (hasFullAvailability) {
+        // If full availability is enabled, get all courses until subscription end + 10 days
+        // Find the latest subscription end date
+        const latestEndDate = userSubscriptions?.reduce((latest, sub) => {
+          if (!sub.end_date) return latest
+          const endDate = new Date(sub.end_date)
+          // Add 10 days to the end date
+          endDate.setDate(endDate.getDate() + 10)
+          return endDate > latest ? endDate : latest
+        }, new Date(0))
+
+        // If we have a valid end date, use it, otherwise default to 2 days ago
+        if (latestEndDate && latestEndDate > new Date(0)) {
+          startDate = new Date(0) // Start from the beginning of time
+        } else {
+          // Default to 2 days ago if no valid subscription end date
+          startDate = new Date(today)
+          startDate.setDate(today.getDate() - 2)
+        }
+      } else {
+        // If full availability is disabled, only show the previous 2 days
+        startDate = new Date(today)
+        startDate.setDate(today.getDate() - 2)
+      }
 
       // Format dates as YYYY-MM-DD
       const todayFormatted = today.toLocaleDateString("en-CA")
-      const twoDaysAgoFormatted = twoDaysAgo.toLocaleDateString("en-CA")
+      const startDateFormatted = startDate.toLocaleDateString("en-CA")
 
-      // Get user's attended courses from the previous 2 days
-      const { data: userAttendedCourses, error: attendanceError } = await supabase
-        .from("user_courses")
-        .select("course_id, attended, completed_video")
-        .eq("user_id", userId)
-        .eq("attended", true) // Only get courses the user has attended
+      // Get all active subscription IDs
+      const activeSubscriptionIds = userSubscriptions?.map((sub) => sub.subscription_id) || []
 
-      if (attendanceError) throw attendanceError
-
-      if (!userAttendedCourses || userAttendedCourses.length === 0) {
-        setPreviousCourses([])
-        setGroupedCourses([])
-        setLoading(false)
-        return
-      }
-
-      // Get the course IDs the user has attended
-      const attendedCourseIds = userAttendedCourses.map((record) => record.course_id)
-
-      // Fetch courses from the previous 2 days that the user has attended
+      // Fetch courses based on the date range and subscription access
       const { data, error } = await supabase
         .from("courses")
         .select("*")
-        .in("id", attendedCourseIds)
-        .gte("scheduled_date", twoDaysAgoFormatted) // Greater than or equal to 2 days ago
-        .lt("scheduled_date", todayFormatted) // Less than today
+        .or(
+          `subscription_id.is.null,${
+            activeSubscriptionIds.length > 0 ? `subscription_id.in.(${activeSubscriptionIds.join(",")})` : ""
+          }`,
+        )
+        .lte("scheduled_date", todayFormatted) // Less than or equal to today (only past sessions)
+        .gte("scheduled_date", hasFullAvailability ? "1970-01-01" : startDateFormatted) // All past sessions or just last 2 days
         .order("scheduled_date", { ascending: false })
 
       if (error) throw error
 
-      // If no courses found from the previous two days
+      // If no courses found
       if (!data || data.length === 0) {
         setPreviousCourses([])
         setGroupedCourses([])
@@ -144,96 +188,226 @@ export default function PreviousSessions() {
       setGroupedCourses(grouped)
     } catch (error) {
       console.error("Error fetching previous sessions:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load previous sessions. Please try again.",
+        variant: "destructive",
+      })
     } finally {
       setLoading(false)
     }
   }
 
-  async function viewPreviousSession(courseId: number) {
-    try {
-      const userId = localStorage.getItem("userId")
-      if (!userId) {
-        throw new Error("User ID not found")
-      }
-
-      const supabase = getSupabaseBrowserClient()
-
-      // Get course details
-      const { data: course, error: courseError } = await supabase
-        .from("courses")
-        .select("*")
-        .eq("id", courseId)
-        .single()
-
-      if (courseError) throw courseError
-
-      // Navigate to a dedicated page for viewing previous sessions
-      router.push(`/user/view-session/${courseId}`)
-    } catch (error) {
-      console.error("Error viewing previous session:", error)
+  // Toggle expanded state for a course
+  const toggleExpanded = (courseId: number) => {
+    if (expandedCourseId === courseId) {
+      setExpandedCourseId(null)
+    } else {
+      setExpandedCourseId(courseId)
     }
+  }
+
+  // Handle watching a previous session
+  const handleWatchSession = (courseId: number) => {
+    router.push(`/user/video-player/${courseId}`)
+  }
+
+  // Get batch time display
+  const getBatchTimeDisplay = (course: GroupedCourse) => {
+    if (course.batches.length === 0) return "No batch information"
+
+    const batch = course.batches[0]
+    if (batch.is_predefined_batch && batch.batch_number) {
+      return `Batch ${batch.batch_number}`
+    } else if (!batch.is_predefined_batch && batch.custom_batch_time) {
+      return batch.custom_batch_time
+    }
+    return "Time not specified"
   }
 
   return (
     <UserLayout>
       <div className="space-y-6">
-        <h1 className="text-3xl font-bold">Previous Sessions</h1>
+        {/* Hero section with background */}
+        <div
+          className="relative bg-cover bg-center py-12 mb-8 rounded-xl overflow-hidden"
+          style={{
+            backgroundImage: "url('/images/forest-pattern-bg.jpg')",
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+          }}
+        >
+          <div className="absolute inset-0 bg-black/50"></div>
+          <div className="container relative z-10 text-center">
+            <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">Previous Sessions</h1>
+            <p className="text-xl text-white/90 max-w-2xl mx-auto">
+              {groupedCourses.length > 0
+                ? "Watch your past yoga sessions anytime"
+                : "Watch any sessions from the past two days that you may have missed"}
+            </p>
+          </div>
+        </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Previous Sessions</CardTitle>
-            <CardDescription>View sessions from the previous two days</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <p>Loading previous sessions...</p>
-            ) : groupedCourses.length === 0 ? (
-              <p className="text-muted-foreground">No sessions were held in the past two days.</p>
-            ) : (
-              <div className="space-y-6">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-12 space-y-4">
+            <div className="h-12 w-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-lg text-muted-foreground">Loading previous sessions...</p>
+          </div>
+        ) : groupedCourses.length === 0 ? (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-8 text-center">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-amber-100 mb-4">
+              <Calendar className="h-8 w-8 text-amber-600" />
+            </div>
+            <h3 className="text-xl font-medium text-amber-800 mb-2">No Previous Sessions Available</h3>
+            <p className="text-amber-700 max-w-md mx-auto">
+              There aren't any past sessions available for you to watch right now.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            <Tabs defaultValue="list" className="w-full">
+              <TabsList className="grid w-full grid-cols-2 mb-6">
+                <TabsTrigger value="list">List View</TabsTrigger>
+                <TabsTrigger value="grid">Grid View</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="list" className="space-y-4">
                 {groupedCourses.map((course) => (
-                  <Card key={`${course.title}_${course.scheduled_date}_${course.language}`} className="overflow-hidden">
-                    <CardHeader className="bg-gray-50">
-                      <div className="flex justify-between items-start">
+                  <Collapsible
+                    key={`${course.title}_${course.scheduled_date}_${course.language}`}
+                    open={expandedCourseId === course.id}
+                    onOpenChange={() => toggleExpanded(course.id)}
+                    className="border rounded-lg overflow-hidden transition-all duration-300 hover:shadow-md"
+                  >
+                    <div className="bg-gradient-to-r from-purple-50 to-blue-50 border-b">
+                      <CollapsibleTrigger className="flex justify-between items-center w-full p-4 text-left">
                         <div>
-                          <CardTitle>{course.title}</CardTitle>
-                          <CardDescription className="flex items-center mt-1">
+                          <h3 className="text-xl font-semibold">{course.title}</h3>
+                          <div className="flex items-center mt-1 text-sm text-gray-600">
                             <Calendar className="h-4 w-4 mr-1" />
-                            {formatDate(course.scheduled_date)}
-                            <Badge variant="outline" className="ml-2">
+                            <span>{formatDate(course.scheduled_date)}</span>
+                            <Badge variant="outline" className="ml-2 bg-white">
                               {course.language}
                             </Badge>
-                          </CardDescription>
+                          </div>
                         </div>
-                        <Button variant="outline" size="sm" onClick={() => viewPreviousSession(course.id)}>
+                        <div className="flex items-center">
+                          <Button
+                            variant="default"
+                            size="sm"
+                            className="mr-2"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleWatchSession(course.id)
+                            }}
+                          >
+                            <PlayCircle className="h-4 w-4 mr-1" />
+                            View Session
+                          </Button>
+                          <Button variant="ghost" size="sm">
+                            {expandedCourseId === course.id ? (
+                              <ChevronUp className="h-5 w-5" />
+                            ) : (
+                              <ChevronDown className="h-5 w-5" />
+                            )}
+                          </Button>
+                        </div>
+                      </CollapsibleTrigger>
+                    </div>
+
+                    <CollapsibleContent>
+                      <div className="p-4">
+                        {course.description && (
+                          <p className="mb-6 text-gray-700 italic border-l-4 border-gray-200 pl-3">
+                            {course.description}
+                          </p>
+                        )}
+
+                        <div className="flex flex-col md:flex-row gap-4 mb-4">
+                          <div className="flex items-center">
+                            <Calendar className="h-5 w-5 mr-2 text-gray-500" />
+                            <span className="text-gray-700">Date: {formatDate(course.scheduled_date)}</span>
+                          </div>
+                          <div className="flex items-center">
+                            <Clock className="h-5 w-5 mr-2 text-gray-500" />
+                            <span className="text-gray-700">Time: {getBatchTimeDisplay(course)}</span>
+                          </div>
+                          <div className="flex items-center">
+                            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                              {course.language}
+                            </Badge>
+                          </div>
+                        </div>
+
+                        <div className="mt-6 flex justify-end">
+                          <Button
+                            variant="default"
+                            className="flex items-center"
+                            onClick={() => handleWatchSession(course.id)}
+                          >
+                            <PlayCircle className="h-4 w-4 mr-2" />
+                            View Session
+                          </Button>
+                        </div>
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                ))}
+              </TabsContent>
+
+              <TabsContent value="grid" className="w-full">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {groupedCourses.map((course) => (
+                    <Card
+                      key={`${course.title}_${course.scheduled_date}_${course.language}`}
+                      className="overflow-hidden hover:shadow-lg transition-all duration-300"
+                    >
+                      {/* Session Thumbnail */}
+                      <div className="relative aspect-video bg-gradient-to-r from-purple-100 to-blue-100 overflow-hidden flex items-center justify-center">
+                        <div className="text-center p-4">
+                          <h3 className="text-xl font-semibold text-gray-800">{course.title}</h3>
+                          <p className="text-sm text-gray-600 mt-2">{formatDate(course.scheduled_date)}</p>
+                        </div>
+                      </div>
+
+                      <CardHeader>
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <CardTitle>{course.title}</CardTitle>
+                            <CardDescription className="flex items-center mt-1">
+                              <Calendar className="h-4 w-4 mr-1" />
+                              {formatDate(course.scheduled_date)}
+                            </CardDescription>
+                          </div>
+                          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                            {course.language}
+                          </Badge>
+                        </div>
+                      </CardHeader>
+
+                      <CardContent>
+                        {course.description && (
+                          <p className="mb-4 text-sm text-gray-600 line-clamp-2">{course.description}</p>
+                        )}
+                        <div className="flex items-center text-sm text-gray-500">
+                          <Clock className="h-4 w-4 mr-1" />
+                          <span>{getBatchTimeDisplay(course)}</span>
+                        </div>
+                      </CardContent>
+
+                      <CardFooter className="pt-0">
+                        <Button className="w-full" onClick={() => handleWatchSession(course.id)}>
                           <PlayCircle className="h-4 w-4 mr-2" />
                           View Session
                         </Button>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="pt-4">
-                      {course.description && <p className="mb-4 text-sm text-gray-600">{course.description}</p>}
-
-                      <div className="mt-2">
-                        <h4 className="text-sm font-medium mb-2">Batches:</h4>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-                          {course.batches.map((batch) => (
-                            <div key={batch.id} className="text-sm text-gray-600 flex items-center">
-                              <Clock className="h-4 w-4 mr-1 text-gray-400" />
-                              {batch.is_predefined_batch && batch.batch_number
-                                ? getBatchLabel(batch.batch_number)
-                                : batch.custom_batch_time}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                      </CardFooter>
+                    </Card>
+                  ))}
+                </div>
+              </TabsContent>
+            </Tabs>
+          </div>
+        )}
       </div>
     </UserLayout>
   )

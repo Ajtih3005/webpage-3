@@ -113,6 +113,13 @@ export default function ViewPreviousSession({ params }: { params: { id: string }
           ;(videoContainerRef.current as any).msRequestFullscreen()
         }
         setIsFullscreen(true)
+
+        // For mobile: force landscape orientation if supported
+        if (screen.orientation && screen.orientation.lock) {
+          screen.orientation.lock("landscape").catch((err) => {
+            console.log("Orientation lock failed:", err)
+          })
+        }
       } else {
         // Exit fullscreen
         if (document.exitFullscreen) {
@@ -133,7 +140,7 @@ export default function ViewPreviousSession({ params }: { params: { id: string }
 
   // Update the getYoutubePreviousSessionUrl function to be more reliable:
 
-  // Generate a YouTube embed URL for previous sessions (with controls)
+  // Generate a YouTube embed URL for previous sessions (with limited controls)
   const getYoutubePreviousSessionUrl = (youtubeLink: string) => {
     // Extract video ID from various YouTube URL formats
     const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/
@@ -147,9 +154,45 @@ export default function ViewPreviousSession({ params }: { params: { id: string }
     const videoId = match[2]
     const baseUrl = `https://www.youtube.com/embed/${videoId}`
 
-    // For previous sessions: allow basic controls with minimal parameters
-    return `${baseUrl}?controls=1&rel=0&showinfo=0&modestbranding=1`
+    // For previous sessions: allow only play/pause controls with strict parameters
+    return `${baseUrl}?controls=1&rel=0&showinfo=0&modestbranding=1&disablekb=1&fs=0&iv_load_policy=3&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}&widget_referrer=${encodeURIComponent(window.location.origin)}`
   }
+
+  useEffect(() => {
+    const handleOrientationChange = () => {
+      if (document.fullscreenElement && window.innerHeight > window.innerWidth) {
+        // If we're in fullscreen but in portrait mode, this might be causing issues
+        // Try to exit and re-enter fullscreen
+        document
+          .exitFullscreen()
+          .then(() => {
+            if (videoContainerRef.current) {
+              videoContainerRef.current.requestFullscreen().catch((err) => {
+                console.error("Error attempting to re-enter fullscreen:", err)
+              })
+            }
+          })
+          .catch((err) => {
+            console.error("Error exiting fullscreen:", err)
+          })
+      }
+    }
+
+    // Add event listener for orientation changes
+    window.addEventListener("orientationchange", handleOrientationChange)
+
+    // Add event listener for fullscreen changes
+    document.addEventListener("fullscreenchange", () => {
+      setIsFullscreen(!!document.fullscreenElement)
+    })
+
+    return () => {
+      window.removeEventListener("orientationchange", handleOrientationChange)
+      document.removeEventListener("fullscreenchange", () => {
+        setIsFullscreen(!!document.fullscreenElement)
+      })
+    }
+  }, [])
 
   return (
     <UserLayout>
@@ -197,10 +240,12 @@ export default function ViewPreviousSession({ params }: { params: { id: string }
                   </Button>
                 </div>
 
-                <div className="aspect-video rounded-md overflow-hidden bg-gray-100 relative">
+                <div
+                  className={`aspect-video rounded-md overflow-hidden bg-gray-100 relative ${isFullscreen ? "fixed inset-0 z-50 bg-black" : ""}`}
+                >
                   <iframe
                     src={getYoutubePreviousSessionUrl(course.youtube_link)}
-                    className="w-full h-full"
+                    className={`w-full h-full ${isFullscreen ? "absolute inset-0" : ""}`}
                     title={course.title}
                     allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
                     allowFullScreen={false}

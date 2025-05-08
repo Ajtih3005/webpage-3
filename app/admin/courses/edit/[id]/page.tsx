@@ -37,6 +37,18 @@ export default function EditCourse({ params }: { params: { id: string } }) {
   const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
 
+  // Add state for scheduling type
+  const [schedulingType, setSchedulingType] = useState<"date" | "day" | "week">("date")
+  const [subscriptionDay, setSubscriptionDay] = useState<number>(1)
+  const [subscriptionWeek, setSubscriptionWeek] = useState<number>(1)
+  const [scheduledDate, setScheduledDate] = useState<Date | undefined>(undefined)
+  const [selectedSubscriptionId, setSelectedSubscriptionId] = useState<string | null>(null)
+  const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string>("")
+  const [error, setError] = useState<string>("")
+  const [submitting, setSubmitting] = useState<boolean>(false)
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false)
+
   useEffect(() => {
     fetchCourse()
     fetchSubscriptions()
@@ -75,6 +87,14 @@ export default function EditCourse({ params }: { params: { id: string } }) {
         setCustomBatchTime(data.custom_batch_time || "")
         setSubscriptionId(data.subscription_id ? data.subscription_id.toString() : null)
         setLanguage(data.language || "English")
+
+        // Set scheduling type and related fields
+        setSchedulingType(data.scheduling_type || "date")
+        setSubscriptionDay(data.subscription_day || 1)
+        setSubscriptionWeek(data.subscription_week || 1)
+        setScheduledDate(data.scheduled_date ? new Date(data.scheduled_date) : undefined)
+        setSelectedSubscriptionId(data.subscription_id ? data.subscription_id.toString() : null)
+        setSelectedBatchId(data.batch_id ? data.batch_id.toString() : null)
       }
     } catch (error) {
       console.error("Error fetching course:", error)
@@ -119,53 +139,97 @@ export default function EditCourse({ params }: { params: { id: string } }) {
     return Object.keys(newErrors).length === 0
   }
 
+  const handleDateSelect = (date: Date | undefined) => {
+    console.log("Date selected:", date)
+    setScheduledDate(date)
+    setIsDatePickerOpen(false)
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!validateForm()) return
+    // Prevent form submission if date picker is open
+    if (isDatePickerOpen) {
+      console.log("Date picker is open, preventing form submission")
+      return
+    }
+
+    setSubmitting(true)
+    setError("")
 
     try {
-      setSaving(true)
-      const supabase = getSupabaseBrowserClient()
-
-      // Make sure we have a valid date, defaulting to today if none is selected
-      if (!date) {
-        console.error("No date selected, using current date")
-        setDate(new Date())
+      // Validate form
+      if (!title) {
+        throw new Error("Title is required")
       }
 
-      // Format the date as YYYY-MM-DD, ensuring we're using the date in the correct timezone
-      const formattedDate = date
-        ? new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().split("T")[0]
-        : new Date().toISOString().split("T")[0]
+      if (!youtubeLink) {
+        throw new Error("YouTube link is required")
+      }
 
-      console.log("Updating course with date:", formattedDate, "Original date object:", date)
+      if (schedulingType === "date" && !scheduledDate) {
+        throw new Error("Scheduled date is required")
+      }
 
-      const { error } = await supabase
-        .from("courses")
-        .update({
-          title,
-          description,
-          youtube_link: youtubeLink,
-          scheduled_date: formattedDate,
-          is_predefined_batch: isPredefinedBatch,
-          batch_number: isPredefinedBatch ? batchNumber : null,
-          custom_batch_time: !isPredefinedBatch ? customBatchTime : null,
-          subscription_id: subscriptionId ? Number.parseInt(subscriptionId) : null,
-          language,
-        })
-        .eq("id", courseId)
+      if (schedulingType === "day" && (!subscriptionDay || subscriptionDay < 1)) {
+        throw new Error("Valid subscription day is required")
+      }
+
+      if (schedulingType === "week" && (!subscriptionWeek || subscriptionWeek < 1)) {
+        throw new Error("Valid subscription week is required")
+      }
+
+      // Prepare course data
+      const courseData: any = {
+        title,
+        description,
+        youtube_link: youtubeLink,
+        language,
+        scheduling_type: schedulingType,
+      }
+
+      // Add the appropriate scheduling field based on type
+      if (schedulingType === "date") {
+        courseData.scheduled_date = scheduledDate?.toISOString()
+        courseData.subscription_day = null
+        courseData.subscription_week = null
+      } else if (schedulingType === "day") {
+        courseData.scheduled_date = null
+        courseData.subscription_day = subscriptionDay
+        courseData.subscription_week = null
+      } else if (schedulingType === "week") {
+        courseData.scheduled_date = null
+        courseData.subscription_day = null
+        courseData.subscription_week = subscriptionWeek
+      }
+
+      // Add subscription ID if selected
+      if (selectedSubscriptionId) {
+        courseData.subscription_id = selectedSubscriptionId
+      }
+
+      // Add batch ID if selected
+      if (selectedBatchId) {
+        courseData.batch_id = selectedBatchId
+      }
+
+      console.log("Updating course with data:", courseData)
+
+      const supabase = getSupabaseBrowserClient()
+      const { error } = await supabase.from("courses").update(courseData).eq("id", courseId)
 
       if (error) {
         console.error("Error updating course:", error)
         throw error
       }
 
-      console.log("Course updated successfully with date:", formattedDate)
+      console.log("Course updated successfully with date:", courseData.scheduled_date)
+      setSuccess("Course updated successfully!")
       router.push("/admin/courses")
     } catch (error) {
       console.error("Error updating course:", error)
-      alert("Error updating course. Please check the console for details.")
+      setError(error instanceof Error ? error.message : "An unknown error occurred")
+      setSubmitting(false)
     } finally {
       setSaving(false)
     }
@@ -245,40 +309,92 @@ export default function EditCourse({ params }: { params: { id: string } }) {
                 {errors.language && <p className="text-sm text-red-500">{errors.language}</p>}
               </div>
 
-              {/* Scheduled Date */}
+              {/* Scheduling Type Selection */}
               <div className="space-y-2">
-                <Label>Scheduled Date</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn("w-full justify-start text-left font-normal", !date && "text-muted-foreground")}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {date ? format(date, "PPP") : "Select a date"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar
-                      mode="single"
-                      selected={date}
-                      onSelect={(newDate) => {
-                        if (newDate) {
-                          console.log("Date selected:", newDate, "ISO string:", newDate.toISOString())
-                          // Create a new Date object to ensure we're not dealing with references
-                          const selectedDate = new Date(newDate)
-                          setDate(selectedDate)
-                        } else {
-                          console.log("Date selection cleared")
-                          setDate(undefined)
-                        }
-                      }}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-                {errors.date && <p className="text-sm text-red-500">{errors.date}</p>}
+                <Label htmlFor="scheduling-type">Scheduling Type</Label>
+                <Select
+                  value={schedulingType}
+                  onValueChange={(value) => setSchedulingType(value as "date" | "day" | "week")}
+                >
+                  <SelectTrigger id="scheduling-type">
+                    <SelectValue placeholder="Select scheduling type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="date">Specific Date</SelectItem>
+                    <SelectItem value="day">Subscription Day</SelectItem>
+                    <SelectItem value="week">Subscription Week</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-sm text-muted-foreground">Choose how this course should be scheduled for users</p>
               </div>
+
+              {schedulingType === "date" && (
+                <div className="space-y-2">
+                  <Label htmlFor="scheduled-date">Scheduled Date</Label>
+                  <Popover
+                    open={isDatePickerOpen}
+                    onOpenChange={(open) => {
+                      console.log("Date picker open state changed:", open)
+                      setIsDatePickerOpen(open)
+                    }}
+                  >
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button" // Important: specify button type to prevent form submission
+                        variant={"outline"}
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !scheduledDate && "text-muted-foreground",
+                        )}
+                        onClick={(e) => {
+                          e.preventDefault() // Prevent form submission
+                          setIsDatePickerOpen(true)
+                        }}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {scheduledDate ? format(scheduledDate, "PPP") : <span>Pick a date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" onClick={(e) => e.stopPropagation()}>
+                      <Calendar mode="single" selected={scheduledDate} onSelect={handleDateSelect} initialFocus />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              )}
+
+              {schedulingType === "day" && (
+                <div className="space-y-2">
+                  <Label htmlFor="subscription-day">Subscription Day</Label>
+                  <Input
+                    id="subscription-day"
+                    type="number"
+                    min="1"
+                    value={subscriptionDay}
+                    onChange={(e) => setSubscriptionDay(Number.parseInt(e.target.value) || 1)}
+                    placeholder="Day number (e.g., 1, 2, 3...)"
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Day number from when user starts subscription (Day 1, Day 2, etc.)
+                  </p>
+                </div>
+              )}
+
+              {schedulingType === "week" && (
+                <div className="space-y-2">
+                  <Label htmlFor="subscription-week">Subscription Week</Label>
+                  <Input
+                    id="subscription-week"
+                    type="number"
+                    min="1"
+                    value={subscriptionWeek}
+                    onChange={(e) => setSubscriptionWeek(Number.parseInt(e.target.value) || 1)}
+                    placeholder="Week number (e.g., 1, 2, 3...)"
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Week number from when user starts subscription (Week 1, Week 2, etc.)
+                  </p>
+                </div>
+              )}
 
               {/* Batch Selection */}
               <div className="space-y-4">
@@ -338,10 +454,17 @@ export default function EditCourse({ params }: { params: { id: string } }) {
               </div>
             </CardContent>
             <CardFooter className="flex justify-between">
-              <Button type="button" variant="outline" onClick={() => router.push("/admin/courses")}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={(e) => {
+                  e.preventDefault()
+                  router.push("/admin/courses")
+                }}
+              >
                 Cancel
               </Button>
-              <Button type="submit" disabled={saving}>
+              <Button type="submit" disabled={saving || isDatePickerOpen}>
                 {saving ? "Saving..." : "Save Changes"}
               </Button>
             </CardFooter>

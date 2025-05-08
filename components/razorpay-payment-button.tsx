@@ -1,51 +1,68 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Loader2 } from "lucide-react"
-
-declare global {
-  interface Window {
-    Razorpay: any
-  }
-}
+import { useRouter } from "next/navigation"
+import { getSupabaseBrowserClient } from "@/lib/supabase"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 interface RazorpayPaymentButtonProps {
-  subscriptionId: number
-  subscriptionName: string
   amount: number
-  duration_days: number
-  onSuccess?: () => void
-  onError?: (error: any) => void
+  subscriptionId: number | string
+  userId: string
+  duration?: number
   buttonText?: string
-  disabled?: boolean
-  variant?: "default" | "outline" | "secondary" | "destructive" | "ghost" | "link"
+  className?: string
+  notes?: Record<string, string>
+  onSuccess?: (response: any) => void
+  onError?: (error: any) => void
 }
 
-export default function RazorpayPaymentButton({
-  subscriptionId,
-  subscriptionName,
+export function RazorpayPaymentButton({
   amount,
-  duration_days,
+  subscriptionId,
+  userId,
+  duration,
+  buttonText = "Pay Now",
+  className = "",
+  notes = {},
   onSuccess,
   onError,
-  buttonText = "Subscribe Now",
-  disabled = false,
-  variant = "default",
 }: RazorpayPaymentButtonProps) {
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [razorpayKey, setRazorpayKey] = useState<string | null>(null)
+  const [orderId, setOrderId] = useState<string | null>(null)
+  const router = useRouter()
 
-  const handlePayment = async () => {
+  useEffect(() => {
+    // Fetch Razorpay key
+    async function fetchRazorpayKey() {
+      try {
+        const response = await fetch("/api/razorpay/get-key")
+        const data = await response.json()
+
+        if (data.key) {
+          setRazorpayKey(data.key)
+        } else {
+          setError("Failed to load payment gateway. Please try again later.")
+        }
+      } catch (err) {
+        console.error("Error fetching Razorpay key:", err)
+        setError("Failed to initialize payment gateway. Please try again later.")
+      }
+    }
+
+    fetchRazorpayKey()
+  }, [])
+
+  const createOrder = async () => {
     try {
       setLoading(true)
+      setError(null)
 
-      // Get user ID from localStorage
-      const userId = localStorage.getItem("userId")
-      if (!userId) {
-        throw new Error("User ID not found. Please log in again.")
-      }
-
-      // Create order on the server
+      // Create an order
       const orderResponse = await fetch("/api/razorpay/create-order", {
         method: "POST",
         headers: {
@@ -56,34 +73,81 @@ export default function RazorpayPaymentButton({
           subscriptionId,
           userId,
           notes: {
-            subscriptionName,
-            duration_days,
+            ...notes,
+            duration: duration ? duration.toString() : "",
           },
         }),
       })
 
       const orderData = await orderResponse.json()
 
-      if (!orderData.success) {
+      if (!orderResponse.ok) {
         throw new Error(orderData.error || "Failed to create order")
       }
 
-      // Get user details
-      const userEmail = localStorage.getItem("userEmail") || ""
-      const userName = localStorage.getItem("userName") || ""
-      const userPhone = localStorage.getItem("userPhone") || ""
+      if (!orderData.success || !orderData.order) {
+        throw new Error(orderData.error || "Failed to create order")
+      }
 
-      // Initialize Razorpay payment
+      // Store order in database
+      const supabase = getSupabaseBrowserClient()
+      await supabase.from("razorpay_orders").insert([
+        {
+          order_id: orderData.order.id,
+          user_id: userId,
+          subscription_id: subscriptionId,
+          amount: amount,
+          duration_days: duration || 0,
+          status: "created",
+        },
+      ])
+
+      return orderData.order
+    } catch (err) {
+      console.error("Error creating order:", err)
+      setError(err instanceof Error ? err.message : "Failed to create order. Please try again.")
+      throw err
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handlePayment = async () => {
+    if (!razorpayKey) {
+      setError("Payment gateway not initialized. Please try again later.")
+      return
+    }
+
+    try {
+      setLoading(true)
+      setError(null)
+
+      // Create an order
+      const order = await createOrder()
+      setOrderId(order.id)
+
+      // Load Razorpay script if not already loaded
+      if (!(window as any).Razorpay) {
+        await new Promise((resolve, reject) => {
+          const script = document.createElement("script")
+          script.src = "https://checkout.razorpay.com/v1/checkout.js"
+          script.onload = resolve
+          script.onerror = reject
+          document.body.appendChild(script)
+        })
+      }
+
+      // Configure Razorpay options
       const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-        amount: orderData.order.amount,
-        currency: orderData.order.currency,
-        name: "STHAVISHTAH YOGA AND WELLNESS",
-        description: `Subscription: ${subscriptionName}`,
-        order_id: orderData.order.id,
+        key: razorpayKey,
+        amount: order.amount,
+        currency: "INR",
+        name: "Sthavishtah Yoga",
+        description: `Subscription: ${notes.plan_name || "Yoga Plan"}`,
+        order_id: order.id,
         handler: async (response: any) => {
           try {
-            // Verify payment on the server
+            // Verify payment on server
             const verifyResponse = await fetch("/api/razorpay/verify-payment", {
               method: "POST",
               headers: {
@@ -94,68 +158,81 @@ export default function RazorpayPaymentButton({
                 subscriptionId,
                 userId,
                 amount,
-                duration_days,
               }),
             })
 
             const verifyData = await verifyResponse.json()
 
-            if (verifyData.success) {
-              if (onSuccess) onSuccess()
-              // Redirect to success page
-              window.location.href = `/user/payment-success?subscription=${subscriptionId}`
-            } else {
+            if (!verifyResponse.ok) {
+              if (verifyData.code === "DUPLICATE_SUBSCRIPTION") {
+                setError("You already have an active subscription to this plan.")
+                router.push("/user/subscriptions")
+                return
+              }
               throw new Error(verifyData.error || "Payment verification failed")
             }
-          } catch (error) {
-            console.error("Payment verification error:", error)
-            if (onError) onError(error)
-            alert("Payment verification failed. Please contact support.")
+
+            if (!verifyData.success) {
+              throw new Error(verifyData.error || "Payment verification failed")
+            }
+
+            // Payment successful
+            if (onSuccess) {
+              onSuccess(verifyData)
+            } else {
+              // Redirect to success page
+              router.push("/user/payment-success")
+            }
+          } catch (err) {
+            console.error("Payment verification error:", err)
+            setError(err instanceof Error ? err.message : "Payment verification failed. Please contact support.")
+            if (onError) onError(err)
           }
         },
         prefill: {
-          name: userName,
-          email: userEmail,
-          contact: userPhone,
+          name: "",
+          email: "",
+          contact: "",
         },
         notes: {
-          subscriptionId: subscriptionId.toString(),
-          userId,
-          subscriptionName,
+          subscription_id: subscriptionId.toString(),
+          user_id: userId,
+          ...notes,
         },
         theme: {
-          color: "#6366F1",
+          color: "#16a34a",
         },
       }
 
-      const razorpay = new window.Razorpay(options)
+      // Open Razorpay checkout
+      const razorpay = new (window as any).Razorpay(options)
       razorpay.open()
-
-      // Handle Razorpay modal close
-      razorpay.on("payment.failed", (response: any) => {
-        console.error("Payment failed:", response.error)
-        if (onError) onError(response.error)
-        alert(`Payment failed: ${response.error.description}`)
-      })
-    } catch (error) {
-      console.error("Payment initiation error:", error)
-      if (onError) onError(error)
-      alert(error instanceof Error ? error.message : "Payment initiation failed")
+    } catch (err) {
+      console.error("Payment error:", err)
+      setError(err instanceof Error ? err.message : "Failed to process payment. Please try again.")
+      if (onError) onError(err)
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <Button onClick={handlePayment} disabled={disabled || loading} variant={variant} className="w-full">
-      {loading ? (
-        <>
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          Processing...
-        </>
-      ) : (
-        buttonText
+    <div className="w-full">
+      {error && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
-    </Button>
+      <Button onClick={handlePayment} disabled={loading || !razorpayKey} className={className} size="lg">
+        {loading ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Processing...
+          </>
+        ) : (
+          buttonText
+        )}
+      </Button>
+    </div>
   )
 }

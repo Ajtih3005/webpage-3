@@ -1,234 +1,593 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState, useEffect } from "react"
 import { UserLayout } from "@/components/user-layout"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
-import { formatDate } from "@/lib/utils"
-import { CheckCircle2, ExternalLink } from "lucide-react"
-import RazorpayPaymentButton from "@/components/razorpay-payment-button"
+import { formatDate, formatCurrency } from "@/lib/utils"
+import {
+  AlertCircle,
+  Calendar,
+  Clock,
+  CheckCircle,
+  XCircle,
+  CreditCard,
+  Info,
+  Package,
+  CalendarClock,
+} from "lucide-react"
+import Link from "next/link"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { useRouter } from "next/navigation"
 
 interface Subscription {
-  id: number
-  name: string
-  description: string | null
-  price: number
-  duration_days: number
-  payment_link: string | null
-  is_external_link: boolean
-}
-
-interface UserSubscription {
-  id: number
-  subscription_id: number
+  id: string
+  user_id: string
+  subscription_id: string
   start_date: string
   end_date: string
   is_active: boolean
-  subscription: Subscription
+  activation_date: string | null
+  admin_activated: boolean
+  subscription?: {
+    id: string
+    name: string
+    description: string
+    price: number
+    duration_days: number
+  }
 }
 
-export default function UserSubscriptions() {
+export default function UserSubscriptionsPage() {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([])
-  const [userSubscriptions, setUserSubscriptions] = useState<UserSubscription[]>([])
+  const [activeSubscriptions, setActiveSubscriptions] = useState<Subscription[]>([])
+  const [pendingSubscriptions, setPendingSubscriptions] = useState<Subscription[]>([])
+  const [expiredSubscriptions, setExpiredSubscriptions] = useState<Subscription[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
 
   useEffect(() => {
-    fetchSubscriptionsData()
-  }, [])
+    const userId = localStorage.getItem("userId")
 
-  async function fetchSubscriptionsData() {
-    try {
-      setLoading(true)
+    if (!userId) {
+      router.push("/user/login")
+      return
+    }
 
-      const userId = localStorage.getItem("userId")
-      if (!userId) {
-        throw new Error("User ID not found")
-      }
+    async function fetchUserSubscriptions() {
+      try {
+        setLoading(true)
 
-      const supabase = getSupabaseBrowserClient()
+        // Create a new Supabase client instance
+        const supabase = getSupabaseBrowserClient()
 
-      // Fetch all available subscriptions
-      const { data: allSubscriptions, error: subscriptionsError } = await supabase
-        .from("subscriptions")
-        .select("*")
-        .order("price", { ascending: true })
-
-      if (subscriptionsError) throw subscriptionsError
-
-      setSubscriptions(allSubscriptions || [])
-
-      // Fetch user's subscriptions with subscription details
-      const { data: userSubs, error: userSubsError } = await supabase
-        .from("user_subscriptions")
-        .select(`
-          id,
-          subscription_id,
-          start_date,
-          end_date,
-          is_active,
-          subscription:subscriptions (
+        // Get user subscriptions
+        const { data: userSubs, error: userSubsError } = await supabase
+          .from("user_subscriptions")
+          .select(`
             id,
-            name,
-            description,
-            price,
-            duration_days,
-            payment_link,
-            is_external_link
-          )
-        `)
-        .eq("user_id", userId)
-        .order("end_date", { ascending: false })
+            user_id,
+            subscription_id,
+            start_date,
+            end_date,
+            is_active,
+            activation_date,
+            admin_activated,
+            subscription:subscriptions (id, name, description, price, duration_days)
+          `)
+          .eq("user_id", userId)
+          .order("end_date", { ascending: false })
 
-      if (userSubsError) throw userSubsError
+        if (userSubsError) {
+          console.error("Error fetching user subscriptions:", userSubsError)
+          throw new Error(`Supabase error: ${userSubsError.message}`)
+        }
 
-      setUserSubscriptions(userSubs || [])
-    } catch (error) {
-      console.error("Error fetching subscriptions data:", error)
-    } finally {
-      setLoading(false)
+        if (!userSubs || userSubs.length === 0) {
+          setSubscriptions([])
+          setActiveSubscriptions([])
+          setPendingSubscriptions([])
+          setExpiredSubscriptions([])
+          setLoading(false)
+          return
+        }
+
+        setSubscriptions(userSubs)
+
+        // Sort into active, pending, and expired
+        const now = new Date()
+
+        // Active subscriptions: is_active is true and end_date is in the future
+        const active = userSubs.filter((sub) => {
+          const endDate = new Date(sub.end_date)
+          return sub.is_active && endDate > now
+        })
+
+        // Pending subscriptions: is_active is false but not expired
+        const pending = userSubs.filter((sub) => {
+          const endDate = new Date(sub.end_date)
+          return !sub.is_active && endDate > now
+        })
+
+        // Expired subscriptions: end_date is in the past
+        const expired = userSubs.filter((sub) => {
+          const endDate = new Date(sub.end_date)
+          return endDate <= now
+        })
+
+        setActiveSubscriptions(active)
+        setPendingSubscriptions(pending)
+        setExpiredSubscriptions(expired)
+      } catch (err) {
+        console.error("Failed to load subscriptions:", err)
+        setError("Failed to load your subscriptions. Please try again later.")
+      } finally {
+        setLoading(false)
+      }
     }
-  }
 
-  // Update the hasActiveSubscription function to not prevent subscribing to the same plan multiple times
-  const hasActiveSubscription = (subscriptionId: number) => {
-    // We're removing this check to allow multiple subscriptions of the same type
-    // Just return false to always allow subscribing
-    return false
-  }
+    fetchUserSubscriptions()
+  }, [router])
 
-  const handleSubscribeExternal = (subscription: Subscription) => {
-    if (subscription.payment_link) {
-      // Open payment link in a new tab
-      window.open(subscription.payment_link, "_blank")
-    } else {
-      // Show message that admin needs to be contacted
-      alert("Please contact the administrator to subscribe to this plan.")
+  // Calculate time remaining for a subscription
+  const getTimeRemaining = (endDate: string) => {
+    const end = new Date(endDate)
+    const now = new Date()
+    const diffTime = end.getTime() - now.getTime()
+
+    if (diffTime <= 0) return "Expired"
+
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
+
+    if (diffDays > 30) {
+      const months = Math.floor(diffDays / 30)
+      return `${months} month${months > 1 ? "s" : ""} left`
     }
+
+    return `${diffDays} day${diffDays !== 1 ? "s" : ""} left`
   }
 
-  const handlePaymentSuccess = () => {
-    // Refresh subscription data after successful payment
-    fetchSubscriptionsData()
+  // Calculate time until activation
+  const getTimeUntilActivation = (activationDate: string | null) => {
+    if (!activationDate) return "Unknown"
+
+    const activation = new Date(activationDate)
+    const now = new Date()
+    const diffTime = activation.getTime() - now.getTime()
+
+    if (diffTime <= 0) return "Today"
+
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
+
+    if (diffDays === 0) return "Today"
+    if (diffDays === 1) return "Tomorrow"
+    return `In ${diffDays} days`
+  }
+
+  if (loading) {
+    return (
+      <UserLayout>
+        <div className="container mx-auto py-6">
+          <h1 className="text-2xl font-bold mb-6">My Subscriptions</h1>
+          <div className="flex justify-center my-12">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-green-600 border-t-transparent"></div>
+          </div>
+        </div>
+      </UserLayout>
+    )
   }
 
   return (
     <UserLayout>
-      <div className="space-y-6">
-        <h1 className="text-3xl font-bold">Subscriptions</h1>
+      <div className="container mx-auto py-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+          <h1 className="text-2xl font-bold mb-4 md:mb-0">My Subscriptions</h1>
+          <Button asChild className="flex items-center gap-2">
+            <Link href="/user/plans">
+              <Package className="h-4 w-4" />
+              View Available Subscriptions
+            </Link>
+          </Button>
+        </div>
 
-        {/* Available Subscriptions */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Available Plans</CardTitle>
-            <CardDescription>Choose a subscription plan to access premium courses</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <p>Loading subscription plans...</p>
-            ) : subscriptions.length === 0 ? (
-              <p className="text-muted-foreground">No subscription plans available.</p>
-            ) : (
-              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {subscriptions.map((subscription) => {
-                  const activeSubscriptionsOfType = userSubscriptions.filter(
-                    (sub) => sub.subscription_id === subscription.id && sub.is_active,
-                  )
-                  const activeCount = activeSubscriptionsOfType.length
-                  const isActive = activeCount > 0
+        {error && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
 
-                  return (
-                    <Card key={subscription.id} className={isActive ? "border-primary" : ""}>
-                      <CardHeader>
-                        <div className="flex justify-between items-start">
-                          <CardTitle>{subscription.name}</CardTitle>
-                          {isActive && (
-                            <Badge className="bg-primary">{activeCount > 1 ? `${activeCount} Active` : "Active"}</Badge>
-                          )}
+        {pendingSubscriptions.length > 0 && (
+          <Alert className="mb-6 bg-amber-50 border-amber-200">
+            <CalendarClock className="h-5 w-5 text-amber-600" />
+            <AlertTitle className="text-amber-800">Pending Activation</AlertTitle>
+            <AlertDescription className="text-amber-700">
+              You have {pendingSubscriptions.length} subscription{pendingSubscriptions.length > 1 ? "s" : ""} pending
+              activation. Your subscription will be activated soon and you'll be notified when it's ready.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {subscriptions.length === 0 ? (
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>No Subscriptions Found</CardTitle>
+                <CardDescription>
+                  You don't have any active subscriptions. Subscribe to a plan to access our premium content.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col items-center justify-center py-8">
+                  <div className="bg-green-50 p-4 rounded-full mb-4">
+                    <Calendar className="h-12 w-12 text-green-600" />
+                  </div>
+                  <h3 className="text-lg font-medium mb-2">Explore Our Plans</h3>
+                  <p className="text-center text-muted-foreground mb-6">
+                    Choose from our range of subscription plans designed to meet your yoga journey needs.
+                  </p>
+                </div>
+              </CardContent>
+              <CardFooter>
+                <Button className="w-full" asChild>
+                  <Link href="/user/plans">Browse Subscription Plans</Link>
+                </Button>
+              </CardFooter>
+            </Card>
+          </div>
+        ) : (
+          <Tabs defaultValue="active">
+            <TabsList className="mb-6">
+              <TabsTrigger value="active">Active ({activeSubscriptions.length})</TabsTrigger>
+              {pendingSubscriptions.length > 0 && (
+                <TabsTrigger value="pending">Pending ({pendingSubscriptions.length})</TabsTrigger>
+              )}
+              <TabsTrigger value="expired">Expired ({expiredSubscriptions.length})</TabsTrigger>
+              <TabsTrigger value="all">All ({subscriptions.length})</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="active">
+              {activeSubscriptions.length === 0 ? (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>No Active Subscriptions</CardTitle>
+                    <CardDescription>
+                      {pendingSubscriptions.length > 0
+                        ? "You have subscriptions pending activation. Check the 'Pending' tab."
+                        : "All your subscriptions have expired. Subscribe to a new plan to continue accessing our content."}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardFooter>
+                    <Button asChild>
+                      <Link href="/user/plans">Browse Plans</Link>
+                    </Button>
+                  </CardFooter>
+                </Card>
+              ) : (
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                  {activeSubscriptions.map((subscription) => (
+                    <Card key={subscription.id} className="overflow-hidden border-green-100">
+                      <div className="h-2 bg-green-600 w-full"></div>
+                      <CardHeader className="pb-2">
+                        <div className="flex items-center justify-between mb-2">
+                          <CardTitle className="text-lg">{subscription.subscription?.name || "Subscription"}</CardTitle>
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            <CheckCircle className="mr-1 h-3 w-3" />
+                            Active
+                          </span>
                         </div>
-                        <CardDescription>{subscription.duration_days} days</CardDescription>
+                        <CardDescription>
+                          {subscription.subscription?.description || "No description available"}
+                        </CardDescription>
                       </CardHeader>
                       <CardContent>
-                        <div className="mb-4">
-                          <span className="text-3xl font-bold">₹{subscription.price.toFixed(2)}</span>
-                        </div>
-                        {subscription.description && <p className="text-sm mb-4">{subscription.description}</p>}
-                        {isActive && (
-                          <div className="flex items-center text-primary text-sm">
-                            <CheckCircle2 className="h-4 w-4 mr-1" />
-                            <span>
-                              You have{" "}
-                              {activeCount > 1 ? `${activeCount} active subscriptions` : "an active subscription"}
+                        <div className="space-y-3 pt-2">
+                          {subscription.subscription?.price !== undefined && (
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm font-medium">Price:</span>
+                              <span className="font-semibold">{formatCurrency(subscription.subscription.price)}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm font-medium">Activated On:</span>
+                            <span>{formatDate(subscription.activation_date || subscription.start_date)}</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm font-medium">End Date:</span>
+                            <span>{formatDate(subscription.end_date)}</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm font-medium">Remaining:</span>
+                            <span className="text-green-600 font-medium flex items-center">
+                              <Clock className="mr-1 h-4 w-4" />
+                              {getTimeRemaining(subscription.end_date)}
                             </span>
                           </div>
-                        )}
+                        </div>
                       </CardContent>
-                      <CardFooter>
-                        {subscription.is_external_link && subscription.payment_link ? (
-                          // External payment link button - always enabled now
-                          <Button className="w-full" onClick={() => handleSubscribeExternal(subscription)}>
-                            Subscribe Now
-                            <ExternalLink className="ml-2 h-4 w-4" />
-                          </Button>
-                        ) : (
-                          // Razorpay integration button - always enabled now
-                          <RazorpayPaymentButton
-                            subscriptionId={subscription.id}
-                            subscriptionName={subscription.name}
-                            amount={subscription.price}
-                            duration_days={subscription.duration_days}
-                            onSuccess={handlePaymentSuccess}
-                            buttonText="Subscribe Now"
-                          />
-                        )}
+                      <CardFooter className="flex justify-between gap-2 pt-2">
+                        <Button variant="outline" size="sm" className="flex-1" asChild>
+                          <Link href="/user/access-course">
+                            <Calendar className="mr-1 h-4 w-4" />
+                            Access Content
+                          </Link>
+                        </Button>
+                        <Button size="sm" className="flex-1" asChild>
+                          <Link href="/user/dashboard">Dashboard</Link>
+                        </Button>
                       </CardFooter>
                     </Card>
-                  )
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
 
-        {/* Subscription History */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Subscription History</CardTitle>
-            <CardDescription>Your past and current subscriptions</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <p>Loading subscription history...</p>
-            ) : userSubscriptions.length === 0 ? (
-              <p className="text-muted-foreground">You don't have any subscriptions yet.</p>
-            ) : (
-              <div className="space-y-4">
-                {userSubscriptions.map((userSub) => (
-                  <div key={userSub.id} className="flex items-start p-4 border rounded-md">
-                    <div className="flex-1">
-                      <div className="flex items-center">
-                        <h3 className="font-medium">{userSub.subscription.name}</h3>
-                        {userSub.is_active && <Badge className="ml-2 bg-primary">Active</Badge>}
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        {formatDate(userSub.start_date)} - {formatDate(userSub.end_date)}
-                      </p>
-                      <p className="text-sm mt-1">Price: ₹{userSub.subscription.price.toFixed(2)}</p>
-                    </div>
-                    <div className="text-right">
-                      {userSub.is_active ? (
-                        <p className="text-xs text-green-600">Expires on {formatDate(userSub.end_date)}</p>
-                      ) : (
-                        <p className="text-xs text-gray-500">Expired on {formatDate(userSub.end_date)}</p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
+            {pendingSubscriptions.length > 0 && (
+              <TabsContent value="pending">
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                  {pendingSubscriptions.map((subscription) => (
+                    <Card key={subscription.id} className="overflow-hidden border-amber-100">
+                      <div className="h-2 bg-amber-500 w-full"></div>
+                      <CardHeader className="pb-2">
+                        <div className="flex items-center justify-between mb-2">
+                          <CardTitle className="text-lg">{subscription.subscription?.name || "Subscription"}</CardTitle>
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                            <CalendarClock className="mr-1 h-3 w-3" />
+                            Pending
+                          </span>
+                        </div>
+                        <CardDescription>
+                          {subscription.subscription?.description || "No description available"}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3 pt-2">
+                          {subscription.subscription?.price !== undefined && (
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm font-medium">Price:</span>
+                              <span className="font-semibold">{formatCurrency(subscription.subscription.price)}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm font-medium">Registration Date:</span>
+                            <span>{formatDate(subscription.start_date)}</span>
+                          </div>
+                          {subscription.activation_date && (
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm font-medium">Activation Date:</span>
+                              <span className="text-amber-600 font-medium">
+                                {formatDate(subscription.activation_date)}
+                              </span>
+                            </div>
+                          )}
+                          {subscription.activation_date && (
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm font-medium">Activates:</span>
+                              <span className="text-amber-600 font-medium flex items-center">
+                                <CalendarClock className="mr-1 h-4 w-4" />
+                                {getTimeUntilActivation(subscription.activation_date)}
+                              </span>
+                            </div>
+                          )}
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm font-medium">Duration:</span>
+                            <span>{subscription.subscription?.duration_days || 30} days</span>
+                          </div>
+                        </div>
+                      </CardContent>
+                      <CardFooter className="pt-2">
+                        <Alert className="w-full bg-amber-50 border-amber-100">
+                          <Info className="h-4 w-4 text-amber-600" />
+                          <AlertDescription className="text-amber-700 text-xs">
+                            This subscription is pending activation. You'll be notified when it becomes active.
+                          </AlertDescription>
+                        </Alert>
+                      </CardFooter>
+                    </Card>
+                  ))}
+                </div>
+              </TabsContent>
             )}
-          </CardContent>
-        </Card>
+
+            <TabsContent value="expired">
+              {expiredSubscriptions.length === 0 ? (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>No Expired Subscriptions</CardTitle>
+                    <CardDescription>You don't have any expired subscriptions.</CardDescription>
+                  </CardHeader>
+                </Card>
+              ) : (
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                  {expiredSubscriptions.map((subscription) => (
+                    <Card key={subscription.id} className="overflow-hidden border-gray-200">
+                      <div className="h-2 bg-gray-300 w-full"></div>
+                      <CardHeader className="pb-2">
+                        <div className="flex items-center justify-between mb-2">
+                          <CardTitle className="text-lg text-gray-600">
+                            {subscription.subscription?.name || "Subscription"}
+                          </CardTitle>
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                            <XCircle className="mr-1 h-3 w-3" />
+                            Expired
+                          </span>
+                        </div>
+                        <CardDescription>
+                          {subscription.subscription?.description || "No description available"}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3 pt-2">
+                          {subscription.subscription?.price !== undefined && (
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm font-medium text-gray-500">Price:</span>
+                              <span>{formatCurrency(subscription.subscription.price)}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm font-medium text-gray-500">Start Date:</span>
+                            <span>{formatDate(subscription.activation_date || subscription.start_date)}</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm font-medium text-gray-500">End Date:</span>
+                            <span>{formatDate(subscription.end_date)}</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm font-medium text-gray-500">Status:</span>
+                            <span className="text-red-500">Expired on {formatDate(subscription.end_date)}</span>
+                          </div>
+                        </div>
+                      </CardContent>
+                      <CardFooter className="pt-2">
+                        <Button className="w-full" asChild>
+                          <Link href="/user/plans">
+                            <CreditCard className="mr-2 h-4 w-4" />
+                            Renew Subscription
+                          </Link>
+                        </Button>
+                      </CardFooter>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="all">
+              {subscriptions.length === 0 ? (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>No Subscriptions Found</CardTitle>
+                    <CardDescription>You don't have any subscriptions in our records.</CardDescription>
+                  </CardHeader>
+                </Card>
+              ) : (
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                  {subscriptions.map((subscription) => {
+                    const isActive = subscription.is_active && new Date(subscription.end_date) > new Date()
+                    const isPending = !subscription.is_active && new Date(subscription.end_date) > new Date()
+                    const isExpired = new Date(subscription.end_date) <= new Date()
+
+                    return (
+                      <Card
+                        key={subscription.id}
+                        className={`overflow-hidden ${
+                          isActive ? "border-green-100" : isPending ? "border-amber-100" : "border-gray-200"
+                        }`}
+                      >
+                        <div
+                          className={`h-2 ${
+                            isActive ? "bg-green-600" : isPending ? "bg-amber-500" : "bg-gray-300"
+                          } w-full`}
+                        ></div>
+                        <CardHeader className="pb-2">
+                          <div className="flex items-center justify-between mb-2">
+                            <CardTitle className={`text-lg ${isExpired && "text-gray-600"}`}>
+                              {subscription.subscription?.name || "Subscription"}
+                            </CardTitle>
+                            <span
+                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                isActive
+                                  ? "bg-green-100 text-green-800"
+                                  : isPending
+                                    ? "bg-amber-100 text-amber-800"
+                                    : "bg-gray-100 text-gray-800"
+                              }`}
+                            >
+                              {isActive ? (
+                                <>
+                                  <CheckCircle className="mr-1 h-3 w-3" />
+                                  Active
+                                </>
+                              ) : isPending ? (
+                                <>
+                                  <CalendarClock className="mr-1 h-3 w-3" />
+                                  Pending
+                                </>
+                              ) : (
+                                <>
+                                  <XCircle className="mr-1 h-3 w-3" />
+                                  Expired
+                                </>
+                              )}
+                            </span>
+                          </div>
+                          <CardDescription>
+                            {subscription.subscription?.description || "No description available"}
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-3 pt-2">
+                            {subscription.subscription?.price !== undefined && (
+                              <div className="flex justify-between items-center">
+                                <span className={`text-sm font-medium ${isExpired && "text-gray-500"}`}>Price:</span>
+                                <span className={isActive ? "font-semibold" : ""}>
+                                  {formatCurrency(subscription.subscription.price)}
+                                </span>
+                              </div>
+                            )}
+                            <div className="flex justify-between items-center">
+                              <span className={`text-sm font-medium ${isExpired && "text-gray-500"}`}>
+                                {isPending ? "Registration Date:" : "Start Date:"}
+                              </span>
+                              <span>{formatDate(subscription.start_date)}</span>
+                            </div>
+                            {isPending && subscription.activation_date && (
+                              <div className="flex justify-between items-center">
+                                <span className="text-sm font-medium">Activation Date:</span>
+                                <span>{formatDate(subscription.activation_date)}</span>
+                              </div>
+                            )}
+                            <div className="flex justify-between items-center">
+                              <span className={`text-sm font-medium ${isExpired && "text-gray-500"}`}>End Date:</span>
+                              <span>{formatDate(subscription.end_date)}</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className={`text-sm font-medium ${isExpired && "text-gray-500"}`}>Status:</span>
+                              {isActive ? (
+                                <span className="text-green-600 font-medium flex items-center">
+                                  <Clock className="mr-1 h-4 w-4" />
+                                  {getTimeRemaining(subscription.end_date)}
+                                </span>
+                              ) : isPending && subscription.activation_date ? (
+                                <span className="text-amber-600 font-medium flex items-center">
+                                  <CalendarClock className="mr-1 h-4 w-4" />
+                                  Activates {getTimeUntilActivation(subscription.activation_date)}
+                                </span>
+                              ) : isPending ? (
+                                <span className="text-amber-600 font-medium">Pending activation</span>
+                              ) : (
+                                <span className="text-red-500">Expired on {formatDate(subscription.end_date)}</span>
+                              )}
+                            </div>
+                          </div>
+                        </CardContent>
+                        <CardFooter className="pt-2">
+                          {isActive ? (
+                            <Button className="w-full" asChild>
+                              <Link href="/user/access-course">Access Content</Link>
+                            </Button>
+                          ) : isPending ? (
+                            <Button className="w-full" variant="outline" disabled>
+                              Pending Activation
+                            </Button>
+                          ) : (
+                            <Button className="w-full" variant="outline" asChild>
+                              <Link href="/user/plans">Renew Subscription</Link>
+                            </Button>
+                          )}
+                        </CardFooter>
+                      </Card>
+                    )
+                  })}
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
+        )}
       </div>
     </UserLayout>
   )

@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { FileUpload } from "@/components/file-upload"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertCircle, CheckCircle2, FileSpreadsheet, Info, XCircle } from "lucide-react"
+import { AlertCircle, CheckCircle2, FileSpreadsheet, Info, XCircle, Mail } from "lucide-react"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import * as XLSX from "xlsx"
 
@@ -41,6 +41,8 @@ export default function BulkRegistrationPage() {
       reason: string
     }>
   >([])
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [statusMessage, setStatusMessage] = useState<string | null>(null)
 
   const handleFileUpload = (uploadedFile: File) => {
     setFile(uploadedFile)
@@ -387,6 +389,55 @@ export default function BulkRegistrationPage() {
     document.body.removeChild(link)
   }
 
+  const sendPasswordEmails = async () => {
+    if (!registeredUsers.length) return
+
+    try {
+      setIsProcessing(true)
+      setStatusMessage("Sending password emails...")
+
+      // Get admin password from localStorage
+      const adminPassword = localStorage.getItem("adminPassword") || ""
+
+      // Send emails one by one
+      let successCount = 0
+      let failCount = 0
+
+      for (const user of registeredUsers) {
+        try {
+          const response = await fetch("/api/send-password-email", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              userId: user.user_id,
+              adminPassword,
+            }),
+          })
+
+          const data = await response.json()
+
+          if (data.success) {
+            successCount++
+          } else {
+            failCount++
+          }
+        } catch (error) {
+          console.error(`Error sending email to user ${user.user_id}:`, error)
+          failCount++
+        }
+      }
+
+      setStatusMessage(`Emails sent: ${successCount} successful, ${failCount} failed`)
+    } catch (error) {
+      console.error("Error in bulk sending emails:", error)
+      setStatusMessage("Failed to send password emails")
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -616,6 +667,15 @@ export default function BulkRegistrationPage() {
               </div>
             </CardContent>
           </Card>
+        )}
+
+        {registeredUsers.length > 0 && (
+          <div className="mt-4">
+            <Button variant="outline" onClick={sendPasswordEmails} disabled={isProcessing}>
+              <Mail className="mr-2 h-4 w-4" />
+              {isProcessing ? "Sending Emails..." : "Send Password Emails to All"}
+            </Button>
+          </div>
         )}
 
         {skippedUsers.length > 0 && (

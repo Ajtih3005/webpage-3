@@ -1,0 +1,74 @@
+import { type NextRequest, NextResponse } from "next/server"
+import { createClient } from "@/lib/supabase"
+
+export async function GET(request: NextRequest, { params }: { params: { token: string } }) {
+  try {
+    const token = params.token
+    const supabase = createClient()
+
+    // Get the current user ID from the request cookies
+    const userId = request.cookies.get("userId")?.value
+
+    // Fetch the link
+    const { data: link, error } = await supabase
+      .from("generated_links")
+      .select("*")
+      .eq("token", token)
+      .eq("is_active", true)
+      .single()
+
+    if (error || !link) {
+      return NextResponse.json({ success: false, error: "Link not found or inactive" }, { status: 404 })
+    }
+
+    // Check if the link has expired
+    if (link.expires_at && new Date(link.expires_at) < new Date()) {
+      return NextResponse.json({ success: false, error: "Link has expired" }, { status: 403 })
+    }
+
+    // Check if the user is allowed to use this link
+    let isAllowed = false
+
+    if (link.target_type === "all") {
+      isAllowed = true
+    } else if (
+      link.target_type === "user" &&
+      userId &&
+      link.target_ids &&
+      link.target_ids.includes(Number.parseInt(userId))
+    ) {
+      isAllowed = true
+    } else if (link.target_type === "users" && userId) {
+      isAllowed = true
+    } else if (link.target_type === "subscription" && userId) {
+      // Check if the user has the specified subscription
+      const { data: userSubscriptions, error: subError } = await supabase
+        .from("user_subscriptions")
+        .select("subscription_id")
+        .eq("user_id", userId)
+
+      if (!subError && userSubscriptions) {
+        const userSubIds = userSubscriptions.map((sub) => sub.subscription_id)
+        isAllowed = link.target_ids.some((id: number) => userSubIds.includes(id))
+      }
+    }
+
+    if (!isAllowed) {
+      return NextResponse.json({ success: false, error: "You are not authorized to use this link" }, { status: 403 })
+    }
+
+    return NextResponse.json({
+      success: true,
+      link: {
+        id: link.id,
+        title: link.title,
+        description: link.description,
+        target_url: link.target_url,
+        link_type: link.link_type,
+      },
+    })
+  } catch (error) {
+    console.error("Error in links/validate route:", error)
+    return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 })
+  }
+}
