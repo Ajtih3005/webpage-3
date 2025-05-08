@@ -32,6 +32,7 @@ export default function ManageSubscriptions() {
   const router = useRouter()
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([])
   const [loading, setLoading] = useState(true)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   useEffect(() => {
     fetchSubscriptions()
@@ -110,17 +111,18 @@ export default function ManageSubscriptions() {
     if (!confirm("Are you sure you want to delete this subscription plan?")) return
 
     try {
+      setIsDeleting(true)
       const supabase = getSupabaseBrowserClient()
 
-      // Check if any courses are using this subscription (optional warning)
-      const { count, error: countError } = await supabase
+      // Check if any courses are using this subscription
+      const { count: courseCount, error: courseCountError } = await supabase
         .from("courses")
         .select("*", { count: "exact", head: true })
         .eq("subscription_id", id)
 
-      if (countError) throw countError
+      if (courseCountError) throw courseCountError
 
-      // Check if any users have this subscription (optional warning)
+      // Check if any users have this subscription
       const { count: userCount, error: userCountError } = await supabase
         .from("user_subscriptions")
         .select("*", { count: "exact", head: true })
@@ -128,27 +130,124 @@ export default function ManageSubscriptions() {
 
       if (userCountError) throw userCountError
 
-      // Show warning but allow deletion
-      if ((count && count > 0) || (userCount && userCount > 0)) {
-        const courseWarning = count && count > 0 ? `${count} courses` : ""
+      // Check if any payments are associated with this subscription
+      const { count: paymentCount, error: paymentCountError } = await supabase
+        .from("payments")
+        .select("*", { count: "exact", head: true })
+        .eq("subscription_id", id)
+
+      if (paymentCountError) throw paymentCountError
+
+      // Show warning with detailed information
+      if ((courseCount && courseCount > 0) || (userCount && userCount > 0) || (paymentCount && paymentCount > 0)) {
+        const courseWarning = courseCount && courseCount > 0 ? `${courseCount} courses` : ""
         const userWarning = userCount && userCount > 0 ? `${userCount} users` : ""
-        const andText = courseWarning && userWarning ? " and " : ""
+        const paymentWarning = paymentCount && paymentCount > 0 ? `${paymentCount} payment records` : ""
 
-        const warningMessage = `Warning: This subscription is being used by ${courseWarning}${andText}${userWarning}. Deleting it may affect these items. Are you sure you want to proceed?`
+        // Build the warning message with proper separators
+        const warningParts = []
+        if (courseWarning) warningParts.push(courseWarning)
+        if (userWarning) warningParts.push(userWarning)
+        if (paymentWarning) warningParts.push(paymentWarning)
 
-        if (!confirm(warningMessage)) return
+        let warningText = ""
+        if (warningParts.length === 1) {
+          warningText = warningParts[0]
+        } else if (warningParts.length === 2) {
+          warningText = `${warningParts[0]} and ${warningParts[1]}`
+        } else if (warningParts.length === 3) {
+          warningText = `${warningParts[0]}, ${warningParts[1]}, and ${warningParts[2]}`
+        }
+
+        const warningMessage = `Warning: This subscription is being used by ${warningText}. 
+        All related data will be updated or removed. This action cannot be undone. Are you sure you want to proceed?`
+
+        if (!confirm(warningMessage)) {
+          setIsDeleting(false)
+          return
+        }
       }
 
-      // Delete the subscription
+      // Begin transaction to handle all related deletions
+      // 1. First, handle payments table - update subscription_id to null
+      if (paymentCount && paymentCount > 0) {
+        const { error: updatePaymentsError } = await supabase
+          .from("payments")
+          .update({ subscription_id: null })
+          .eq("subscription_id", id)
+
+        if (updatePaymentsError) {
+          // If we can't set to null (e.g., if the column is NOT NULL),
+          // we need to handle this differently
+          console.error("Error updating payments:", updatePaymentsError)
+          throw new Error(
+            `Cannot delete subscription because it's linked to payment records. Error: ${updatePaymentsError.message}`,
+          )
+        }
+      }
+
+      // 2. Remove all user_subscriptions records
+      if (userCount && userCount > 0) {
+        const { error: deleteUserSubsError } = await supabase
+          .from("user_subscriptions")
+          .delete()
+          .eq("subscription_id", id)
+
+        if (deleteUserSubsError) throw deleteUserSubsError
+      }
+
+      // 3. Update any courses using this subscription to null
+      if (courseCount && courseCount > 0) {
+        const { error: updateCoursesError } = await supabase
+          .from("courses")
+          .update({ subscription_id: null })
+          .eq("subscription_id", id)
+
+        if (updateCoursesError) throw updateCoursesError
+      }
+
+      // 4. Delete any subscription batches
+      const { error: deleteBatchesError } = await supabase
+        .from("subscription_batches")
+        .delete()
+        .eq("subscription_id", id)
+
+      if (deleteBatchesError) throw deleteBatchesError
+
+      // 5. Check for any other tables that might reference this subscription
+      // Handle razorpay_orders if they exist
+      try {
+        const { count: orderCount } = await supabase
+          .from("razorpay_orders")
+          .select("*", { count: "exact", head: true })
+          .eq("subscription_id", id)
+
+        if (orderCount && orderCount > 0) {
+          const { error: updateOrdersError } = await supabase
+            .from("razorpay_orders")
+            .update({ subscription_id: null })
+            .eq("subscription_id", id)
+
+          if (updateOrdersError) throw updateOrdersError
+        }
+      } catch (error) {
+        // If the table doesn't exist, just continue
+        console.log("Note: razorpay_orders table might not exist or have different structure")
+      }
+
+      // 6. Finally delete the subscription itself
       const { error } = await supabase.from("subscriptions").delete().eq("id", id)
 
       if (error) throw error
 
+      alert("Subscription and all related data successfully deleted.")
       // Refresh the subscriptions list
       fetchSubscriptions()
     } catch (error) {
       console.error("Error deleting subscription:", error)
       alert("Error deleting subscription: " + (error instanceof Error ? error.message : "Unknown error"))
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -309,6 +408,7 @@ export default function ManageSubscriptions() {
                               variant="outline"
                               size="icon"
                               onClick={() => handleDeleteSubscription(subscription.id)}
+                              disabled={isDeleting}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
