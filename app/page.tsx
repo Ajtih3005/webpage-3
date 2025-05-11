@@ -473,7 +473,7 @@ export default function Home() {
           </h2>
 
           <p className="text-xl md:text-2xl mb-8 md:mb-10 text-white/90 drop-shadow-lg max-w-2xl mx-auto">
-            Sessions starting from May 12, 2025.
+            Sessions starting from May 18, 2025.
           </p>
 
           <div className="flex justify-center mb-8 md:mb-10">

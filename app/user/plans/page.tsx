@@ -5,7 +5,6 @@ import { UserLayout } from "@/components/user-layout"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
-import { formatCurrency } from "@/lib/utils"
 import { AlertCircle, AlertTriangle, Check, Info, Percent } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useRouter } from "next/navigation"
@@ -166,6 +165,16 @@ export default function PlansPage() {
     if (durationDays === 365) return "Annual Subscription"
 
     return `${durationDays}-Day Subscription`
+  }
+
+  // Format currency to show only whole numbers (no decimal places)
+  const formatWholePrice = (amount: number): string => {
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount)
   }
 
   if (loading) {
@@ -360,17 +369,17 @@ export default function PlansPage() {
                         <div className="flex flex-col">
                           <div className="flex items-center gap-2">
                             <span className="text-sm text-muted-foreground line-through">
-                              {formatCurrency(plan.original_price)}
+                              {formatWholePrice(plan.original_price)}
                             </span>
                             <Badge variant="outline" className="bg-green-50 text-green-700 flex items-center gap-1">
                               <Percent className="h-3 w-3" />
                               {plan.discount_percentage}% OFF
                             </Badge>
                           </div>
-                          <span className="text-3xl font-bold text-green-700">{formatCurrency(plan.price)}</span>
+                          <span className="text-3xl font-bold text-green-700">{formatWholePrice(plan.price)}</span>
                         </div>
                       ) : (
-                        <span className="text-3xl font-bold">{formatCurrency(plan.price)}</span>
+                        <span className="text-3xl font-bold">{formatWholePrice(plan.price)}</span>
                       )}
                       <div className="flex items-center mt-1">
                         <Badge variant="secondary" className="font-normal">

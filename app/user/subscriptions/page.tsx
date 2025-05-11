@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
-import { formatDate, formatCurrency } from "@/lib/utils"
+import { formatDate } from "@/lib/utils"
 import {
   AlertCircle,
   Calendar,
@@ -219,6 +219,16 @@ export default function UserSubscriptionsPage() {
     return ["Access to yoga sessions"]
   }
 
+  // Format currency to show only whole numbers (no decimal places)
+  const formatWholePrice = (amount: number): string => {
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount)
+  }
+
   if (loading) {
     return (
       <UserLayout>
@@ -357,7 +367,7 @@ export default function UserSubscriptionsPage() {
                                   <div className="flex flex-col items-end">
                                     <div className="flex items-center gap-2">
                                       <span className="text-sm text-muted-foreground line-through">
-                                        {formatCurrency(subscription.subscription.original_price)}
+                                        {formatWholePrice(subscription.subscription.original_price)}
                                       </span>
                                       <Badge
                                         variant="outline"
@@ -367,12 +377,12 @@ export default function UserSubscriptionsPage() {
                                       </Badge>
                                     </div>
                                     <span className="font-semibold">
-                                      {formatCurrency(subscription.subscription.price)}
+                                      {formatWholePrice(subscription.subscription.price)}
                                     </span>
                                   </div>
                                 ) : (
                                   <span className="font-semibold">
-                                    {formatCurrency(subscription.subscription.price)}
+                                    {formatWholePrice(subscription.subscription.price)}
                                   </span>
                                 )}
                               </div>
@@ -472,7 +482,7 @@ export default function UserSubscriptionsPage() {
                                   <div className="flex flex-col items-end">
                                     <div className="flex items-center gap-2">
                                       <span className="text-sm text-muted-foreground line-through">
-                                        {formatCurrency(subscription.subscription.original_price)}
+                                        {formatWholePrice(subscription.subscription.original_price)}
                                       </span>
                                       <Badge
                                         variant="outline"
@@ -482,12 +492,12 @@ export default function UserSubscriptionsPage() {
                                       </Badge>
                                     </div>
                                     <span className="font-semibold">
-                                      {formatCurrency(subscription.subscription.price)}
+                                      {formatWholePrice(subscription.subscription.price)}
                                     </span>
                                   </div>
                                 ) : (
                                   <span className="font-semibold">
-                                    {formatCurrency(subscription.subscription.price)}
+                                    {formatWholePrice(subscription.subscription.price)}
                                   </span>
                                 )}
                               </div>
@@ -587,7 +597,7 @@ export default function UserSubscriptionsPage() {
                           {subscription.subscription?.price !== undefined && (
                             <div className="flex justify-between items-center">
                               <span className="text-sm font-medium text-gray-500">Price:</span>
-                              <span>{formatCurrency(subscription.subscription.price)}</span>
+                              <span>{formatWholePrice(subscription.subscription.price)}</span>
                             </div>
                           )}
                           <div className="flex justify-between items-center">
@@ -705,7 +715,7 @@ export default function UserSubscriptionsPage() {
                                   <div className="flex flex-col items-end">
                                     <div className="flex items-center gap-2">
                                       <span className="text-sm text-muted-foreground line-through">
-                                        {formatCurrency(subscription.subscription.original_price)}
+                                        {formatWholePrice(subscription.subscription.original_price)}
                                       </span>
                                       <Badge
                                         variant="outline"
@@ -721,12 +731,12 @@ export default function UserSubscriptionsPage() {
                                       </Badge>
                                     </div>
                                     <span className={isActive ? "font-semibold" : ""}>
-                                      {formatCurrency(subscription.subscription.price)}
+                                      {formatWholePrice(subscription.subscription.price)}
                                     </span>
                                   </div>
                                 ) : (
                                   <span className={isActive ? "font-semibold" : ""}>
-                                    {formatCurrency(subscription.subscription.price)}
+                                    {formatWholePrice(subscription.subscription.price)}
                                   </span>
                                 )}
                               </div>
