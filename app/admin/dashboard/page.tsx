@@ -384,6 +384,7 @@ export default function AdminDashboard() {
     { href: "/admin/analytics/video", label: "Analytics", icon: "bar-chart" },
     { href: "/admin/updates", label: "Updates", icon: "refresh-cw" },
     { href: "/admin/contact", label: "Contact", icon: "mail" },
+    { href: "/admin/email", label: "Send Email", icon: "send" },
   ]
 
   return (
@@ -496,6 +497,9 @@ export default function AdminDashboard() {
                             strokeLinejoin="round"
                             d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
                           />
+                        )}
+                        {item.icon === "send" && (
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                         )}
                       </svg>
                     </span>

@@ -592,6 +592,15 @@ export default function Home() {
                 </li>
                 <li>
                   <Link
+                    href="/instructor/login"
+                    className="text-gray-300 hover:text-white transition-colors flex items-center text-sm sm:text-base group"
+                  >
+                    <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5 mr-2 group-hover:translate-x-1 transition-transform" />
+                    Instructors
+                  </Link>
+                </li>
+                <li>
+                  <Link
                     href="/admin/login"
                     className="text-gray-300 hover:text-white transition-colors flex items-center text-sm sm:text-base group"
                   >

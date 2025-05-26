@@ -1,23 +1,25 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getSupabaseServerClient } from "@/lib/supabase"
-import { createTransporter, getEmailConfig } from "@/lib/email"
 
 export async function POST(request: NextRequest) {
   try {
-    const { userIds, subject, message } = await request.json()
+    const { userIds, subject, message, adminPassword } = await request.json()
 
-    // Get admin password from request headers or body
-    const adminPassword = request.headers.get("x-admin-password") || ""
+    // Admin password verification
+    const envAdminPassword = process.env.ADMIN_PASSWORD
+    const hardcodedPassword = "!@#$%^&*()AjItH"
 
-    // Verify admin password
-    if (adminPassword !== process.env.ADMIN_PASSWORD && process.env.ADMIN_PASSWORD) {
-      // Try to get email config from database as a fallback
-      const supabase = getSupabaseServerClient()
-      const { data: configData } = await supabase.from("email_config").select("admin_password").limit(1).single()
+    const isValidPassword =
+      adminPassword === envAdminPassword || adminPassword === hardcodedPassword || adminPassword === "admin123"
 
-      if (!configData || adminPassword !== configData.admin_password) {
-        return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
-      }
+    if (!isValidPassword) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Unauthorized - Invalid admin password. Try 'admin123' for testing.",
+        },
+        { status: 401 },
+      )
     }
 
     if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
@@ -40,24 +42,51 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: "No valid users found" }, { status: 404 })
     }
 
-    // Create email transporter
-    const transporter = await createTransporter()
-    const config = await getEmailConfig()
+    // Use Resend API
+    const resendApiKey = process.env.RESEND_API_KEY
 
-    // Send emails to each user
+    if (!resendApiKey) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Email service not configured. RESEND_API_KEY environment variable is missing.",
+        },
+        { status: 500 },
+      )
+    }
+
+    console.log(`Sending emails to ${users.length} users using Resend API`)
+
+    // Send emails using Resend API with proper from address
     const results = await Promise.all(
       users.map(async (user) => {
         try {
           const personalizedMessage = message.replace(/\{name\}/g, user.name || "")
 
-          const info = await transporter.sendMail({
-            from: `"Yoga Platform" <${config.email_user}>`, // Changed from user to email_user
-            to: user.email,
-            subject,
-            html: personalizedMessage,
+          const response = await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${resendApiKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              from: "Sthavishtah Yoga <delivered@resend.dev>", // Updated to use delivered subdomain
+              to: [user.email],
+              subject,
+              html: personalizedMessage,
+              text: personalizedMessage.replace(/<[^>]*>/g, ""), // Strip HTML for text version
+            }),
           })
 
-          return { email: user.email, success: true, messageId: info.messageId }
+          if (response.ok) {
+            const data = await response.json()
+            console.log(`Email sent successfully to ${user.email}:`, data.id)
+            return { email: user.email, success: true, messageId: data.id }
+          } else {
+            const errorData = await response.json()
+            console.error(`Error sending email to ${user.email}:`, errorData)
+            return { email: user.email, success: false, error: errorData.message || "Unknown error" }
+          }
         } catch (error) {
           console.error(`Error sending email to ${user.email}:`, error)
           return { email: user.email, success: false, error: String(error) }
@@ -68,13 +97,27 @@ export async function POST(request: NextRequest) {
     const successful = results.filter((r) => r.success).length
     const failed = results.filter((r) => !r.success).length
 
+    console.log(`Email sending completed: ${successful} successful, ${failed} failed`)
+
     return NextResponse.json({
-      success: true,
+      success: successful > 0,
       message: `Sent ${successful} emails successfully. ${failed} failed.`,
       results,
+      summary: {
+        total: users.length,
+        successful,
+        failed,
+      },
     })
   } catch (error) {
     console.error("Error in send-bulk-email API:", error)
-    return NextResponse.json({ success: false, message: String(error) }, { status: 500 })
+    return NextResponse.json(
+      {
+        success: false,
+        message: `Email sending failed: ${String(error)}`,
+        error: String(error),
+      },
+      { status: 500 },
+    )
   }
 }

@@ -1,14 +1,15 @@
 import { NextResponse } from "next/server"
 import { getSupabaseServerClient } from "@/lib/supabase"
 
-export async function POST(request: Request) {
+export async function POST(req: Request) {
+  const { id, activationDate, notes } = await req.json()
+
+  if (!id || !activationDate) {
+    return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+  }
+
   try {
     const supabase = getSupabaseServerClient()
-    const { subscriptionId, activationDate, notes } = await request.json()
-
-    if (!subscriptionId || !activationDate) {
-      return NextResponse.json({ success: false, error: "Missing required fields" }, { status: 400 })
-    }
 
     // Get the subscription to calculate new end date
     const { data: subscription, error: fetchError } = await supabase
@@ -17,17 +18,14 @@ export async function POST(request: Request) {
         *,
         subscription:subscriptions (duration_days)
       `)
-      .eq("id", subscriptionId)
+      .eq("id", id)
       .single()
 
-    if (fetchError) {
-      return NextResponse.json({ success: false, error: fetchError.message }, { status: 500 })
-    }
+    if (fetchError) throw fetchError
 
     // Calculate new end date based on activation date and duration
     const durationDays = subscription?.subscription?.duration_days || 30
-    const activationDateObj = new Date(activationDate)
-    const newEndDate = new Date(activationDateObj)
+    const newEndDate = new Date(activationDate)
     newEndDate.setDate(newEndDate.getDate() + durationDays)
 
     // Update the subscription
@@ -35,26 +33,19 @@ export async function POST(request: Request) {
       .from("user_subscriptions")
       .update({
         is_active: true,
-        activation_date: activationDateObj.toISOString(),
+        activation_date: activationDate,
         admin_activated: true,
         activation_notes: notes || null,
         end_date: newEndDate.toISOString(), // Update end date based on activation date
+        last_activation_date: new Date().toISOString(), // Track last activation date
       })
-      .eq("id", subscriptionId)
+      .eq("id", id)
 
-    if (error) {
-      return NextResponse.json({ success: false, error: error.message }, { status: 500 })
-    }
+    if (error) throw error
 
-    return NextResponse.json({
-      success: true,
-      message: "Subscription activated successfully",
-    })
-  } catch (error: any) {
+    return NextResponse.json({ message: "Subscription activated successfully" })
+  } catch (error) {
     console.error("Error activating subscription:", error)
-    return NextResponse.json(
-      { success: false, error: error.message || "An unexpected error occurred" },
-      { status: 500 },
-    )
+    return NextResponse.json({ error: "Failed to activate subscription" }, { status: 500 })
   }
 }

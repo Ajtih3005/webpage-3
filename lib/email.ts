@@ -13,29 +13,29 @@ export async function getEmailConfig() {
       console.error("Error fetching email config:", error)
       // Fall back to environment variables
       return {
-        host: process.env.EMAIL_HOST || "",
-        port: process.env.EMAIL_PORT || "",
-        secure: process.env.EMAIL_SECURE === "true",
-        email_user: process.env.EMAIL_USER || "", // Changed from user to email_user
+        host: process.env.EMAIL_HOST || "smtp.gmail.com",
+        port: process.env.EMAIL_PORT || "587",
+        secure: process.env.EMAIL_SECURE === "true" || false,
+        email_user: process.env.EMAIL_USER || "",
         password: process.env.EMAIL_PASSWORD || "",
       }
     }
 
     return {
-      host: data.host,
-      port: data.port,
-      secure: data.secure,
-      email_user: data.email_user, // Changed from user to email_user
+      host: data.host || "smtp.gmail.com",
+      port: data.port || "587",
+      secure: data.secure || false,
+      email_user: data.email_user,
       password: data.password,
     }
   } catch (error) {
     console.error("Error in getEmailConfig:", error)
-    // Fall back to environment variables
+    // Fall back to environment variables with Gmail defaults
     return {
-      host: process.env.EMAIL_HOST || "",
-      port: process.env.EMAIL_PORT || "",
-      secure: process.env.EMAIL_SECURE === "true",
-      email_user: process.env.EMAIL_USER || "", // Changed from user to email_user
+      host: process.env.EMAIL_HOST || "smtp.gmail.com",
+      port: process.env.EMAIL_PORT || "587",
+      secure: process.env.EMAIL_SECURE === "true" || false,
+      email_user: process.env.EMAIL_USER || "",
       password: process.env.EMAIL_PASSWORD || "",
     }
   }
@@ -48,25 +48,40 @@ export async function createTransporter() {
 
     // Check if we have the required configuration
     if (!config.host || !config.port || !config.email_user || !config.password) {
-      // Changed from user to email_user
-      throw new Error("Missing email configuration")
+      throw new Error(
+        "Missing email configuration. Please set EMAIL_HOST, EMAIL_PORT, EMAIL_USER, and EMAIL_PASSWORD environment variables.",
+      )
     }
 
-    // Create a transporter
+    // Create a transporter with explicit configuration
     const transporter = nodemailer.createTransport({
       host: config.host,
       port: Number.parseInt(config.port.toString()),
-      secure: config.secure,
+      secure: config.secure, // true for 465, false for other ports
       auth: {
-        user: config.email_user, // Changed from user to email_user
+        user: config.email_user,
         pass: config.password,
       },
+      // Add these options to avoid DNS issues
+      tls: {
+        rejectUnauthorized: false,
+      },
+      // Force IPv4 to avoid DNS lookup issues
+      family: 4,
+      // Add connection timeout
+      connectionTimeout: 60000,
+      greetingTimeout: 30000,
+      socketTimeout: 60000,
     })
+
+    // Verify the connection
+    await transporter.verify()
+    console.log("Email transporter verified successfully")
 
     return transporter
   } catch (error) {
     console.error("Error creating email transporter:", error)
-    throw error
+    throw new Error(`Email configuration error: ${error}`)
   }
 }
 
@@ -82,7 +97,7 @@ export async function sendEmail({
     const config = await getEmailConfig()
 
     const info = await transporter.sendMail({
-      from: `"Yoga Platform" <${config.email_user}>`, // Changed from user to email_user
+      from: `"Sthavishtah Yoga" <${config.email_user}>`,
       to,
       subject,
       text,
@@ -92,7 +107,7 @@ export async function sendEmail({
     return { success: true, messageId: info.messageId }
   } catch (error) {
     console.error("Error sending email:", error)
-    return { success: false, error: error }
+    return { success: false, error: String(error) }
   }
 }
 
@@ -130,6 +145,6 @@ export async function sendPasswordEmail(email: string, name: string, userId: str
     return result
   } catch (error) {
     console.error("Error sending password email:", error)
-    return { success: false, error: error }
+    return { success: false, error: String(error) }
   }
 }
