@@ -13,7 +13,7 @@ export async function getEmailConfig() {
       console.error("Error fetching email config:", error)
       // Fall back to environment variables
       return {
-        host: process.env.EMAIL_HOST || "smtp.gmail.com",
+        host: process.env.EMAIL_HOST || "smtp.resend.com",
         port: process.env.EMAIL_PORT || "587",
         secure: process.env.EMAIL_SECURE === "true" || false,
         email_user: process.env.EMAIL_USER || "",
@@ -32,7 +32,7 @@ export async function getEmailConfig() {
     console.error("Error in getEmailConfig:", error)
     // Fall back to environment variables with Gmail defaults
     return {
-      host: process.env.EMAIL_HOST || "smtp.gmail.com",
+      host: process.env.EMAIL_HOST || "smtp.resend.com",
       port: process.env.EMAIL_PORT || "587",
       secure: process.env.EMAIL_SECURE === "true" || false,
       email_user: process.env.EMAIL_USER || "",
@@ -49,7 +49,7 @@ export async function createTransporter() {
     // Check if we have the required configuration
     if (!config.host || !config.port || !config.email_user || !config.password) {
       throw new Error(
-        "Missing email configuration. Please set EMAIL_HOST, EMAIL_PORT, EMAIL_USER, and EMAIL_PASSWORD environment variables.",
+        "Missing email configuration. Please set EMAIL_HOST (smtp.resend.com), EMAIL_PORT (587), EMAIL_USER (resend), and EMAIL_PASSWORD (your-api-key) environment variables.",
       )
     }
 
@@ -97,7 +97,7 @@ export async function sendEmail({
     const config = await getEmailConfig()
 
     const info = await transporter.sendMail({
-      from: `"Sthavishtah Yoga" <${config.email_user}>`,
+      from: `"Sthavishtah Yoga" <noreply@sthavishtah.com>`,
       to,
       subject,
       text,

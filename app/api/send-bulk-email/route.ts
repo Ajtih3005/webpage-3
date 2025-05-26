@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: "No valid users found" }, { status: 404 })
     }
 
-    // Use Resend API
+    // Use Resend API with your verified domain
     const resendApiKey = process.env.RESEND_API_KEY
 
     if (!resendApiKey) {
@@ -55,9 +55,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log(`Sending emails to ${users.length} users using Resend API`)
+    console.log(`Sending emails to ${users.length} users using Resend API with verified domain`)
 
-    // Send emails using Resend API with proper from address
+    // Send emails using Resend API with your verified domain
     const results = await Promise.all(
       users.map(async (user) => {
         try {
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              from: "Sthavishtah Yoga <delivered@resend.dev>", // Updated to use delivered subdomain
+              from: "Sthavishtah Yoga <noreply@sthavishtah.com>", // Your verified domain
               to: [user.email],
               subject,
               html: personalizedMessage,
@@ -101,13 +101,15 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: successful > 0,
-      message: `Sent ${successful} emails successfully. ${failed} failed.`,
+      message: `Successfully sent ${successful} emails to users. ${failed} failed.`,
       results,
       summary: {
         total: users.length,
         successful,
         failed,
       },
+      service: "Resend API (Verified Domain)",
+      domain: "sthavishtah.com",
     })
   } catch (error) {
     console.error("Error in send-bulk-email API:", error)

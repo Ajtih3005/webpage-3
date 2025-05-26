@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import {
-  CheckCircle,
   Calendar,
   Utensils,
   Dumbbell,
@@ -24,6 +23,7 @@ import {
   Heart,
   Wind,
   Sparkles,
+  BookOpen,
 } from "lucide-react"
 import { useState, useEffect } from "react"
 import ReviewCarousel from "@/components/review-carousel"
@@ -240,7 +240,7 @@ export default function Home() {
           <div className="flex items-center justify-center">
             <div className="h-px w-12 sm:w-20 bg-gradient-to-r from-transparent to-green-300"></div>
             <p className="text-base sm:text-lg md:text-xl text-green-700 font-semibold px-3 sm:px-5">
-              Sessions starting from May 12, 2025
+              Sessions starting from June 1, 2025
             </p>
             <div className="h-px w-12 sm:w-20 bg-gradient-to-r from-green-300 to-transparent"></div>
           </div>
@@ -362,6 +362,11 @@ export default function Home() {
           <div className="max-w-5xl mx-auto">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8 staggered-fade-in">
               <OfferingCard
+                icon={<BookOpen className="h-8 w-8 sm:h-10 sm:w-10 text-green-600" />}
+                title="Bhagavad Gita Study"
+                description="Discover timeless wisdom through our Gita practice sessions starting now. Join our enlightening journey where ancient teachings meet modern understanding, with detailed explanations beginning in July."
+              />
+              <OfferingCard
                 icon={<Users className="h-8 w-8 sm:h-10 sm:w-10 text-green-600" />}
                 title="Yoga for Health & Flexibility"
                 description="Gentle practices to improve mobility, reduce stress, and enhance your connection with nature and self."
@@ -385,11 +390,6 @@ export default function Home() {
                 icon={<Calendar className="h-8 w-8 sm:h-10 sm:w-10 text-green-600" />}
                 title="Flexible Batches"
                 description="Join any of our six daily sessions that align with your natural rhythm. Connect with our community for support and guidance."
-              />
-              <OfferingCard
-                icon={<CheckCircle className="h-8 w-8 sm:h-10 sm:w-10 text-green-600" />}
-                title="Orientation Sessions"
-                description="Begin your journey with guidance that honors your unique path and connects you to our peaceful community."
               />
             </div>
           </div>

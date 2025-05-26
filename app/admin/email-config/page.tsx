@@ -402,7 +402,7 @@ export default function EmailConfigPage() {
                       id="host"
                       value={config.host}
                       onChange={(e) => handleChange("host", e.target.value)}
-                      placeholder="e.g., smtp.gmail.com"
+                      placeholder="e.g., smtp.resend.com"
                     />
                   </div>
 
@@ -412,7 +412,7 @@ export default function EmailConfigPage() {
                       id="port"
                       value={config.port}
                       onChange={(e) => handleChange("port", e.target.value)}
-                      placeholder="e.g., 587"
+                      placeholder="e.g., 587 or 465"
                     />
                   </div>
                 </div>
@@ -455,14 +455,14 @@ export default function EmailConfigPage() {
                     </button>
                   </div>
                   <p className="text-xs text-gray-500">
-                    For Gmail, use an App Password instead of your main password.{" "}
+                    For Gmail, use an App Password. For Resend, use your API key.{" "}
                     <a
-                      href="https://myaccount.google.com/apppasswords"
+                      href="https://resend.com/api-keys"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-blue-500 hover:underline"
                     >
-                      Create App Password
+                      Get Resend API Key
                     </a>
                   </p>
                 </div>
