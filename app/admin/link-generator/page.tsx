@@ -24,7 +24,7 @@ export default function LinkGeneratorPage() {
   const [targetType, setTargetType] = useState("all")
   const [selectedUsers, setSelectedUsers] = useState<string[]>([])
   const [selectedUser, setSelectedUser] = useState("")
-  const [selectedSubscription, setSelectedSubscription] = useState("")
+  const [selectedSubscription, setSelectedSubscription] = useState<string>("")
   const [expiresAt, setExpiresAt] = useState<Date | undefined>(undefined)
   const [showCalendar, setShowCalendar] = useState(false)
   const [hasExpiration, setHasExpiration] = useState(false)
