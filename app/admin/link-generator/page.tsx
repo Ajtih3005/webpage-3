@@ -81,6 +81,17 @@ export default function LinkGeneratorPage() {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
       const data = await response.json()
+      console.log("Fetched subscriptions:", data.subscriptions) // Debug log
+
+      // Log each subscription's WhatsApp link
+      data.subscriptions?.forEach((sub) => {
+        console.log(`Subscription ${sub.name}:`, {
+          id: sub.id,
+          whatsappGroupLink: sub.whatsappGroupLink,
+          whatsapp_group_link: sub.whatsapp_group_link,
+        })
+      })
+
       setSubscriptions(data.subscriptions || [])
     } catch (error) {
       console.error("Error fetching subscriptions:", error)
@@ -151,7 +162,9 @@ export default function LinkGeneratorPage() {
   const approveAccessRequest = async (requestId: string, userId: string, subscriptionId: string) => {
     try {
       const subscription = subscriptions.find((sub) => sub.id.toString() === subscriptionId)
-      if (!subscription || !subscription.whatsappGroupLink) {
+      const whatsappLink = subscription?.whatsappGroupLink || subscription?.whatsapp_group_link
+
+      if (!subscription || !whatsappLink) {
         toast({
           title: "Error",
           description: "Subscription does not have a WhatsApp group link.",
@@ -172,7 +185,7 @@ export default function LinkGeneratorPage() {
           title: `Additional WhatsApp Access for ${user?.name || user?.email || `User ${userId}`}`,
           description: `Admin-approved additional access to WhatsApp group`,
           linkType: "whatsapp",
-          targetUrl: subscription.whatsappGroupLink,
+          targetUrl: whatsappLink,
           targetType: "user",
           targetIds: [userId],
           expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 day expiration
@@ -438,7 +451,9 @@ export default function LinkGeneratorPage() {
   // Create WhatsApp link for user
   const createUserWhatsAppLink = async (userId: string, userName: string, subscriptionId: string) => {
     const subscription = subscriptions.find((sub) => sub.id === subscriptionId)
-    if (!subscription || !subscription.whatsappGroupLink) {
+    const whatsappLink = subscription?.whatsappGroupLink || subscription?.whatsapp_group_link
+
+    if (!subscription || !whatsappLink) {
       toast({
         title: "Error",
         description: "Selected subscription does not have a WhatsApp group link.",
@@ -458,7 +473,7 @@ export default function LinkGeneratorPage() {
           title: `WhatsApp Group for ${userName}`,
           description: `Personal link for ${userName} to join the WhatsApp group`,
           linkType: "whatsapp",
-          targetUrl: subscription.whatsappGroupLink,
+          targetUrl: whatsappLink,
           targetType: "user",
           targetIds: [userId],
           expiresAt: hasExpiration ? expiresAt : null,
@@ -970,7 +985,7 @@ export default function LinkGeneratorPage() {
                           </SelectTrigger>
                           <SelectContent>
                             {subscriptions
-                              .filter((sub) => sub.whatsappGroupLink)
+                              .filter((sub) => sub.whatsappGroupLink || sub.whatsapp_group_link)
                               .map((subscription) => (
                                 <SelectItem key={subscription.id} value={subscription.id.toString()}>
                                   {subscription.name}
@@ -1067,18 +1082,21 @@ export default function LinkGeneratorPage() {
                         <div key={subscription.id} className="border rounded-md p-4">
                           <h3 className="font-medium">{subscription.name}</h3>
                           <p className="text-sm text-gray-500 mt-1">
-                            {subscription.whatsappGroupLink
+                            {subscription.whatsappGroupLink || subscription.whatsapp_group_link
                               ? "Has WhatsApp group link"
                               : "No WhatsApp group link available"}
                           </p>
-                          {subscription.whatsappGroupLink && (
+                          <p className="text-xs text-gray-400 mt-1">
+                            Link: {subscription.whatsappGroupLink || subscription.whatsapp_group_link || "None"}
+                          </p>
+                          {(subscription.whatsappGroupLink || subscription.whatsapp_group_link) && (
                             <div className="flex flex-wrap gap-2 mt-3">
                               <Button
                                 onClick={() =>
                                   createWhatsAppLink(
                                     subscription.id.toString(),
                                     subscription.name,
-                                    subscription.whatsappGroupLink,
+                                    subscription.whatsappGroupLink || subscription.whatsapp_group_link,
                                   )
                                 }
                                 disabled={creating || (targetType === "user" && !selectedUser)}
@@ -1090,7 +1108,10 @@ export default function LinkGeneratorPage() {
                                 variant="outline"
                                 size="sm"
                                 onClick={() =>
-                                  copySubscriptionWhatsAppLink(subscription.whatsappGroupLink, subscription.name)
+                                  copySubscriptionWhatsAppLink(
+                                    subscription.whatsappGroupLink || subscription.whatsapp_group_link,
+                                    subscription.name,
+                                  )
                                 }
                               >
                                 <Copy className="h-4 w-4 mr-1" />
