@@ -180,7 +180,8 @@ export default function LinkGeneratorPage() {
       })
 
       if (!response.ok) {
-        throw new Error("Failed to create access link")
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to create access link")
       }
 
       const data = await response.json()
@@ -275,7 +276,8 @@ export default function LinkGeneratorPage() {
       })
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        const errorData = await response.json()
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
       }
 
       const data = await response.json()
@@ -302,7 +304,7 @@ export default function LinkGeneratorPage() {
       console.error("Error creating link:", error)
       toast({
         title: "Error",
-        description: "Failed to create link. Please try again.",
+        description: `Failed to create link: ${error.message}`,
         variant: "destructive",
       })
     } finally {
@@ -314,31 +316,40 @@ export default function LinkGeneratorPage() {
   const createCourseSessionLink = async (courseId: string, courseName: string) => {
     setCreating(true)
     try {
+      // Prepare target IDs based on target type
+      let targetIds = null
+      if (targetType === "users") {
+        targetIds = selectedUsers
+      } else if (targetType === "user") {
+        targetIds = [selectedUser]
+      } else if (targetType === "subscription") {
+        targetIds = [selectedSubscription]
+      }
+
+      const requestBody = {
+        title: `Access to ${courseName}`,
+        description: `Link to access the course: ${courseName}`,
+        linkType: "session",
+        targetUrl: `/user/access-course/${courseId}`,
+        targetType: targetType,
+        targetIds: targetIds,
+        expiresAt: hasExpiration ? expiresAt : null,
+      }
+
+      console.log("Creating course session link with:", requestBody)
+
       const response = await fetch("/api/links/create", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          title: `Access to ${courseName}`,
-          description: `Link to access the course: ${courseName}`,
-          linkType: "session",
-          targetUrl: `/user/access-course/${courseId}`,
-          targetType: targetType,
-          targetIds:
-            targetType === "users"
-              ? selectedUsers
-              : targetType === "user"
-                ? [selectedUser]
-                : targetType === "subscription"
-                  ? [selectedSubscription]
-                  : null,
-          expiresAt: hasExpiration ? expiresAt : null,
-        }),
+        body: JSON.stringify(requestBody),
       })
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        const errorData = await response.json()
+        console.error("API Error Response:", errorData)
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
       }
 
       const data = await response.json()
@@ -354,7 +365,7 @@ export default function LinkGeneratorPage() {
       console.error("Error creating course session link:", error)
       toast({
         title: "Error",
-        description: "Failed to create course session link. Please try again.",
+        description: `Failed to create course session link: ${error.message}`,
         variant: "destructive",
       })
     } finally {
@@ -399,7 +410,8 @@ export default function LinkGeneratorPage() {
       })
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        const errorData = await response.json()
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
       }
 
       const data = await response.json()
@@ -415,7 +427,7 @@ export default function LinkGeneratorPage() {
       console.error("Error creating WhatsApp link:", error)
       toast({
         title: "Error",
-        description: "Failed to create WhatsApp link. Please try again.",
+        description: `Failed to create WhatsApp link: ${error.message}`,
         variant: "destructive",
       })
     } finally {
@@ -454,7 +466,8 @@ export default function LinkGeneratorPage() {
       })
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        const errorData = await response.json()
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
       }
 
       const data = await response.json()
@@ -470,7 +483,7 @@ export default function LinkGeneratorPage() {
       console.error("Error creating user WhatsApp link:", error)
       toast({
         title: "Error",
-        description: "Failed to create user WhatsApp link. Please try again.",
+        description: `Failed to create user WhatsApp link: ${error.message}`,
         variant: "destructive",
       })
     } finally {
@@ -681,7 +694,8 @@ export default function LinkGeneratorPage() {
                             disabled={
                               creating ||
                               (targetType === "user" && !selectedUser) ||
-                              (targetType === "subscription" && !selectedSubscription)
+                              (targetType === "subscription" && !selectedSubscription) ||
+                              (targetType === "users" && selectedUsers.length === 0)
                             }
                           >
                             Create Link

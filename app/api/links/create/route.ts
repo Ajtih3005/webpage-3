@@ -7,11 +7,53 @@ export async function POST(request: NextRequest) {
     const supabase = createClient()
     const data = await request.json()
 
-    const { title, description, link_type, target_url, target_type, target_ids, expires_at, created_by } = data
+    const {
+      title,
+      description,
+      linkType,
+      link_type,
+      target_url,
+      targetUrl,
+      target_type,
+      targetType,
+      target_ids,
+      targetIds,
+      expires_at,
+      expiresAt,
+      created_by,
+    } = data
+
+    // Handle both camelCase and snake_case field names
+    const finalTitle = title
+    const finalDescription = description || ""
+    const finalLinkType = linkType || link_type || "session"
+    const finalTargetUrl = targetUrl || target_url
+    const finalTargetType = targetType || target_type || "all"
+    const finalTargetIds = targetIds || target_ids || null
+    const finalExpiresAt = expiresAt || expires_at || null
+    const finalCreatedBy = created_by || null
 
     // Validate required fields
-    if (!title || !link_type || !target_url || !target_type) {
-      return NextResponse.json({ success: false, error: "Missing required fields" }, { status: 400 })
+    if (!finalTitle || !finalLinkType || !finalTargetUrl || !finalTargetType) {
+      console.error("Missing required fields:", {
+        title: finalTitle,
+        linkType: finalLinkType,
+        targetUrl: finalTargetUrl,
+        targetType: finalTargetType,
+      })
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Missing required fields",
+          details: {
+            title: !finalTitle ? "Title is required" : null,
+            linkType: !finalLinkType ? "Link type is required" : null,
+            targetUrl: !finalTargetUrl ? "Target URL is required" : null,
+            targetType: !finalTargetType ? "Target type is required" : null,
+          },
+        },
+        { status: 400 },
+      )
     }
 
     // Generate a random token
@@ -21,15 +63,15 @@ export async function POST(request: NextRequest) {
     const { data: link, error } = await supabase
       .from("generated_links")
       .insert({
-        title,
-        description,
-        link_type,
+        title: finalTitle,
+        description: finalDescription,
+        link_type: finalLinkType,
         token,
-        target_url,
-        target_type,
-        target_ids,
-        expires_at: expires_at || null,
-        created_by,
+        target_url: finalTargetUrl,
+        target_type: finalTargetType,
+        target_ids: finalTargetIds,
+        expires_at: finalExpiresAt,
+        created_by: finalCreatedBy,
         is_active: true,
       })
       .select()
@@ -43,7 +85,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       link,
-      full_url: `${process.env.NEXT_PUBLIC_APP_URL}/l/${token}`,
+      full_url: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/l/${token}`,
     })
   } catch (error) {
     console.error("Error in links/create route:", error)
