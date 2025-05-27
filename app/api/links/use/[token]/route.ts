@@ -6,11 +6,8 @@ export async function POST(request: NextRequest, { params }: { params: { token: 
     const token = params.token
     const supabase = createClient()
 
-    // Get the current user ID from the request cookies
+    // Get the current user ID from the request cookies (if logged in)
     const userId = request.cookies.get("userId")?.value
-    if (!userId) {
-      return NextResponse.json({ success: false, error: "User not authenticated" }, { status: 401 })
-    }
 
     // Fetch the link
     const { data: link, error } = await supabase
@@ -33,12 +30,18 @@ export async function POST(request: NextRequest, { params }: { params: { token: 
     let isAllowed = false
 
     if (link.target_type === "all") {
+      // Public links - anyone can use them
       isAllowed = true
-    } else if (link.target_type === "user" && link.target_ids && link.target_ids.includes(Number.parseInt(userId))) {
+    } else if (
+      link.target_type === "user" &&
+      userId &&
+      link.target_ids &&
+      link.target_ids.includes(Number.parseInt(userId))
+    ) {
       isAllowed = true
-    } else if (link.target_type === "users") {
+    } else if (link.target_type === "users" && userId) {
       isAllowed = true
-    } else if (link.target_type === "subscription") {
+    } else if (link.target_type === "subscription" && userId) {
       // Check if the user has the specified subscription
       const { data: userSubscriptions, error: subError } = await supabase
         .from("user_subscriptions")
@@ -55,47 +58,69 @@ export async function POST(request: NextRequest, { params }: { params: { token: 
       return NextResponse.json({ success: false, error: "You are not authorized to use this link" }, { status: 403 })
     }
 
-    // Check if the user has already used this link
-    const { data: existingUsage, error: usageCheckError } = await supabase
-      .from("link_usages")
-      .select("*")
-      .eq("link_id", link.id)
-      .eq("user_id", Number.parseInt(userId))
-      .single()
+    // Record the usage (only if user is logged in)
+    if (userId) {
+      const userAgent = request.headers.get("user-agent") || ""
+      const ip = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown"
 
-    // For WhatsApp links, check if the user has reached their usage limit
-    if (link.link_type === "whatsapp" && existingUsage) {
-      // User has already used this link
-      return NextResponse.json(
+      // Check if the user has already used this link (for WhatsApp links)
+      if (link.link_type === "whatsapp") {
+        const { data: existingUsage, error: usageCheckError } = await supabase
+          .from("link_usages")
+          .select("*")
+          .eq("link_id", link.id)
+          .eq("user_id", Number.parseInt(userId))
+          .single()
+
+        if (existingUsage) {
+          // User has already used this link
+          return NextResponse.json(
+            {
+              success: false,
+              error: "You have already used this link. Please contact an admin for additional access.",
+              target_url: link.target_url, // Still provide the URL so the frontend can handle appropriately
+            },
+            { status: 403 },
+          )
+        }
+      }
+
+      // Record the usage
+      const { error: usageError } = await supabase.from("link_usages").upsert(
         {
-          success: false,
-          error: "You have already used this link. Please contact an admin for additional access.",
-          target_url: link.target_url, // Still provide the URL so the frontend can handle appropriately
+          link_id: link.id,
+          user_id: Number.parseInt(userId),
+          used_at: new Date().toISOString(),
+          user_agent: userAgent,
+          ip_address: ip,
         },
-        { status: 403 },
+        {
+          onConflict: "link_id,user_id",
+        },
       )
-    }
 
-    // Record the usage
-    const userAgent = request.headers.get("user-agent") || ""
-    const ip = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown"
+      if (usageError) {
+        console.error("Error recording link usage:", usageError)
+        // Continue anyway, don't block the user
+      }
+    } else {
+      // For public links, we can still record anonymous usage
+      const userAgent = request.headers.get("user-agent") || ""
+      const ip = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown"
 
-    const { error: usageError } = await supabase.from("link_usages").upsert(
-      {
+      // Record anonymous usage (without user_id)
+      const { error: usageError } = await supabase.from("link_usages").insert({
         link_id: link.id,
-        user_id: Number.parseInt(userId),
+        user_id: null, // Anonymous usage
         used_at: new Date().toISOString(),
         user_agent: userAgent,
         ip_address: ip,
-      },
-      {
-        onConflict: "link_id,user_id",
-      },
-    )
+      })
 
-    if (usageError) {
-      console.error("Error recording link usage:", usageError)
-      // Continue anyway, don't block the user
+      if (usageError) {
+        console.error("Error recording anonymous link usage:", usageError)
+        // Continue anyway, don't block the user
+      }
     }
 
     return NextResponse.json({

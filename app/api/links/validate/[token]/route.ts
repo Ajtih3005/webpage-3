@@ -6,7 +6,7 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
     const token = params.token
     const supabase = createClient()
 
-    // Get the current user ID from the request cookies
+    // Get the current user ID from the request cookies (if logged in)
     const userId = request.cookies.get("userId")?.value
 
     // Fetch the link
@@ -28,8 +28,10 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
 
     // Check if the user is allowed to use this link
     let isAllowed = false
+    let requiresLogin = false
 
     if (link.target_type === "all") {
+      // Public links - anyone can use them
       isAllowed = true
     } else if (
       link.target_type === "user" &&
@@ -37,20 +39,48 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
       link.target_ids &&
       link.target_ids.includes(Number.parseInt(userId))
     ) {
+      // Specific user - must be logged in as that user
       isAllowed = true
+    } else if (link.target_type === "user" && !userId) {
+      // Specific user but not logged in - require login
+      requiresLogin = true
+      isAllowed = false
     } else if (link.target_type === "users" && userId) {
+      // Multiple users - must be logged in
       isAllowed = true
-    } else if (link.target_type === "subscription" && userId) {
-      // Check if the user has the specified subscription
-      const { data: userSubscriptions, error: subError } = await supabase
-        .from("user_subscriptions")
-        .select("subscription_id")
-        .eq("user_id", userId)
+    } else if (link.target_type === "users" && !userId) {
+      // Multiple users but not logged in - require login
+      requiresLogin = true
+      isAllowed = false
+    } else if (link.target_type === "subscription") {
+      if (!userId) {
+        // Subscription-based but not logged in - require login
+        requiresLogin = true
+        isAllowed = false
+      } else {
+        // Check if the user has the specified subscription
+        const { data: userSubscriptions, error: subError } = await supabase
+          .from("user_subscriptions")
+          .select("subscription_id")
+          .eq("user_id", userId)
 
-      if (!subError && userSubscriptions) {
-        const userSubIds = userSubscriptions.map((sub) => sub.subscription_id)
-        isAllowed = link.target_ids.some((id: number) => userSubIds.includes(id))
+        if (!subError && userSubscriptions) {
+          const userSubIds = userSubscriptions.map((sub) => sub.subscription_id)
+          isAllowed = link.target_ids.some((id: number) => userSubIds.includes(id))
+        }
       }
+    }
+
+    if (requiresLogin) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Login required",
+          requiresLogin: true,
+          loginUrl: `/user/login?redirect=/l/${token}`,
+        },
+        { status: 401 },
+      )
     }
 
     if (!isAllowed) {
@@ -66,6 +96,7 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
         target_url: link.target_url,
         link_type: link.link_type,
       },
+      userInfo: userId ? { loggedIn: true, userId } : { loggedIn: false },
     })
   } catch (error) {
     console.error("Error in links/validate route:", error)
