@@ -1,9 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getSupabaseServerClient } from "@/lib/supabase"
+import { createBulkEmailTemplate } from "@/lib/email-template"
 
 export async function POST(request: NextRequest) {
   try {
-    const { userIds, subject, message, adminPassword } = await request.json()
+    const { userIds, subject, message, attachments = [], adminPassword } = await request.json()
 
     // Admin password verification
     const envAdminPassword = process.env.ADMIN_PASSWORD
@@ -28,6 +29,34 @@ export async function POST(request: NextRequest) {
 
     if (!subject || !message) {
       return NextResponse.json({ success: false, message: "Subject and message are required" }, { status: 400 })
+    }
+
+    // Validate attachments
+    if (attachments && attachments.length > 0) {
+      const maxAttachments = 10
+      const maxSizePerFile = 10 * 1024 * 1024 // 10MB
+
+      if (attachments.length > maxAttachments) {
+        return NextResponse.json(
+          { success: false, message: `Too many attachments. Maximum ${maxAttachments} files allowed.` },
+          { status: 400 },
+        )
+      }
+
+      for (const attachment of attachments) {
+        if (!attachment.name || !attachment.data || !attachment.type) {
+          return NextResponse.json({ success: false, message: "Invalid attachment format" }, { status: 400 })
+        }
+
+        // Estimate file size from base64 (base64 is ~33% larger than original)
+        const estimatedSize = (attachment.data.length * 3) / 4
+        if (estimatedSize > maxSizePerFile) {
+          return NextResponse.json(
+            { success: false, message: `Attachment ${attachment.name} is too large. Maximum 10MB per file.` },
+            { status: 400 },
+          )
+        }
+      }
     }
 
     // Get users' email addresses
@@ -55,13 +84,35 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log(`Sending emails to ${users.length} users using Resend API with verified domain`)
+    console.log(`Sending emails to ${users.length} users with ${attachments.length} attachments using Resend API`)
+
+    // Prepare attachments for Resend API
+    const resendAttachments = attachments.map((file: any) => ({
+      filename: file.name,
+      content: file.data, // base64 content
+      type: file.type,
+    }))
 
     // Send emails using Resend API with your verified domain
     const results = await Promise.all(
       users.map(async (user) => {
         try {
+          // Create personalized message with Sthavishtah letterhead
           const personalizedMessage = message.replace(/\{name\}/g, user.name || "")
+          const htmlContent = createBulkEmailTemplate(personalizedMessage, user.name)
+
+          const emailPayload: any = {
+            from: "Sthavishtah Yoga <noreply@sthavishtah.com>", // Your verified domain
+            to: [user.email],
+            subject,
+            html: htmlContent,
+            text: personalizedMessage.replace(/<[^>]*>/g, ""), // Strip HTML for text version
+          }
+
+          // Add attachments if any
+          if (resendAttachments.length > 0) {
+            emailPayload.attachments = resendAttachments
+          }
 
           const response = await fetch("https://api.resend.com/emails", {
             method: "POST",
@@ -69,13 +120,7 @@ export async function POST(request: NextRequest) {
               Authorization: `Bearer ${resendApiKey}`,
               "Content-Type": "application/json",
             },
-            body: JSON.stringify({
-              from: "Sthavishtah Yoga <noreply@sthavishtah.com>", // Your verified domain
-              to: [user.email],
-              subject,
-              html: personalizedMessage,
-              text: personalizedMessage.replace(/<[^>]*>/g, ""), // Strip HTML for text version
-            }),
+            body: JSON.stringify(emailPayload),
           })
 
           if (response.ok) {
@@ -101,14 +146,15 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: successful > 0,
-      message: `Successfully sent ${successful} emails to users. ${failed} failed.`,
+      message: `Successfully sent ${successful} professional emails${attachments.length > 0 ? ` with ${attachments.length} attachment${attachments.length !== 1 ? "s" : ""}` : ""} using Sthavishtah letterhead. ${failed} failed.`,
       results,
       summary: {
         total: users.length,
         successful,
         failed,
+        attachments: attachments.length,
       },
-      service: "Resend API (Verified Domain)",
+      service: "Resend API (Sthavishtah Letterhead)",
       domain: "sthavishtah.com",
     })
   } catch (error) {

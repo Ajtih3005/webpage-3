@@ -2,6 +2,7 @@
 
 import nodemailer from "nodemailer"
 import { getSupabaseServerClient } from "@/lib/supabase"
+import { createPasswordEmailTemplate } from "@/lib/email-template"
 
 // Function to get email configuration from database
 export async function getEmailConfig() {
@@ -54,7 +55,7 @@ export async function createTransporter() {
     }
 
     // Create a transporter with explicit configuration
-    const transporter = nodemailer.createTransport({
+    const transporter = nodemailer.createTransporter({
       host: config.host,
       port: Number.parseInt(config.port.toString()),
       secure: config.secure, // true for 465, false for other ports
@@ -113,33 +114,27 @@ export async function sendEmail({
 
 export async function sendPasswordEmail(email: string, name: string, userId: string, password?: string) {
   try {
+    // Use the professional letterhead template for password emails
+    const htmlContent = createPasswordEmailTemplate(name, userId, password || "Please use forgot password feature")
+
     const result = await sendEmail({
       to: email,
-      subject: "Your Sthavishtah Yoga Account Password",
+      subject: "Welcome to Sthavishtah Yoga - Your Account Details",
       text: `
-        Hello ${name},
+        Namaste ${name},
 
-        Here are your login details for Sthavishtah Yoga:
+        Welcome to Sthavishtah Yoga! Your account has been created successfully.
+
+        Your login details:
         User ID: ${userId}
-        Password: ${password || "Your password is stored securely. Please use the forgot password feature to reset it."}
+        Password: ${password || "Please use the forgot password feature to reset it."}
 
         Please keep this information secure.
 
-        Thank you,
-        Sthavishtah Yoga Team
+        With gratitude and light,
+        The Sthavishtah Yoga Team
       `,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
-          <h2 style="color: #4a5568;">Hello ${name},</h2>
-          <p>Here are your login details for Sthavishtah Yoga:</p>
-          <ul style="list-style: none; padding: 0;">
-            <li><strong>User ID:</strong> ${userId}</li>
-            <li><strong>Password:</strong> ${password || "Your password is stored securely. Please use the forgot password feature to reset it."}</li>
-          </ul>
-          <p>Please keep this information secure.</p>
-          <p style="margin-top: 20px; font-size: 14px; color: #718096;">Thank you,<br>Sthavishtah Yoga Team</p>
-        </div>
-      `,
+      html: htmlContent,
     })
 
     return result

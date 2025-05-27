@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect } from "react"
 import { AdminLayout } from "@/components/admin-layout"
 import { Button } from "@/components/ui/button"
@@ -10,7 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
-import { Mail, Search } from "lucide-react"
+import { Mail, Search, Paperclip, X, FileText } from "lucide-react"
 
 interface User {
   id: number
@@ -20,11 +22,19 @@ interface User {
   phone_number: string
 }
 
+interface AttachedFile {
+  name: string
+  size: number
+  type: string
+  data: string // base64 encoded
+}
+
 export default function EmailPage() {
   const [users, setUsers] = useState<User[]>([])
   const [selectedUsers, setSelectedUsers] = useState<number[]>([])
   const [subject, setSubject] = useState("")
   const [message, setMessage] = useState("")
+  const [attachments, setAttachments] = useState<AttachedFile[]>([])
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
@@ -78,6 +88,74 @@ export default function EmailPage() {
     }
   }
 
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files
+    if (!files) return
+
+    const maxSize = 10 * 1024 * 1024 // 10MB limit
+    const allowedTypes = [
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "image/jpeg",
+      "image/png",
+      "image/gif",
+      "text/plain",
+    ]
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
+
+      if (file.size > maxSize) {
+        setEmailStatus({
+          type: "error",
+          message: `File ${file.name} is too large. Maximum size is 10MB.`,
+        })
+        continue
+      }
+
+      if (!allowedTypes.includes(file.type)) {
+        setEmailStatus({
+          type: "error",
+          message: `File type ${file.type} is not allowed.`,
+        })
+        continue
+      }
+
+      // Convert file to base64
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const base64 = e.target?.result as string
+        const base64Data = base64.split(",")[1] // Remove data:type;base64, prefix
+
+        const newAttachment: AttachedFile = {
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          data: base64Data,
+        }
+
+        setAttachments((prev) => [...prev, newAttachment])
+      }
+      reader.readAsDataURL(file)
+    }
+
+    // Clear the input
+    event.target.value = ""
+  }
+
+  const removeAttachment = (index: number) => {
+    setAttachments((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return "0 Bytes"
+    const k = 1024
+    const sizes = ["Bytes", "KB", "MB", "GB"]
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i]
+  }
+
   const validateForm = () => {
     if (selectedUsers.length === 0) {
       setEmailStatus({
@@ -119,19 +197,20 @@ export default function EmailPage() {
           ? "admin123"
           : "!@#$%^&*()AjItH"
 
-      console.log("Sending email request...")
+      console.log("Sending email request with attachments...")
 
       const response = await fetch("/api/send-bulk-email", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-admin-password": adminPassword, // Also send in header
+          "x-admin-password": adminPassword,
         },
         body: JSON.stringify({
           userIds: selectedUsers,
           subject,
           message: message.replace(/\n/g, "<br>"),
-          adminPassword, // Send in body too
+          attachments: attachments, // Include attachments
+          adminPassword,
         }),
       })
 
@@ -146,6 +225,7 @@ export default function EmailPage() {
         setSubject("")
         setMessage("")
         setSelectedUsers([])
+        setAttachments([])
       } else {
         setEmailStatus({
           type: "error",
@@ -227,7 +307,7 @@ export default function EmailPage() {
           <Card>
             <CardHeader>
               <CardTitle>Compose Email</CardTitle>
-              <CardDescription>Create your email message</CardDescription>
+              <CardDescription>Create your email message with attachments</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
@@ -247,13 +327,63 @@ export default function EmailPage() {
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   placeholder="Enter your message here..."
-                  rows={10}
+                  rows={8}
                 />
-                <p className="text-xs text-gray-500">
-                  You can use line breaks and simple formatting. The message will be wrapped in the Sthavishtah Yoga
-                  email template.
-                </p>
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="attachments">Attachments</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="attachments"
+                    type="file"
+                    multiple
+                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.txt"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => document.getElementById("attachments")?.click()}
+                    className="flex items-center gap-2"
+                  >
+                    <Paperclip className="h-4 w-4" />
+                    Add Files
+                  </Button>
+                  <span className="text-xs text-gray-500">Max 10MB per file</span>
+                </div>
+
+                {attachments.length > 0 && (
+                  <div className="space-y-2 mt-3">
+                    <Label className="text-sm font-medium">Attached Files:</Label>
+                    {attachments.map((file, index) => (
+                      <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-md">
+                        <div className="flex items-center gap-2">
+                          <FileText className="h-4 w-4 text-gray-500" />
+                          <div>
+                            <div className="text-sm font-medium">{file.name}</div>
+                            <div className="text-xs text-gray-500">{formatFileSize(file.size)}</div>
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeAttachment(index)}
+                          className="h-6 w-6 p-0"
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <p className="text-xs text-gray-500">
+                Supported formats: PDF, DOC, DOCX, JPG, PNG, GIF, TXT. You can attach multiple files.
+              </p>
 
               {emailStatus && (
                 <Alert variant={emailStatus.type === "success" ? "default" : "destructive"}>
@@ -266,7 +396,7 @@ export default function EmailPage() {
                 <Mail className="mr-2 h-4 w-4" />
                 {sending
                   ? "Sending..."
-                  : `Send Email to ${selectedUsers.length} User${selectedUsers.length !== 1 ? "s" : ""}`}
+                  : `Send Email${attachments.length > 0 ? ` with ${attachments.length} attachment${attachments.length !== 1 ? "s" : ""}` : ""} to ${selectedUsers.length} User${selectedUsers.length !== 1 ? "s" : ""}`}
               </Button>
             </CardFooter>
           </Card>
