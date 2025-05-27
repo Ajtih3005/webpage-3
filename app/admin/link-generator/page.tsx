@@ -623,8 +623,37 @@ export default function LinkGeneratorPage() {
     }
   }
 
+  // Delete link
+  const deleteLink = async (id: string) => {
+    try {
+      const response = await fetch(`/api/links/delete/${id}`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+      }
+
+      toast({
+        title: "Success",
+        description: "Link deleted successfully!",
+      })
+
+      // Refresh links
+      fetchLinks()
+    } catch (error) {
+      console.error("Error deleting link:", error)
+      toast({
+        title: "Error",
+        description: "Failed to delete link. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
   // Deactivate link
-  const deactivateLink = async (id: string) => {
+  /*const deactivateLink = async (id: string) => {
     try {
       const response = await fetch(`/api/links/deactivate/${id}`, {
         method: "POST",
@@ -649,7 +678,7 @@ export default function LinkGeneratorPage() {
         variant: "destructive",
       })
     }
-  }
+  }*/
 
   // Handle user selection change
   const handleUserSelectionChange = (userId: string, checked: boolean) => {
@@ -1181,7 +1210,7 @@ export default function LinkGeneratorPage() {
                         <Button size="sm" variant="outline" onClick={() => copyLink(link.token)}>
                           <Copy className="h-4 w-4" />
                         </Button>
-                        <Button size="sm" variant="outline" onClick={() => deactivateLink(link.id)}>
+                        <Button size="sm" variant="outline" onClick={() => deleteLink(link.id)}>
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
