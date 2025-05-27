@@ -41,18 +41,15 @@ export function createEmailTemplate(content: string, recipientName?: string): st
             position: relative;
             z-index: 1;
         }
-        .logo {
+        .logo-img {
             width: 80px;
             height: 80px;
             margin: 0 auto 15px;
-            background-color: rgba(255, 255, 255, 0.1);
+            display: block;
             border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24px;
-            font-weight: bold;
-            border: 2px solid rgba(255, 255, 255, 0.3);
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            background-color: rgba(255, 255, 255, 0.1);
+            padding: 5px;
         }
         .company-name {
             font-size: 28px;
@@ -117,12 +114,13 @@ export function createEmailTemplate(content: string, recipientName?: string): st
         .social-links a {
             display: inline-block;
             margin: 0 10px;
-            padding: 8px 12px;
+            padding: 10px 20px;
             background-color: #2d5016;
             color: white;
             text-decoration: none;
-            border-radius: 4px;
-            font-size: 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
             transition: background-color 0.3s;
         }
         .social-links a:hover {
@@ -160,7 +158,7 @@ export function createEmailTemplate(content: string, recipientName?: string): st
         <!-- Header with Logo and Branding -->
         <div class="header">
             <div class="logo-section">
-                <div class="logo">🧘</div>
+                <img src="https://sthavishtah.com/images/logo.png" alt="Sthavishtah Yoga Logo" class="logo-img" />
                 <h1 class="company-name">STHAVISHTAH</h1>
                 <p class="tagline">Breathe • Balance • Become</p>
             </div>
@@ -185,15 +183,12 @@ export function createEmailTemplate(content: string, recipientName?: string): st
             <div class="footer-content">
                 <div class="contact-info">
                     <strong>Sthavishtah Yoga Academy</strong><br>
-                    📧 <a href="mailto:contact@sthavishtah.com">contact@sthavishtah.com</a><br>
-                    🌐 <a href="https://sthavishtah.com">www.sthavishtah.com</a><br>
-                    📱 WhatsApp: <a href="https://wa.me/your-number">Connect with us</a>
+                    📧 <a href="mailto:sthavishtah2024@gmail.com">sthavishtah2024@gmail.com</a><br>
+                    🌐 <a href="https://sthavishtah.com">www.sthavishtah.com</a>
                 </div>
 
                 <div class="social-links">
-                    <a href="#">Instagram</a>
-                    <a href="#">Facebook</a>
-                    <a href="#">YouTube</a>
+                    <a href="https://instagram.com/sthavishtah">📷 Follow us @sthavishtah</a>
                 </div>
 
                 <div class="disclaimer">
