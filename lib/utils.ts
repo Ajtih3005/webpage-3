@@ -5,320 +5,217 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function formatDate(date: Date | string): string {
-  const d = new Date(date)
-  return d.toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  })
-}
-
-export function formatTime(date: Date | string): string {
-  const d = new Date(date)
-  return d.toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-  })
-}
-
-export function formatDateTime(date: Date | string): string {
-  const d = new Date(date)
-  return `${formatDate(d)} at ${formatTime(d)}`
-}
-
-export function formatCurrency(amount: number): string {
+// Currency formatting utility
+export function formatCurrency(amount: number, currency = "INR"): string {
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
-    currency: "INR",
-    minimumFractionDigits: 2,
+    currency: currency,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
   }).format(amount)
 }
 
-export function getTimeRemaining(endTime: Date | string): string {
-  const total = new Date(endTime).getTime() - Date.now()
+// Date formatting utility
+export function formatDate(date: string | Date, options?: Intl.DateTimeFormatOptions): string {
+  const dateObj = typeof date === "string" ? new Date(date) : date
 
-  if (total <= 0) {
-    return "Expired"
+  const defaultOptions: Intl.DateTimeFormatOptions = {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
   }
 
-  const days = Math.floor(total / (1000 * 60 * 60 * 24))
-  const hours = Math.floor((total % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
-
-  if (days > 0) {
-    return `${days} day${days !== 1 ? "s" : ""} ${hours} hr${hours !== 1 ? "s" : ""}`
-  } else {
-    const minutes = Math.floor((total % (1000 * 60 * 60)) / (1000 * 60))
-    return `${hours} hr${hours !== 1 ? "s" : ""} ${minutes} min${minutes !== 1 ? "s" : ""}`
-  }
+  return new Intl.DateTimeFormat("en-US", options || defaultOptions).format(dateObj)
 }
 
+// Batch label generator
+export function getBatchLabel(batchNumber: number, year?: number): string {
+  const currentYear = year || new Date().getFullYear()
+  return `Batch ${batchNumber.toString().padStart(2, "0")} - ${currentYear}`
+}
+
+// User ID generator
+export function generateUserId(): string {
+  const timestamp = Date.now().toString(36)
+  const randomStr = Math.random().toString(36).substring(2, 8)
+  return `user_${timestamp}_${randomStr}`
+}
+
+// Countries list
+export const countries = [
+  { code: "IN", name: "India" },
+  { code: "US", name: "United States" },
+  { code: "GB", name: "United Kingdom" },
+  { code: "CA", name: "Canada" },
+  { code: "AU", name: "Australia" },
+  { code: "DE", name: "Germany" },
+  { code: "FR", name: "France" },
+  { code: "JP", name: "Japan" },
+  { code: "SG", name: "Singapore" },
+  { code: "AE", name: "United Arab Emirates" },
+  { code: "NL", name: "Netherlands" },
+  { code: "CH", name: "Switzerland" },
+  { code: "SE", name: "Sweden" },
+  { code: "NO", name: "Norway" },
+  { code: "DK", name: "Denmark" },
+  { code: "FI", name: "Finland" },
+  { code: "NZ", name: "New Zealand" },
+  { code: "IE", name: "Ireland" },
+  { code: "BE", name: "Belgium" },
+  { code: "AT", name: "Austria" },
+  { code: "IT", name: "Italy" },
+  { code: "ES", name: "Spain" },
+  { code: "PT", name: "Portugal" },
+  { code: "BR", name: "Brazil" },
+  { code: "MX", name: "Mexico" },
+  { code: "AR", name: "Argentina" },
+  { code: "CL", name: "Chile" },
+  { code: "CO", name: "Colombia" },
+  { code: "PE", name: "Peru" },
+  { code: "ZA", name: "South Africa" },
+  { code: "EG", name: "Egypt" },
+  { code: "NG", name: "Nigeria" },
+  { code: "KE", name: "Kenya" },
+  { code: "GH", name: "Ghana" },
+  { code: "CN", name: "China" },
+  { code: "KR", name: "South Korea" },
+  { code: "TH", name: "Thailand" },
+  { code: "VN", name: "Vietnam" },
+  { code: "ID", name: "Indonesia" },
+  { code: "MY", name: "Malaysia" },
+  { code: "PH", name: "Philippines" },
+  { code: "BD", name: "Bangladesh" },
+  { code: "PK", name: "Pakistan" },
+  { code: "LK", name: "Sri Lanka" },
+  { code: "NP", name: "Nepal" },
+  { code: "MM", name: "Myanmar" },
+  { code: "KH", name: "Cambodia" },
+  { code: "LA", name: "Laos" },
+  { code: "RU", name: "Russia" },
+  { code: "UA", name: "Ukraine" },
+  { code: "PL", name: "Poland" },
+  { code: "CZ", name: "Czech Republic" },
+  { code: "HU", name: "Hungary" },
+  { code: "RO", name: "Romania" },
+  { code: "BG", name: "Bulgaria" },
+  { code: "HR", name: "Croatia" },
+  { code: "SI", name: "Slovenia" },
+  { code: "SK", name: "Slovakia" },
+  { code: "LT", name: "Lithuania" },
+  { code: "LV", name: "Latvia" },
+  { code: "EE", name: "Estonia" },
+  { code: "TR", name: "Turkey" },
+  { code: "GR", name: "Greece" },
+  { code: "CY", name: "Cyprus" },
+  { code: "MT", name: "Malta" },
+  { code: "IS", name: "Iceland" },
+  { code: "LU", name: "Luxembourg" },
+  { code: "MC", name: "Monaco" },
+  { code: "AD", name: "Andorra" },
+  { code: "SM", name: "San Marino" },
+  { code: "VA", name: "Vatican City" },
+  { code: "LI", name: "Liechtenstein" },
+  { code: "IL", name: "Israel" },
+  { code: "JO", name: "Jordan" },
+  { code: "LB", name: "Lebanon" },
+  { code: "SA", name: "Saudi Arabia" },
+  { code: "KW", name: "Kuwait" },
+  { code: "QA", name: "Qatar" },
+  { code: "BH", name: "Bahrain" },
+  { code: "OM", name: "Oman" },
+  { code: "YE", name: "Yemen" },
+  { code: "IQ", name: "Iraq" },
+  { code: "IR", name: "Iran" },
+  { code: "AF", name: "Afghanistan" },
+  { code: "UZ", name: "Uzbekistan" },
+  { code: "KZ", name: "Kazakhstan" },
+  { code: "KG", name: "Kyrgyzstan" },
+  { code: "TJ", name: "Tajikistan" },
+  { code: "TM", name: "Turkmenistan" },
+  { code: "MN", name: "Mongolia" },
+  { code: "BT", name: "Bhutan" },
+  { code: "MV", name: "Maldives" },
+]
+
+// YouTube URL validation
+export function isValidYoutubeUrl(url: string): boolean {
+  const youtubeRegex = /^(https?:\/\/)?(www\.)?(youtube\.com\/(watch\?v=|embed\/|v\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/
+  return youtubeRegex.test(url)
+}
+
+// YouTube video ID extraction
+export function extractYoutubeVideoId(url: string): string | null {
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/)([a-zA-Z0-9_-]{11})/,
+    /^([a-zA-Z0-9_-]{11})$/, // Direct video ID
+  ]
+
+  for (const pattern of patterns) {
+    const match = url.match(pattern)
+    if (match) {
+      return match[1]
+    }
+  }
+
+  return null
+}
+
+// Additional utility functions that might be useful
 export function truncateText(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text
-  return text.slice(0, maxLength) + "..."
+  return text.substring(0, maxLength).trim() + "..."
 }
 
-export function convertUTCToLocal(utcDateString: string): Date {
-  const date = new Date(utcDateString)
-  return date
+export function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, "")
+    .replace(/[\s_-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
 }
 
-export function convertLocalToUTC(localDate: Date): string {
-  return localDate.toISOString()
+export function capitalizeFirst(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1).toLowerCase()
 }
 
-export function getBatchLabel(batch: any): string {
-  if (!batch) return ""
+export function formatPhoneNumber(phone: string): string {
+  // Remove all non-digits
+  const cleaned = phone.replace(/\D/g, "")
 
-  if (batch.is_predefined_batch && batch.batch_number) {
-    const batchNum = Number.parseInt(batch.batch_number)
-    if (batchNum === 1) return "Morning Batch 1 (5:30 to 6:30)"
-    if (batchNum === 2) return "Morning Batch 2 (6:40 to 7:40)"
-    if (batchNum === 3) return "Morning Batch 3 (7:50 to 8:50)"
-    if (batchNum === 4) return "Evening Batch 4 (5:30 to 6:30)"
-    if (batchNum === 5) return "Evening Batch 5 (6:40 to 7:40)"
-    if (batchNum === 6) return "Evening Batch 6 (7:50 to 8:50)"
-    return `Batch ${batch.batch_number}`
-  } else if (batch.custom_batch_time) {
-    return `Custom Time: ${batch.custom_batch_time}`
+  // Format as +91 XXXXX XXXXX for Indian numbers
+  if (cleaned.length === 10) {
+    return `+91 ${cleaned.slice(0, 5)} ${cleaned.slice(5)}`
   }
 
-  return "Unknown Batch"
+  // Return as-is if not a standard format
+  return phone
 }
 
-export const generateUserId = () => {
-  return `user_${Date.now()}_${Math.floor(Math.random() * 1000)}`
+export function generateRandomColor(): string {
+  const colors = [
+    "#FF6B6B",
+    "#4ECDC4",
+    "#45B7D1",
+    "#96CEB4",
+    "#FFEAA7",
+    "#DDA0DD",
+    "#98D8C8",
+    "#F7DC6F",
+    "#BB8FCE",
+    "#85C1E9",
+  ]
+  return colors[Math.floor(Math.random() * colors.length)]
 }
 
-export const isValidYoutubeUrl = (url: string): boolean => {
-  // Trim the URL to remove any whitespace
-  const trimmedUrl = url.trim()
+export function timeAgo(date: string | Date): string {
+  const now = new Date()
+  const past = new Date(date)
+  const diffInSeconds = Math.floor((now.getTime() - past.getTime()) / 1000)
 
-  // More comprehensive regex that handles various YouTube URL formats
-  const youtubeRegex =
-    /^(https?:\/\/)?(www\.)?(youtube\.com\/(watch\?v=|embed\/|v\/|shorts\/)|youtu\.be\/|youtube\.com\/watch\?.+&v=)([^#&?/\s]{11}).*$/
-
-  return youtubeRegex.test(trimmedUrl)
+  if (diffInSeconds < 60) return "just now"
+  if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} minutes ago`
+  if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`
+  if (diffInSeconds < 2592000) return `${Math.floor(diffInSeconds / 86400)} days ago`
+  if (diffInSeconds < 31536000) return `${Math.floor(diffInSeconds / 2592000)} months ago`
+  return `${Math.floor(diffInSeconds / 31536000)} years ago`
 }
-
-export const extractYoutubeVideoId = (url: string): string | null => {
-  // Trim the URL to remove any whitespace
-  const trimmedUrl = url.trim()
-
-  // Match the video ID from various YouTube URL formats
-  const match = trimmedUrl.match(
-    /^(https?:\/\/)?(www\.)?(youtube\.com\/(watch\?v=|embed\/|v\/|shorts\/)|youtu\.be\/|youtube\.com\/watch\?.+&v=)([^#&?/\s]{11}).*$/,
-  )
-
-  return match ? match[5] : null
-}
-
-export const generateRandomCode = (length: number): string => {
-  let result = ""
-  const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
-  const charactersLength = characters.length
-  let counter = 0
-  while (counter < length) {
-    result += characters.charAt(Math.floor(Math.random() * charactersLength))
-    counter += 1
-  }
-  return result
-}
-
-export const countries = [
-  "Afghanistan",
-  "Albania",
-  "Algeria",
-  "Andorra",
-  "Angola",
-  "Antigua and Barbuda",
-  "Argentina",
-  "Armenia",
-  "Australia",
-  "Austria",
-  "Azerbaijan",
-  "Bahamas",
-  "Bahrain",
-  "Bangladesh",
-  "Barbados",
-  "Belarus",
-  "Belgium",
-  "Belize",
-  "Benin",
-  "Bhutan",
-  "Bolivia",
-  "Bosnia and Herzegovina",
-  "Botswana",
-  "Brazil",
-  "Brunei",
-  "Bulgaria",
-  "Burkina Faso",
-  "Burundi",
-  "Cabo Verde",
-  "Cambodia",
-  "Cameroon",
-  "Canada",
-  "Central African Republic",
-  "Chad",
-  "Chile",
-  "China",
-  "Colombia",
-  "Comoros",
-  "Congo",
-  "Costa Rica",
-  "Croatia",
-  "Cuba",
-  "Cyprus",
-  "Czech Republic",
-  "Denmark",
-  "Djibouti",
-  "Dominica",
-  "Dominican Republic",
-  "Ecuador",
-  "Egypt",
-  "El Salvador",
-  "Equatorial Guinea",
-  "Eritrea",
-  "Estonia",
-  "Eswatini",
-  "Ethiopia",
-  "Fiji",
-  "Finland",
-  "France",
-  "Gabon",
-  "Gambia",
-  "Georgia",
-  "Germany",
-  "Ghana",
-  "Greece",
-  "Grenada",
-  "Guatemala",
-  "Guinea",
-  "Guinea-Bissau",
-  "Guyana",
-  "Haiti",
-  "Honduras",
-  "Hungary",
-  "Iceland",
-  "India",
-  "Indonesia",
-  "Iran",
-  "Iraq",
-  "Ireland",
-  "Israel",
-  "Italy",
-  "Jamaica",
-  "Japan",
-  "Jordan",
-  "Kazakhstan",
-  "Kenya",
-  "Kiribati",
-  "Korea, North",
-  "Korea, South",
-  "Kosovo",
-  "Kuwait",
-  "Kyrgyzstan",
-  "Laos",
-  "Latvia",
-  "Lebanon",
-  "Lesotho",
-  "Liberia",
-  "Libya",
-  "Liechtenstein",
-  "Lithuania",
-  "Luxembourg",
-  "Madagascar",
-  "Malawi",
-  "Malaysia",
-  "Maldives",
-  "Mali",
-  "Malta",
-  "Marshall Islands",
-  "Mauritania",
-  "Mauritius",
-  "Mexico",
-  "Micronesia",
-  "Moldova",
-  "Monaco",
-  "Mongolia",
-  "Montenegro",
-  "Morocco",
-  "Mozambique",
-  "Myanmar",
-  "Namibia",
-  "Nauru",
-  "Nepal",
-  "Netherlands",
-  "New Zealand",
-  "Nicaragua",
-  "Niger",
-  "Nigeria",
-  "North Macedonia",
-  "Norway",
-  "Oman",
-  "Pakistan",
-  "Palau",
-  "Palestine",
-  "Panama",
-  "Papua New Guinea",
-  "Paraguay",
-  "Peru",
-  "Philippines",
-  "Poland",
-  "Portugal",
-  "Qatar",
-  "Romania",
-  "Russia",
-  "Rwanda",
-  "Saint Kitts and Nevis",
-  "Saint Lucia",
-  "Saint Vincent and the Grenadines",
-  "Samoa",
-  "San Marino",
-  "Sao Tome and Principe",
-  "Saudi Arabia",
-  "Senegal",
-  "Serbia",
-  "Seychelles",
-  "Sierra Leone",
-  "Singapore",
-  "Slovakia",
-  "Slovenia",
-  "Solomon Islands",
-  "Somalia",
-  "South Africa",
-  "South Sudan",
-  "Spain",
-  "Sri Lanka",
-  "Sudan",
-  "Suriname",
-  "Sweden",
-  "Switzerland",
-  "Syria",
-  "Taiwan",
-  "Tajikistan",
-  "Tanzania",
-  "Thailand",
-  "Timor-Leste",
-  "Togo",
-  "Tonga",
-  "Trinidad and Tobago",
-  "Tunisia",
-  "Turkey",
-  "Turkmenistan",
-  "Tuvalu",
-  "Uganda",
-  "Ukraine",
-  "United Arab Emirates",
-  "United Kingdom",
-  "United States",
-  "Uruguay",
-  "Uzbekistan",
-  "Vanuatu",
-  "Vatican City",
-  "Venezuela",
-  "Vietnam",
-  "Yemen",
-  "Zambia",
-  "Zimbabwe",
-]
