@@ -12,7 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { format } from "date-fns"
-import { CalendarIcon, Copy, Trash2, Ban, LinkIcon } from "lucide-react"
+import { CalendarIcon, Copy, Trash2, LinkIcon } from "lucide-react"
 import { toast } from "@/components/ui/use-toast"
 import { Toaster } from "@/components/ui/toaster"
 
@@ -541,13 +541,22 @@ export default function LinkGeneratorPage() {
       // Find and delete all links for this course
       const courseLinks = links.filter((link) => link.target_url === `/user/access-course/${courseId}`)
 
+      if (courseLinks.length === 0) {
+        toast({
+          title: "Info",
+          description: `No links found for "${courseName}".`,
+        })
+        return
+      }
+
       for (const link of courseLinks) {
         const response = await fetch(`/api/links/delete/${link.id}`, {
           method: "DELETE",
         })
 
         if (!response.ok) {
-          throw new Error(`Failed to delete link ${link.id}`)
+          const errorData = await response.json()
+          throw new Error(errorData.error || `Failed to delete link ${link.id}`)
         }
       }
 
@@ -562,7 +571,7 @@ export default function LinkGeneratorPage() {
       console.error("Error deleting course links:", error)
       toast({
         title: "Error",
-        description: "Failed to delete course links. Please try again.",
+        description: `Failed to delete course links: ${error.message}`,
         variant: "destructive",
       })
     }
@@ -578,13 +587,22 @@ export default function LinkGeneratorPage() {
           (link.target_ids?.includes(subscriptionId.toString()) || link.target_type === "subscription"),
       )
 
+      if (subscriptionLinks.length === 0) {
+        toast({
+          title: "Info",
+          description: `No WhatsApp links found for "${subscriptionName}".`,
+        })
+        return
+      }
+
       for (const link of subscriptionLinks) {
         const response = await fetch(`/api/links/delete/${link.id}`, {
           method: "DELETE",
         })
 
         if (!response.ok) {
-          throw new Error(`Failed to delete link ${link.id}`)
+          const errorData = await response.json()
+          throw new Error(errorData.error || `Failed to delete link ${link.id}`)
         }
       }
 
@@ -599,77 +617,7 @@ export default function LinkGeneratorPage() {
       console.error("Error deleting subscription WhatsApp links:", error)
       toast({
         title: "Error",
-        description: "Failed to delete subscription WhatsApp links. Please try again.",
-        variant: "destructive",
-      })
-    }
-  }
-
-  // Disable course links
-  const disableCourseLinks = async (courseId: string, courseName: string) => {
-    try {
-      // Find and disable all links for this course
-      const courseLinks = links.filter((link) => link.target_url === `/user/access-course/${courseId}`)
-
-      for (const link of courseLinks) {
-        const response = await fetch(`/api/links/deactivate/${link.id}`, {
-          method: "POST",
-        })
-
-        if (!response.ok) {
-          throw new Error(`Failed to disable link ${link.id}`)
-        }
-      }
-
-      toast({
-        title: "Success",
-        description: `All links for "${courseName}" disabled successfully!`,
-      })
-
-      // Refresh links
-      fetchLinks()
-    } catch (error) {
-      console.error("Error disabling course links:", error)
-      toast({
-        title: "Error",
-        description: "Failed to disable course links. Please try again.",
-        variant: "destructive",
-      })
-    }
-  }
-
-  // Disable subscription WhatsApp links
-  const disableSubscriptionWhatsAppLinks = async (subscriptionId: string, subscriptionName: string) => {
-    try {
-      // Find and disable all WhatsApp links for this subscription
-      const subscriptionLinks = links.filter(
-        (link) =>
-          link.link_type === "whatsapp" &&
-          (link.target_ids?.includes(subscriptionId.toString()) || link.target_type === "subscription"),
-      )
-
-      for (const link of subscriptionLinks) {
-        const response = await fetch(`/api/links/deactivate/${link.id}`, {
-          method: "POST",
-        })
-
-        if (!response.ok) {
-          throw new Error(`Failed to disable link ${link.id}`)
-        }
-      }
-
-      toast({
-        title: "Success",
-        description: `All WhatsApp links for "${subscriptionName}" disabled successfully!`,
-      })
-
-      // Refresh links
-      fetchLinks()
-    } catch (error) {
-      console.error("Error disabling subscription WhatsApp links:", error)
-      toast({
-        title: "Error",
-        description: "Failed to disable subscription WhatsApp links. Please try again.",
+        description: `Failed to delete subscription WhatsApp links: ${error.message}`,
         variant: "destructive",
       })
     }
@@ -887,15 +835,6 @@ export default function LinkGeneratorPage() {
                             >
                               <Trash2 className="h-4 w-4 mr-1" />
                               Delete
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => disableCourseLinks(course.id, course.title)}
-                              className="text-orange-600 hover:text-orange-700"
-                            >
-                              <Ban className="h-4 w-4 mr-1" />
-                              Disable
                             </Button>
                           </div>
                         </div>
@@ -1127,17 +1066,6 @@ export default function LinkGeneratorPage() {
                               >
                                 <Trash2 className="h-4 w-4 mr-1" />
                                 Delete
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() =>
-                                  disableSubscriptionWhatsAppLinks(subscription.id.toString(), subscription.name)
-                                }
-                                className="text-orange-600 hover:text-orange-700"
-                              >
-                                <Ban className="h-4 w-4 mr-1" />
-                                Disable
                               </Button>
                             </div>
                           )}
