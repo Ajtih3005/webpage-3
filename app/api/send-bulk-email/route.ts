@@ -166,7 +166,7 @@ export async function POST(request: NextRequest) {
         const htmlContent = createBulkEmailTemplate(personalizedMessage, user.name)
 
         const emailPayload: any = {
-          from: "Sthavishtah Yoga <noreply@sthavishtah.com>",
+          from: "Sthavishtah Yoga <support@sthavishtah.com>",
           to: [user.email],
           subject,
           html: htmlContent,
