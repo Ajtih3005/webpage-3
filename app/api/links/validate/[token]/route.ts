@@ -26,7 +26,7 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
       return NextResponse.json({ success: false, error: "Link has expired" }, { status: 403 })
     }
 
-    // CRITICAL FIX: ALWAYS require login for ALL links
+    // ALWAYS require login for ALL links
     if (!userId) {
       return NextResponse.json(
         {
