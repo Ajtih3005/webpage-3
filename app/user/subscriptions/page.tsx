@@ -33,8 +33,10 @@ interface Subscription {
   is_active: boolean
   activation_date: string | null
   admin_activated: boolean
-  last_activation_date: string | null
-  total_active_days: number | null
+  total_active_days_used?: number
+  paused_days?: number
+  last_status_change?: string
+  effective_end_date?: string
   subscription?: {
     id: string
     name: string
@@ -52,7 +54,7 @@ interface Subscription {
 
 export default function UserSubscriptionsPage() {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([])
-  const [activeSubscriptions, setActiveSubscriptions] = useState<Subscription[]>([])
+  const [currentSubscriptions, setCurrentSubscriptions] = useState<Subscription[]>([])
   const [expiredSubscriptions, setExpiredSubscriptions] = useState<Subscription[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -69,81 +71,99 @@ export default function UserSubscriptionsPage() {
     async function fetchUserSubscriptions() {
       try {
         setLoading(true)
+        console.log("Fetching subscriptions for user:", userId)
 
-        // Create a new Supabase client instance
         const supabase = getSupabaseBrowserClient()
 
-        // Get user subscriptions
+        // Fetch all user subscriptions with subscription details and check if expired using DB function
         const { data: userSubs, error: userSubsError } = await supabase
           .from("user_subscriptions")
           .select(`
-            id,
-            user_id,
-            subscription_id,
-            start_date,
-            end_date,
-            is_active,
-            activation_date,
-            admin_activated,
-            last_activation_date,
-            total_active_days,
-            subscription:subscriptions (
-              id, 
-              name, 
-              description, 
-              price, 
-              duration_days, 
-              features,
-              features_list,
-              has_discount,
-              discount_percentage,
-              original_price,
-              is_active
-            )
-          `)
+        *,
+        subscription:subscriptions (
+          id,
+          name,
+          description,
+          price,
+          duration_days,
+          features,
+          features_list,
+          has_discount,
+          discount_percentage,
+          original_price,
+          is_active
+        )
+      `)
           .eq("user_id", userId)
-          .order("end_date", { ascending: false })
+          .order("created_at", { ascending: false })
 
         if (userSubsError) {
           console.error("Error fetching user subscriptions:", userSubsError)
-          throw new Error(`Supabase error: ${userSubsError.message}`)
+          throw new Error(`Database error: ${userSubsError.message}`)
         }
 
+        console.log("Raw subscription data:", userSubs)
+
         if (!userSubs || userSubs.length === 0) {
+          console.log("No subscriptions found for user")
           setSubscriptions([])
-          setActiveSubscriptions([])
+          setCurrentSubscriptions([])
           setExpiredSubscriptions([])
           setLoading(false)
           return
         }
 
-        setSubscriptions(userSubs)
+        // Check each subscription's status using the database function
+        const subscriptionsWithStatus = await Promise.all(
+          userSubs.map(async (sub) => {
+            // Call the database function to check if subscription is expired
+            const { data: isExpiredResult, error: expiredError } = await supabase.rpc("is_subscription_expired", {
+              p_user_subscription_id: sub.id,
+            })
 
-        // Sort into current and expired
-        const now = new Date()
+            if (expiredError) {
+              console.error("Error checking subscription expiry:", expiredError)
+              // Fallback to manual calculation if function fails
+              const totalActiveDaysUsed = sub.total_active_days_used || 0
+              const durationDays = sub.subscription?.duration_days || 30
+              return {
+                ...sub,
+                remaining_days: Math.max(0, durationDays - totalActiveDaysUsed),
+                is_expired: totalActiveDaysUsed >= durationDays,
+                db_function_used: false,
+              }
+            }
 
-        // Expired subscriptions: end_date is in the past
-        const expired = userSubs.filter((sub) => {
-          const endDate = new Date(sub.end_date)
-          return endDate <= now
-        })
+            const totalActiveDaysUsed = sub.total_active_days_used || 0
+            const durationDays = sub.subscription?.duration_days || 30
+            const remainingDays = Math.max(0, durationDays - totalActiveDaysUsed)
 
-        // For non-expired subscriptions, check if they're active or inactive
-        const current = userSubs.filter((sub) => {
-          const endDate = new Date(sub.end_date)
-          return endDate > now
-        })
+            return {
+              ...sub,
+              remaining_days: remainingDays,
+              is_expired: isExpiredResult, // Use DB function result
+              db_function_used: true,
+              // Add admin status for clarity
+              admin_status: sub.is_active ? "active" : "inactive",
+            }
+          }),
+        )
 
-        // Active subscriptions: both user subscription and plan are active
-        const active = current.filter((sub) => {
-          return sub.is_active === true && sub.subscription?.is_active === true
-        })
+        console.log("Subscriptions with status from DB function:", subscriptionsWithStatus)
 
-        setActiveSubscriptions(active)
+        // Separate current and expired subscriptions based on DB function result
+        const current = subscriptionsWithStatus.filter((sub) => !sub.is_expired)
+        const expired = subscriptionsWithStatus.filter((sub) => sub.is_expired)
+
+        console.log("Current subscriptions:", current)
+        console.log("Expired subscriptions:", expired)
+
+        setSubscriptions(subscriptionsWithStatus)
+        setCurrentSubscriptions(current)
         setExpiredSubscriptions(expired)
       } catch (err) {
         console.error("Failed to load subscriptions:", err)
-        setError("Failed to load your subscriptions. Please try again later.")
+        setError(`Failed to load your subscriptions: ${err.message}`)
       } finally {
         setLoading(false)
       }
@@ -153,16 +173,12 @@ export default function UserSubscriptionsPage() {
   }, [router])
 
   // Calculate time remaining for a subscription
-  const getTimeRemaining = (subscription: Subscription) => {
-    // Don't show remaining time if the subscription is inactive
-    if (!isSubscriptionActive(subscription)) {
-      return "Pending activation"
+  const getTimeRemaining = (subscription: any) => {
+    if (!subscription.is_active) {
+      return "Paused"
     }
 
-    // Calculate remaining time based on total_active_days
-    const durationDays = subscription.subscription?.duration_days || 30
-    const totalActiveDays = subscription.total_active_days || 0
-    const remainingDays = durationDays - totalActiveDays
+    const remainingDays = subscription.remaining_days || 0
 
     if (remainingDays <= 0) {
       return "Expired"
@@ -176,9 +192,10 @@ export default function UserSubscriptionsPage() {
     return `${remainingDays} day${remainingDays !== 1 ? "s" : ""} left`
   }
 
-  // Check if a subscription is truly active (both user subscription and plan are active)
-  const isSubscriptionActive = (subscription: Subscription): boolean => {
-    return subscription.is_active === true && subscription.subscription?.is_active === true
+  // Check if a subscription is truly active (admin activated AND not expired)
+  const isSubscriptionActive = (subscription: any): boolean => {
+    // Must be activated by admin AND not expired
+    return subscription.is_active === true && !subscription.is_expired
   }
 
   // Get subscription period text
@@ -225,15 +242,39 @@ export default function UserSubscriptionsPage() {
     }).format(amount)
   }
 
-  // Get the reason why a subscription is inactive
-  const getInactiveReason = (subscription: Subscription): string => {
-    if (subscription.subscription?.is_active !== true) {
-      return "Plan inactive"
+  // Get the status text for a subscription
+  const getStatusText = (subscription: any): string => {
+    if (subscription.is_expired) {
+      return "Expired"
     }
-    if (subscription.is_active !== true) {
-      return "Awaiting activation"
+
+    if (!subscription.activation_date) {
+      return "Pending Activation"
     }
-    return "Pending"
+
+    // Check admin's active/inactive setting
+    if (subscription.is_active === true) {
+      return "Active"
+    } else {
+      return "Paused by Admin"
+    }
+  }
+
+  // Get status color
+  const getStatusColor = (subscription: any): string => {
+    if (subscription.is_expired) {
+      return "text-red-600"
+    }
+
+    if (!subscription.activation_date) {
+      return "text-gray-600"
+    }
+
+    if (subscription.is_active) {
+      return "text-green-600"
+    }
+
+    return "text-amber-600"
   }
 
   if (loading) {
@@ -270,13 +311,26 @@ export default function UserSubscriptionsPage() {
           </Alert>
         )}
 
+        {/* Debug info - remove in production */}
+        {process.env.NODE_ENV === "development" && subscriptions.length > 0 && (
+          <Alert className="mb-6">
+            <Info className="h-4 w-4" />
+            <AlertTitle>Debug Info</AlertTitle>
+            <AlertDescription>
+              Total subscriptions found: {subscriptions.length} | Current: {currentSubscriptions.length} | Expired:{" "}
+              {expiredSubscriptions.length}
+              {subscriptions[0]?.db_function_used && " | Using DB function for status check ✅"}
+            </AlertDescription>
+          </Alert>
+        )}
+
         {subscriptions.length === 0 ? (
           <div className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle>No Subscriptions Found</CardTitle>
                 <CardDescription>
-                  You don't have any active subscriptions. Subscribe to a plan to access our premium content.
+                  You don't have any subscriptions yet. Subscribe to a plan to access our premium content.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -300,13 +354,12 @@ export default function UserSubscriptionsPage() {
         ) : (
           <Tabs defaultValue="current">
             <TabsList className="mb-6">
-              <TabsTrigger value="current">Current ({activeSubscriptions.length})</TabsTrigger>
+              <TabsTrigger value="current">Current ({currentSubscriptions.length})</TabsTrigger>
               <TabsTrigger value="expired">Expired ({expiredSubscriptions.length})</TabsTrigger>
-              <TabsTrigger value="all">All ({subscriptions.length})</TabsTrigger>
             </TabsList>
 
             <TabsContent value="current">
-              {activeSubscriptions.length === 0 ? (
+              {currentSubscriptions.length === 0 ? (
                 <Card>
                   <CardHeader>
                     <CardTitle>No Current Subscriptions</CardTitle>
@@ -322,16 +375,20 @@ export default function UserSubscriptionsPage() {
                 </Card>
               ) : (
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                  {activeSubscriptions.map((subscription) => {
-                    // Check if this subscription is active
-                    const isActive = isSubscriptionActive(subscription)
+                  {currentSubscriptions.map((subscription) => {
+                    // Determine subscription state based on admin setting and expiry
+                    const isExpired = subscription.is_expired
+                    const isAdminActive = subscription.is_active === true
+                    const hasActivationDate = subscription.activation_date !== null
 
-                    // Get the reason why this subscription is inactive (if applicable)
-                    const inactiveReason = !isActive ? getInactiveReason(subscription) : null
+                    const isActive = isAdminActive && !isExpired && hasActivationDate
+                    const isPaused = !isAdminActive && !isExpired && hasActivationDate
+                    const isPending = !hasActivationDate && !isExpired
 
                     // Get features from subscription or use defaults
                     const features =
                       subscription.subscription?.features ||
+                      subscription.subscription?.features_list ||
                       (subscription.subscription?.duration_days
                         ? getDefaultFeatures(subscription.subscription.duration_days)
                         : ["Access to yoga sessions"])
@@ -339,9 +396,15 @@ export default function UserSubscriptionsPage() {
                     return (
                       <Card
                         key={subscription.id}
-                        className={`overflow-hidden ${isActive ? "border-green-100" : "border-amber-100"}`}
+                        className={`overflow-hidden ${
+                          isActive ? "border-green-100" : isPaused ? "border-amber-100" : "border-gray-200"
+                        }`}
                       >
-                        <div className={`h-2 ${isActive ? "bg-green-600" : "bg-amber-500"} w-full`}></div>
+                        <div
+                          className={`h-2 ${
+                            isActive ? "bg-green-600" : isPaused ? "bg-amber-500" : "bg-gray-400"
+                          } w-full`}
+                        ></div>
                         <CardHeader className="pb-2">
                           <div className="flex items-center justify-between mb-2">
                             <CardTitle className="text-lg">
@@ -349,7 +412,11 @@ export default function UserSubscriptionsPage() {
                             </CardTitle>
                             <span
                               className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                isActive ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"
+                                isActive
+                                  ? "bg-green-100 text-green-800"
+                                  : isPaused
+                                    ? "bg-amber-100 text-amber-800"
+                                    : "bg-gray-100 text-gray-800"
                               }`}
                             >
                               {isActive ? (
@@ -357,10 +424,15 @@ export default function UserSubscriptionsPage() {
                                   <CheckCircle className="mr-1 h-3 w-3" />
                                   Active
                                 </>
-                              ) : (
+                              ) : isPaused ? (
                                 <>
                                   <AlertTriangle className="mr-1 h-3 w-3" />
-                                  Inactive
+                                  Paused
+                                </>
+                              ) : (
+                                <>
+                                  <Clock className="mr-1 h-3 w-3" />
+                                  Pending
                                 </>
                               )}
                             </span>
@@ -384,9 +456,7 @@ export default function UserSubscriptionsPage() {
                                       </span>
                                       <Badge
                                         variant="outline"
-                                        className={`flex items-center gap-1 text-xs ${
-                                          isActive ? "bg-green-50 text-green-700" : "bg-amber-50 text-amber-700"
-                                        }`}
+                                        className="flex items-center gap-1 text-xs bg-green-50 text-green-700"
                                       >
                                         {subscription.subscription.discount_percentage}% OFF
                                       </Badge>
@@ -404,38 +474,38 @@ export default function UserSubscriptionsPage() {
                             )}
                             <div className="flex justify-between items-center">
                               <span className="text-sm font-medium">Type:</span>
-                              <span className={isActive ? "text-green-600" : "text-amber-600"}>
+                              <span className={getStatusColor(subscription)}>
                                 {getSubscriptionPeriod(subscription.subscription?.duration_days)}
                               </span>
                             </div>
                             <div className="flex justify-between items-center">
-                              <span className="text-sm font-medium">
-                                {!isActive ? "Registration Date:" : "Start Date:"}
-                              </span>
+                              <span className="text-sm font-medium">Registration Date:</span>
                               <span>{formatDate(subscription.start_date)}</span>
                             </div>
-                            {!isActive && subscription.activation_date && (
+                            {subscription.activation_date && (
                               <div className="flex justify-between items-center">
                                 <span className="text-sm font-medium">Activation Date:</span>
-                                <span className="text-amber-600 font-medium">
-                                  {formatDate(subscription.activation_date)}
-                                </span>
+                                <span>{formatDate(subscription.activation_date)}</span>
                               </div>
                             )}
                             <div className="flex justify-between items-center">
-                              <span className="text-sm font-medium">End Date:</span>
-                              <span>{formatDate(subscription.end_date)}</span>
+                              <span className="text-sm font-medium">Days Used:</span>
+                              <span>
+                                {subscription.total_active_days_used || 0} /{" "}
+                                {subscription.subscription?.duration_days || 0}
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm font-medium">Remaining Days:</span>
+                              <span className={getStatusColor(subscription)}>
+                                {subscription.remaining_days || 0} days
+                              </span>
                             </div>
                             <div className="flex justify-between items-center">
                               <span className="text-sm font-medium">Status:</span>
-                              {isActive ? (
-                                <span className="text-green-600 font-medium flex items-center">
-                                  <Clock className="mr-1 h-4 w-4" />
-                                  {getTimeRemaining(subscription)}
-                                </span>
-                              ) : (
-                                <span className="text-amber-600 font-medium">{inactiveReason}</span>
-                              )}
+                              <span className={`font-medium ${getStatusColor(subscription)}`}>
+                                {getStatusText(subscription)}
+                              </span>
                             </div>
                           </div>
 
@@ -473,13 +543,19 @@ export default function UserSubscriptionsPage() {
                                 <Link href="/user/dashboard">Dashboard</Link>
                               </Button>
                             </div>
-                          ) : (
+                          ) : isPaused ? (
                             <Alert className="w-full bg-amber-50 border-amber-100">
-                              <Info className="h-4 w-4 text-amber-600" />
+                              <AlertTriangle className="h-4 w-4 text-amber-600" />
                               <AlertDescription className="text-amber-700 text-xs">
-                                {subscription.subscription?.is_active !== true
-                                  ? "This subscription plan is currently inactive. You'll be notified when it becomes available."
-                                  : "This subscription is awaiting activation. You'll be notified when it becomes active."}
+                                Your subscription is currently paused. Contact support or wait for admin to reactivate
+                                it.
+                              </AlertDescription>
+                            </Alert>
+                          ) : (
+                            <Alert className="w-full bg-gray-50 border-gray-100">
+                              <Info className="h-4 w-4 text-gray-600" />
+                              <AlertDescription className="text-gray-700 text-xs">
+                                This subscription is awaiting activation. You'll be notified when it becomes active.
                               </AlertDescription>
                             </Alert>
                           )}
@@ -537,12 +613,15 @@ export default function UserSubscriptionsPage() {
                             <span>{formatDate(subscription.activation_date || subscription.start_date)}</span>
                           </div>
                           <div className="flex justify-between items-center">
-                            <span className="text-sm font-medium text-gray-500">End Date:</span>
-                            <span>{formatDate(subscription.end_date)}</span>
+                            <span className="text-sm font-medium text-gray-500">Days Used:</span>
+                            <span>
+                              {subscription.total_active_days_used || 0} /{" "}
+                              {subscription.subscription?.duration_days || 0}
+                            </span>
                           </div>
                           <div className="flex justify-between items-center">
                             <span className="text-sm font-medium text-gray-500">Status:</span>
-                            <span className="text-red-500">Expired on {formatDate(subscription.end_date)}</span>
+                            <span className="text-red-500">Expired - All days used</span>
                           </div>
                         </div>
                       </CardContent>
@@ -556,214 +635,6 @@ export default function UserSubscriptionsPage() {
                       </CardFooter>
                     </Card>
                   ))}
-                </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="all">
-              {subscriptions.length === 0 ? (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>No Subscriptions Found</CardTitle>
-                    <CardDescription>You don't have any subscriptions in our records.</CardDescription>
-                  </CardHeader>
-                </Card>
-              ) : (
-                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                  {subscriptions.map((subscription) => {
-                    // Determine subscription status
-                    const now = new Date()
-                    const endDate = new Date(subscription.end_date)
-                    const isExpired = endDate <= now
-                    const isActive = !isExpired && isSubscriptionActive(subscription)
-                    const isInactive = !isExpired && !isActive
-
-                    // Get the reason why this subscription is inactive (if applicable)
-                    const inactiveReason = isInactive ? getInactiveReason(subscription) : null
-
-                    // Get features from subscription or use defaults
-                    const features =
-                      subscription.subscription?.features ||
-                      (subscription.subscription?.duration_days
-                        ? getDefaultFeatures(subscription.subscription.duration_days)
-                        : ["Access to yoga sessions"])
-
-                    return (
-                      <Card
-                        key={subscription.id}
-                        className={`overflow-hidden ${
-                          isActive ? "border-green-100" : isInactive ? "border-amber-100" : "border-gray-200"
-                        }`}
-                      >
-                        <div
-                          className={`h-2 ${
-                            isActive ? "bg-green-600" : isInactive ? "bg-amber-500" : "bg-gray-300"
-                          } w-full`}
-                        ></div>
-                        <CardHeader className="pb-2">
-                          <div className="flex items-center justify-between mb-2">
-                            <CardTitle className={`text-lg ${isExpired && "text-gray-600"}`}>
-                              {subscription.subscription?.name || "Subscription"}
-                            </CardTitle>
-                            <span
-                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                isActive
-                                  ? "bg-green-100 text-green-800"
-                                  : isInactive
-                                    ? "bg-amber-100 text-amber-800"
-                                    : "bg-gray-100 text-gray-800"
-                              }`}
-                            >
-                              {isActive ? (
-                                <>
-                                  <CheckCircle className="mr-1 h-3 w-3" />
-                                  Active
-                                </>
-                              ) : isInactive ? (
-                                <>
-                                  <AlertTriangle className="mr-1 h-3 w-3" />
-                                  Inactive
-                                </>
-                              ) : (
-                                <>
-                                  <XCircle className="mr-1 h-3 w-3" />
-                                  Expired
-                                </>
-                              )}
-                            </span>
-                          </div>
-                          <CardDescription>
-                            {subscription.subscription?.description || "No description available"}
-                          </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="space-y-3 pt-2">
-                            {subscription.subscription?.price !== undefined && (
-                              <div className="flex justify-between items-center">
-                                <span className={`text-sm font-medium ${isExpired && "text-gray-500"}`}>Price:</span>
-                                {subscription.subscription.has_discount &&
-                                subscription.subscription.original_price &&
-                                subscription.subscription.discount_percentage ? (
-                                  <div className="flex flex-col items-end">
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-sm text-muted-foreground line-through">
-                                        {formatWholePrice(subscription.subscription.original_price)}
-                                      </span>
-                                      <Badge
-                                        variant="outline"
-                                        className={`flex items-center gap-1 text-xs ${
-                                          isActive
-                                            ? "bg-green-50 text-green-700"
-                                            : isInactive
-                                              ? "bg-amber-50 text-amber-700"
-                                              : "bg-gray-50 text-gray-700"
-                                        }`}
-                                      >
-                                        {subscription.subscription.discount_percentage}% OFF
-                                      </Badge>
-                                    </div>
-                                    <span className={isActive ? "font-semibold" : ""}>
-                                      {formatWholePrice(subscription.subscription.price)}
-                                    </span>
-                                  </div>
-                                ) : (
-                                  <span className={isActive ? "font-semibold" : ""}>
-                                    {formatWholePrice(subscription.subscription.price)}
-                                  </span>
-                                )}
-                              </div>
-                            )}
-                            <div className="flex justify-between items-center">
-                              <span className={`text-sm font-medium ${isExpired && "text-gray-500"}`}>Type:</span>
-                              <span className={isActive ? "text-green-600" : "text-amber-600"}>
-                                {getSubscriptionPeriod(subscription.subscription?.duration_days)}
-                              </span>
-                            </div>
-                            <div className="flex justify-between items-center">
-                              <span className={`text-sm font-medium ${isExpired && "text-gray-500"}`}>
-                                {!isInactive ? "Start Date:" : "Registration Date:"}
-                              </span>
-                              <span>{formatDate(subscription.start_date)}</span>
-                            </div>
-                            {isInactive && subscription.activation_date && (
-                              <div className="flex justify-between items-center">
-                                <span className="text-sm font-medium">Activation Date:</span>
-                                <span>{formatDate(subscription.activation_date)}</span>
-                              </div>
-                            )}
-                            <div className="flex justify-between items-center">
-                              <span className={`text-sm font-medium ${isExpired && "text-gray-500"}`}>End Date:</span>
-                              <span>{formatDate(subscription.end_date)}</span>
-                            </div>
-                            <div className="flex justify-between items-center">
-                              <span className={`text-sm font-medium ${isExpired && "text-gray-500"}`}>Status:</span>
-                              {isActive ? (
-                                <span className="text-green-600 font-medium flex items-center">
-                                  <Clock className="mr-1 h-4 w-4" />
-                                  {getTimeRemaining(subscription)}
-                                </span>
-                              ) : (
-                                <span className="text-amber-600 font-medium">{inactiveReason}</span>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Features section */}
-                          {features && features.length > 0 && (
-                            <div
-                              className={`mt-4 pt-4 border-t ${
-                                isActive ? "border-green-100" : isInactive ? "border-amber-100" : "border-gray-200"
-                              }`}
-                            >
-                              <h4
-                                className={`font-medium text-sm mb-3 ${
-                                  isActive ? "text-green-700" : isInactive ? "text-amber-700" : "text-gray-700"
-                                }`}
-                              >
-                                {isExpired ? "What was included:" : "What's included:"}
-                              </h4>
-                              <ul className="space-y-2">
-                                {features.map((feature, index) => (
-                                  <li key={index} className="flex items-start">
-                                    <Check
-                                      className={`h-4 w-4 mr-2 shrink-0 mt-0.5 ${
-                                        isActive ? "text-green-500" : isInactive ? "text-amber-500" : "text-gray-400"
-                                      }`}
-                                    />
-                                    <span className={`text-sm ${isExpired && "text-gray-500"}`}>{feature}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-                        </CardContent>
-                        <CardFooter className="pt-2">
-                          {isActive ? (
-                            <div className="flex justify-between gap-2 w-full">
-                              <Button variant="outline" size="sm" className="flex-1" asChild>
-                                <Link href="/user/access-course">
-                                  <Calendar className="mr-1 h-4 w-4" />
-                                  Access Content
-                                </Link>
-                              </Button>
-                              <Button size="sm" className="flex-1" asChild>
-                                <Link href="/user/dashboard">Dashboard</Link>
-                              </Button>
-                            </div>
-                          ) : (
-                            <Alert className="w-full bg-amber-50 border-amber-100">
-                              <Info className="h-4 w-4 text-amber-600" />
-                              <AlertDescription className="text-amber-700 text-xs">
-                                {subscription.subscription?.is_active !== true
-                                  ? "This subscription plan is currently inactive. You'll be notified when it becomes available."
-                                  : "This subscription is awaiting activation. You'll be notified when it becomes active."}
-                              </AlertDescription>
-                            </Alert>
-                          )}
-                        </CardFooter>
-                      </Card>
-                    )
-                  })}
                 </div>
               )}
             </TabsContent>

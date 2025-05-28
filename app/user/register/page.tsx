@@ -2,8 +2,8 @@
 
 import type React from "react"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -27,6 +27,9 @@ import { X } from "lucide-react"
 
 export default function UserRegister() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirectUrl = searchParams.get("redirect")
+
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [country, setCountry] = useState("India")
@@ -41,6 +44,31 @@ export default function UserRegister() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [showWhatsAppDialog, setShowWhatsAppDialog] = useState(false)
+  const [isWhatsAppLink, setIsWhatsAppLink] = useState(false)
+  const [linkData, setLinkData] = useState<any>(null)
+
+  // Check if redirect URL is a WhatsApp link
+  useEffect(() => {
+    async function checkLinkType() {
+      if (redirectUrl && redirectUrl.startsWith("/l/")) {
+        try {
+          const token = redirectUrl.split("/l/")[1]
+          const response = await fetch(`/api/links/validate/${token}`)
+          const data = await response.json()
+
+          if (data.success && data.link) {
+            setLinkData(data.link)
+            setIsWhatsAppLink(data.link.link_type === "whatsapp")
+            console.log("Link type detected:", data.link.link_type)
+          }
+        } catch (error) {
+          console.error("Error checking link type:", error)
+        }
+      }
+    }
+
+    checkLinkType()
+  }, [redirectUrl])
 
   const validateForm = () => {
     if (!name.trim()) return "Name is required"
@@ -72,7 +100,6 @@ export default function UserRegister() {
     return null
   }
 
-  // Update the handleSubmit function to ensure it calls the auto-assign-free-subscription API
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -134,17 +161,37 @@ export default function UserRegister() {
 
         if (!response.ok) {
           console.error("Failed to assign free subscription:", await response.text())
-          // Continue with registration even if subscription assignment fails
         } else {
           console.log("Successfully assigned free 30-day subscription to new user")
         }
       } catch (subscriptionError) {
         console.error("Error assigning free subscription:", subscriptionError)
-        // Continue with registration even if subscription assignment fails
       }
 
-      // Show WhatsApp dialog instead of redirecting
-      setShowWhatsAppDialog(true)
+      // Set user session data
+      localStorage.setItem("userId", data[0].id.toString())
+      localStorage.setItem("userAuthenticated", "true")
+      localStorage.setItem("userName", data[0].name || "User")
+      localStorage.setItem("userEmail", data[0].email || "")
+      localStorage.setItem("userPhone", data[0].phone_number || "")
+      document.cookie = `userId=${data[0].id}; path=/; max-age=86400`
+
+      // Handle post-registration flow based on link type
+      if (redirectUrl) {
+        if (isWhatsAppLink) {
+          // For WhatsApp links, show the WhatsApp dialog first
+          setShowWhatsAppDialog(true)
+        } else {
+          // For non-WhatsApp links, redirect directly
+          console.log("Non-WhatsApp link detected, redirecting directly to:", redirectUrl)
+          setTimeout(() => {
+            router.push(redirectUrl)
+          }, 1000)
+        }
+      } else {
+        // No redirect URL, show normal WhatsApp dialog
+        setShowWhatsAppDialog(true)
+      }
     } catch (error) {
       console.error("Registration error:", error)
       setError("An error occurred during registration. Please try again.")
@@ -155,7 +202,24 @@ export default function UserRegister() {
 
   const handleWhatsAppRedirect = () => {
     window.open("https://chat.whatsapp.com/H81SwZ9TxAPLqoU43yTYDW", "_blank")
-    router.push("/user/login?registered=true")
+
+    if (redirectUrl) {
+      // After WhatsApp, redirect to the original link
+      router.push(redirectUrl)
+    } else {
+      // No redirect, go to login with success message
+      router.push("/user/login?registered=true")
+    }
+  }
+
+  const handleSkipWhatsApp = () => {
+    if (redirectUrl) {
+      // Skip WhatsApp and go directly to the link
+      router.push(redirectUrl)
+    } else {
+      // No redirect, go to login
+      router.push("/user/login?registered=true")
+    }
   }
 
   return (
@@ -168,7 +232,11 @@ export default function UserRegister() {
         <Card>
           <CardHeader>
             <CardTitle className="text-2xl">User Registration</CardTitle>
-            <CardDescription>Create a new account to access yoga and wellness courses</CardDescription>
+            <CardDescription>
+              {redirectUrl
+                ? `Create an account to access ${linkData?.title || "the requested content"}`
+                : "Create a new account to access yoga and wellness courses"}
+            </CardDescription>
           </CardHeader>
           <form onSubmit={handleSubmit}>
             <CardContent>
@@ -205,8 +273,8 @@ export default function UserRegister() {
                     </SelectTrigger>
                     <SelectContent>
                       {countries.map((country) => (
-                        <SelectItem key={country} value={country}>
-                          {country}
+                        <SelectItem key={country.code} value={country.name}>
+                          {country.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -331,7 +399,10 @@ export default function UserRegister() {
                 {loading ? "Registering..." : "Register"}
               </Button>
               <div className="flex justify-between text-sm">
-                <Link href="/user/login" className="text-primary hover:underline">
+                <Link
+                  href={`/user/login${redirectUrl ? `?redirect=${redirectUrl}` : ""}`}
+                  className="text-primary hover:underline"
+                >
                   Already have an account? Login
                 </Link>
                 <Link href="/" className="text-gray-500 hover:underline">
@@ -342,33 +413,40 @@ export default function UserRegister() {
           </form>
         </Card>
       </div>
+
       {/* WhatsApp Group Dialog */}
       <Dialog open={showWhatsAppDialog} onOpenChange={setShowWhatsAppDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <div className="flex justify-between items-center">
               <DialogTitle>Registration Successful</DialogTitle>
-              <Button
-                variant="ghost"
-                className="h-8 w-8 p-0"
-                onClick={() => {
-                  setShowWhatsAppDialog(false)
-                  router.push("/user/login?registered=true")
-                }}
-              >
+              <Button variant="ghost" className="h-8 w-8 p-0" onClick={handleSkipWhatsApp}>
                 <X className="h-4 w-4" />
-                <span className="sr-only">Close</span>
+                <span className="sr-only">Skip</span>
               </Button>
             </div>
-            <DialogDescription>You have been successfully registered!</DialogDescription>
+            <DialogDescription>
+              {redirectUrl
+                ? `You've been registered successfully! ${isWhatsAppLink ? "Since you're accessing a WhatsApp link, we recommend joining our community group first." : "You can now access your requested content."}`
+                : "You have been successfully registered!"}
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <p>For updates on upcoming sessions and easier access to course materials, join our WhatsApp group.</p>
-            <p className="font-medium">It is highly recommended to join the group for the best experience.</p>
+            {!isWhatsAppLink && (
+              <p className="font-medium text-blue-600">
+                After joining (or skipping), you'll be redirected to your requested content.
+              </p>
+            )}
           </div>
-          <DialogFooter>
-            <Button type="button" className="w-full" onClick={handleWhatsAppRedirect}>
-              OK - Redirect to WhatsApp
+          <DialogFooter className="flex gap-2">
+            {!isWhatsAppLink && (
+              <Button variant="outline" onClick={handleSkipWhatsApp}>
+                Skip & Continue
+              </Button>
+            )}
+            <Button onClick={handleWhatsAppRedirect} className="flex-1">
+              Join WhatsApp Group
             </Button>
           </DialogFooter>
         </DialogContent>

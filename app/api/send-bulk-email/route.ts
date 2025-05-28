@@ -4,7 +4,7 @@ import { createBulkEmailTemplate } from "@/lib/email-template"
 
 export async function POST(request: NextRequest) {
   try {
-    const { userIds, subject, message, attachments = [], adminPassword } = await request.json()
+    const { userIds, subscriptionIds, subject, message, attachments = [], adminPassword } = await request.json()
 
     // Admin password verification
     const envAdminPassword = process.env.ADMIN_PASSWORD
@@ -23,8 +23,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
-      return NextResponse.json({ success: false, message: "No users selected for email" }, { status: 400 })
+    // Validate that we have either userIds or subscriptionIds
+    if (
+      (!userIds || !Array.isArray(userIds) || userIds.length === 0) &&
+      (!subscriptionIds || !Array.isArray(subscriptionIds) || subscriptionIds.length === 0)
+    ) {
+      return NextResponse.json(
+        { success: false, message: "No users or subscriptions selected for email" },
+        { status: 400 },
+      )
     }
 
     if (!subject || !message) {
@@ -59,12 +66,49 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Get users' email addresses
     const supabase = getSupabaseServerClient()
-    const { data: users, error: usersError } = await supabase.from("users").select("email, name").in("id", userIds)
+    let users = []
 
-    if (usersError) {
-      throw usersError
+    // Get users based on targeting method
+    if (userIds && userIds.length > 0) {
+      // Direct user targeting
+      const { data: directUsers, error: usersError } = await supabase
+        .from("users")
+        .select("email, name")
+        .in("id", userIds)
+
+      if (usersError) {
+        throw usersError
+      }
+      users = directUsers || []
+    } else if (subscriptionIds && subscriptionIds.length > 0) {
+      // Subscription-based targeting
+      console.log("Fetching users from subscriptions:", subscriptionIds)
+
+      const { data: subscriptionUsers, error: subscriptionError } = await supabase
+        .from("user_subscriptions")
+        .select(`
+          users!inner(email, name)
+        `)
+        .in("subscription_id", subscriptionIds)
+        .eq("is_active", true) // Only send to users with active subscriptions
+
+      if (subscriptionError) {
+        console.error("Error fetching subscription users:", subscriptionError)
+        throw subscriptionError
+      }
+
+      // Extract unique users (in case a user has multiple subscriptions)
+      const userMap = new Map()
+      subscriptionUsers?.forEach((item) => {
+        const user = item.users
+        if (user && user.email) {
+          userMap.set(user.email, user)
+        }
+      })
+      users = Array.from(userMap.values())
+
+      console.log(`Found ${users.length} unique users from ${subscriptionIds.length} subscriptions`)
     }
 
     if (!users || users.length === 0) {
@@ -144,15 +188,19 @@ export async function POST(request: NextRequest) {
 
     console.log(`Email sending completed: ${successful} successful, ${failed} failed`)
 
+    const targetingMethod =
+      userIds && userIds.length > 0 ? "individual users" : `${subscriptionIds.length} subscription(s)`
+
     return NextResponse.json({
       success: successful > 0,
-      message: `Successfully sent ${successful} professional emails${attachments.length > 0 ? ` with ${attachments.length} attachment${attachments.length !== 1 ? "s" : ""}` : ""} using Sthavishtah letterhead. ${failed} failed.`,
+      message: `Successfully sent ${successful} professional emails${attachments.length > 0 ? ` with ${attachments.length} attachment${attachments.length !== 1 ? "s" : ""}` : ""} to ${targetingMethod} using Sthavishtah letterhead. ${failed} failed.`,
       results,
       summary: {
         total: users.length,
         successful,
         failed,
         attachments: attachments.length,
+        targetingMethod,
       },
       service: "Resend API (Sthavishtah Letterhead)",
       domain: "sthavishtah.com",

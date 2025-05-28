@@ -2,285 +2,382 @@
 
 import type React from "react"
 
-import { useEffect, useState } from "react"
+import { useState, useEffect } from "react"
 import { AdminLayout } from "@/components/admin-layout"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Label } from "@/components/ui/label"
-import { Trash2, AlertCircle } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
+import { Bell, Send, Trash2 } from "lucide-react"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { useSearchParams } from "next/navigation"
 
 interface Notification {
   id: number
+  title: string
   message: string
+  subscription_id?: number
+  target_user_id?: number
+  is_global: boolean
   created_at: string
-  subscription_id?: number | null
-  subscription_name?: string | null
+  subscription?: { name: string }
+  target_user?: { name: string; email: string }
 }
 
-interface Subscription {
-  id: number
-  name: string
-}
-
-export default function Notifications() {
-  const searchParams = useSearchParams()
-  const [notifications, setNotifications] = useState<Notification[]>([])
+export default function NotificationsPage() {
+  const [title, setTitle] = useState("")
   const [message, setMessage] = useState("")
+  const [targetType, setTargetType] = useState<"global" | "subscriptions" | "user">("global")
+  const [selectedSubscriptions, setSelectedSubscriptions] = useState<string[]>([])
+  const [selectedUser, setSelectedUser] = useState("")
+  const [notifications, setNotifications] = useState<Notification[]>([])
+  const [subscriptions, setSubscriptions] = useState<any[]>([])
+  const [users, setUsers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
-  const [subscriptions, setSubscriptions] = useState<Subscription[]>([])
-  const [selectedSubscription, setSelectedSubscription] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [status, setStatus] = useState<{ type: "success" | "error"; message: string } | null>(null)
 
   useEffect(() => {
     fetchNotifications()
     fetchSubscriptions()
+    fetchUsers()
+  }, [])
 
-    // Check for subscription ID in URL query params
-    const subscriptionParam = searchParams.get("subscription")
-    if (subscriptionParam) {
-      setSelectedSubscription(subscriptionParam)
+  async function fetchNotifications() {
+    try {
+      const supabase = getSupabaseBrowserClient()
+
+      // Use explicit foreign key references with aliases
+      const { data, error } = await supabase
+        .from("notifications")
+        .select(`
+          id,
+          title,
+          message,
+          subscription_id,
+          target_user_id,
+          is_global,
+          created_at,
+          subscriptions (name),
+          target_user:target_user_id (name, email)
+        `)
+        .order("created_at", { ascending: false })
+
+      if (error) throw error
+      setNotifications(data || [])
+    } catch (error) {
+      console.error("Error fetching notifications:", error)
+    } finally {
+      setLoading(false)
     }
-  }, [searchParams])
+  }
 
   async function fetchSubscriptions() {
     try {
       const supabase = getSupabaseBrowserClient()
-      const { data, error } = await supabase.from("subscriptions").select("id, name")
+      const { data, error } = await supabase.from("subscriptions").select("id, name").order("name")
 
       if (error) throw error
       setSubscriptions(data || [])
     } catch (error) {
       console.error("Error fetching subscriptions:", error)
-      setError("Failed to load subscriptions. Please try again.")
     }
   }
 
-  async function fetchNotifications() {
+  async function fetchUsers() {
     try {
-      setLoading(true)
       const supabase = getSupabaseBrowserClient()
-
-      const { data, error } = await supabase.from("notifications").select("*").order("created_at", { ascending: false })
+      const { data, error } = await supabase.from("users").select("id, name, email").order("name")
 
       if (error) throw error
-
-      // Fetch subscription names for notifications that have subscription_id
-      const notificationsWithSubscriptions = await Promise.all(
-        (data || []).map(async (notification) => {
-          if (notification.subscription_id) {
-            const { data: subscriptionData } = await supabase
-              .from("subscriptions")
-              .select("name")
-              .eq("id", notification.subscription_id)
-              .single()
-
-            return {
-              ...notification,
-              subscription_name: subscriptionData?.name || "Unknown Subscription",
-            }
-          }
-          return notification
-        }),
-      )
-
-      setNotifications(notificationsWithSubscriptions || [])
+      setUsers(data || [])
     } catch (error) {
-      console.error("Error fetching notifications:", error)
-      setError("Failed to load notifications. Please try again.")
-    } finally {
-      setLoading(false)
+      console.error("Error fetching users:", error)
     }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!message.trim()) return
+    if (!title.trim() || !message.trim()) {
+      setStatus({
+        type: "error",
+        message: "Title and message are required",
+      })
+      return
+    }
+
+    if (targetType === "subscriptions" && selectedSubscriptions.length === 0) {
+      setStatus({
+        type: "error",
+        message: "Please select at least one subscription",
+      })
+      return
+    }
+
+    if (targetType === "user" && !selectedUser) {
+      setStatus({
+        type: "error",
+        message: "Please select a user",
+      })
+      return
+    }
 
     try {
       setSending(true)
+      setStatus(null)
       const supabase = getSupabaseBrowserClient()
 
-      const notificationData = {
-        message,
-        subscription_id: selectedSubscription ? Number.parseInt(selectedSubscription) : null,
+      if (targetType === "global") {
+        // Create single global notification
+        const { error } = await supabase.from("notifications").insert({
+          title,
+          message,
+          is_global: true,
+        })
+
+        if (error) throw error
+      } else if (targetType === "subscriptions") {
+        // Create notification for each selected subscription
+        const notificationData = selectedSubscriptions.map((subscriptionId) => ({
+          title,
+          message,
+          subscription_id: Number.parseInt(subscriptionId),
+          is_global: false,
+        }))
+
+        const { error } = await supabase.from("notifications").insert(notificationData)
+        if (error) throw error
+      } else if (targetType === "user") {
+        // Create notification for specific user
+        const { error } = await supabase.from("notifications").insert({
+          title,
+          message,
+          target_user_id: Number.parseInt(selectedUser),
+          is_global: false,
+        })
+
+        if (error) throw error
       }
 
-      const { data, error } = await supabase.from("notifications").insert([notificationData]).select()
+      setStatus({
+        type: "success",
+        message: "Notification sent successfully!",
+      })
 
-      if (error) throw error
-
-      // Add the new notification to the list
-      if (data && data.length > 0) {
-        // If the notification has a subscription_id, fetch the subscription name
-        let newNotification = data[0]
-        if (newNotification.subscription_id) {
-          const { data: subscriptionData } = await supabase
-            .from("subscriptions")
-            .select("name")
-            .eq("id", newNotification.subscription_id)
-            .single()
-
-          newNotification = {
-            ...newNotification,
-            subscription_name: subscriptionData?.name || "Unknown Subscription",
-          }
-        }
-
-        setNotifications([newNotification, ...notifications])
-      }
-
-      // Clear the message input
+      // Reset form
+      setTitle("")
       setMessage("")
+      setTargetType("global")
+      setSelectedSubscriptions([])
+      setSelectedUser("")
+
+      // Refresh notifications
+      fetchNotifications()
     } catch (error) {
       console.error("Error sending notification:", error)
-      setError("Failed to send notification. Please try again.")
+      setStatus({
+        type: "error",
+        message: `Failed to send notification: ${error.message}`,
+      })
     } finally {
       setSending(false)
     }
   }
 
-  const handleDelete = async (id: number) => {
-    if (!confirm("Are you sure you want to delete this notification?")) return
-
+  const deleteNotification = async (id: number) => {
     try {
       const supabase = getSupabaseBrowserClient()
-
       const { error } = await supabase.from("notifications").delete().eq("id", id)
 
       if (error) throw error
 
-      // Remove the deleted notification from the list
-      setNotifications(notifications.filter((notification) => notification.id !== id))
+      setStatus({
+        type: "success",
+        message: "Notification deleted successfully!",
+      })
+
+      fetchNotifications()
     } catch (error) {
       console.error("Error deleting notification:", error)
-      setError("Failed to delete notification. Please try again.")
+      setStatus({
+        type: "error",
+        message: "Failed to delete notification",
+      })
     }
   }
 
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <h1 className="text-3xl font-bold">Notifications</h1>
+        <h1 className="text-3xl font-bold">Notifications Management</h1>
 
-        {error && (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Error</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-
-        <Card>
-          <form onSubmit={handleSubmit}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Card>
             <CardHeader>
               <CardTitle>Send Notification</CardTitle>
-              <CardDescription>Create a new notification for users</CardDescription>
+              <CardDescription>Create and send notifications to users</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
+            <form onSubmit={handleSubmit}>
+              <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="subscription">Target Subscription (Optional)</Label>
-                  <Select
-                    value={selectedSubscription || ""}
-                    onValueChange={(value) => setSelectedSubscription(value === "all" ? null : value)}
-                  >
-                    <SelectTrigger id="subscription">
-                      <SelectValue placeholder="All Users (No specific subscription)" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Users (No specific subscription)</SelectItem>
-                      {subscriptions.map((subscription) => (
-                        <SelectItem key={subscription.id} value={subscription.id.toString()}>
-                          {subscription.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {selectedSubscription && (
-                    <p className="text-sm text-blue-600">
-                      This notification will only be visible to users with the selected subscription.
-                    </p>
-                  )}
+                  <Label htmlFor="title">Title</Label>
+                  <Input
+                    id="title"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="Notification title"
+                    required
+                  />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="message">Notification Message</Label>
+                  <Label htmlFor="message">Message</Label>
                   <Textarea
                     id="message"
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
-                    placeholder="Enter your notification message here..."
+                    placeholder="Notification message"
                     rows={4}
+                    required
                   />
                 </div>
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button type="submit" disabled={sending || !message.trim()} className="ml-auto">
-                {sending ? "Sending..." : "Send Notification"}
-              </Button>
-            </CardFooter>
-          </form>
-        </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Notifications</CardTitle>
-            <CardDescription>View and manage notifications sent to users</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="text-center py-4">Loading notifications...</div>
-            ) : notifications.length === 0 ? (
-              <div className="text-center py-4">No notifications found.</div>
-            ) : (
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Message</TableHead>
-                      <TableHead>Target</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead className="w-[100px]">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {notifications.map((notification) => (
-                      <TableRow key={notification.id}>
-                        <TableCell>{notification.message}</TableCell>
-                        <TableCell>
-                          {notification.subscription_id ? (
-                            <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
-                              {notification.subscription_name}
-                            </span>
-                          ) : (
-                            <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs font-medium">
-                              All Users
-                            </span>
-                          )}
-                        </TableCell>
-                        <TableCell>{new Date(notification.created_at).toLocaleString()}</TableCell>
-                        <TableCell>
-                          <Button variant="outline" size="icon" onClick={() => handleDelete(notification.id)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                <div className="space-y-2">
+                  <Label>Target Audience</Label>
+                  <RadioGroup value={targetType} onValueChange={setTargetType}>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="global" id="global" />
+                      <Label htmlFor="global">All Users (Global)</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="subscriptions" id="subscriptions" />
+                      <Label htmlFor="subscriptions">Subscription Members</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="user" id="user" />
+                      <Label htmlFor="user">Specific User</Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+
+                {targetType === "subscriptions" && (
+                  <div className="space-y-2">
+                    <Label>Select Subscriptions</Label>
+                    <div className="border rounded-md p-4 max-h-40 overflow-y-auto">
+                      {subscriptions.map((subscription) => (
+                        <div key={subscription.id} className="flex items-center space-x-2 mb-2">
+                          <Checkbox
+                            id={`subscription-${subscription.id}`}
+                            checked={selectedSubscriptions.includes(subscription.id.toString())}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setSelectedSubscriptions((prev) => [...prev, subscription.id.toString()])
+                              } else {
+                                setSelectedSubscriptions((prev) =>
+                                  prev.filter((id) => id !== subscription.id.toString()),
+                                )
+                              }
+                            }}
+                          />
+                          <Label htmlFor={`subscription-${subscription.id}`}>{subscription.name}</Label>
+                        </div>
+                      ))}
+                    </div>
+                    {selectedSubscriptions.length > 0 && (
+                      <p className="text-sm text-blue-600">{selectedSubscriptions.length} subscription(s) selected</p>
+                    )}
+                  </div>
+                )}
+
+                {targetType === "user" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="user-select">Select User</Label>
+                    <Select value={selectedUser} onValueChange={setSelectedUser}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Choose a user" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {users.map((user) => (
+                          <SelectItem key={user.id} value={user.id.toString()}>
+                            {user.name || user.email || `User ${user.id}`}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {status && (
+                  <Alert variant={status.type === "success" ? "default" : "destructive"}>
+                    <AlertDescription>{status.message}</AlertDescription>
+                  </Alert>
+                )}
+              </CardContent>
+              <CardFooter>
+                <Button type="submit" disabled={sending} className="w-full">
+                  <Send className="mr-2 h-4 w-4" />
+                  {sending ? "Sending..." : "Send Notification"}
+                </Button>
+              </CardFooter>
+            </form>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent Notifications</CardTitle>
+              <CardDescription>View and manage sent notifications</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <p>Loading notifications...</p>
+              ) : notifications.length === 0 ? (
+                <p>No notifications sent yet.</p>
+              ) : (
+                <div className="space-y-4 max-h-96 overflow-y-auto">
+                  {notifications.map((notification) => (
+                    <div key={notification.id} className="border rounded-md p-4">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Bell className="h-4 w-4" />
+                            <h3 className="font-medium">{notification.title}</h3>
+                          </div>
+                          <p className="text-sm text-gray-600 mb-2">{notification.message}</p>
+                          <div className="text-xs text-gray-500">
+                            <p>
+                              Target:{" "}
+                              {notification.is_global
+                                ? "All Users"
+                                : notification.subscription_id
+                                  ? `Subscription: ${notification.subscription?.name || "Unknown"}`
+                                  : notification.target_user_id
+                                    ? `User: ${notification.target_user?.name || notification.target_user?.email || "Unknown"}`
+                                    : "Unknown"}
+                            </p>
+                            <p>Sent: {new Date(notification.created_at).toLocaleString()}</p>
+                          </div>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => deleteNotification(notification.id)}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </AdminLayout>
   )

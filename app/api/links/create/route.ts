@@ -29,9 +29,14 @@ export async function POST(request: NextRequest) {
     const finalLinkType = linkType || link_type || "session"
     const finalTargetUrl = targetUrl || target_url
     const finalTargetType = targetType || target_type || "all"
-    const finalTargetIds = targetIds || target_ids || null
+    let finalTargetIds = targetIds || target_ids || null
     const finalExpiresAt = expiresAt || expires_at || null
     const finalCreatedBy = created_by || null
+
+    // Handle multiple subscription IDs - convert array to JSON string for storage
+    if (finalTargetIds && Array.isArray(finalTargetIds)) {
+      finalTargetIds = JSON.stringify(finalTargetIds)
+    }
 
     // Validate required fields
     if (!finalTitle || !finalLinkType || !finalTargetUrl || !finalTargetType) {

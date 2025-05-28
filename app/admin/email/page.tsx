@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { Mail, Search, Paperclip, X, FileText } from "lucide-react"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 
 interface User {
   id: number
@@ -39,9 +40,13 @@ export default function EmailPage() {
   const [sending, setSending] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [emailStatus, setEmailStatus] = useState<{ type: "success" | "error"; message: string } | null>(null)
+  const [targetType, setTargetType] = useState<"users" | "subscriptions">("users")
+  const [selectedSubscriptions, setSelectedSubscriptions] = useState<string[]>([])
+  const [subscriptions, setSubscriptions] = useState<any[]>([])
 
   useEffect(() => {
     fetchUsers()
+    fetchSubscriptions()
   }, [])
 
   async function fetchUsers() {
@@ -61,6 +66,21 @@ export default function EmailPage() {
       console.error("Error fetching users:", error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function fetchSubscriptions() {
+    try {
+      const supabase = getSupabaseBrowserClient()
+      const { data, error } = await supabase
+        .from("subscriptions")
+        .select("id, name")
+        .order("created_at", { ascending: false })
+
+      if (error) throw error
+      setSubscriptions(data || [])
+    } catch (error) {
+      console.error("Error fetching subscriptions:", error)
     }
   }
 
@@ -185,7 +205,37 @@ export default function EmailPage() {
   }
 
   const sendEmails = async () => {
-    if (!validateForm()) return
+    if (targetType === "users" && selectedUsers.length === 0) {
+      setEmailStatus({
+        type: "error",
+        message: "Please select at least one user",
+      })
+      return
+    }
+
+    if (targetType === "subscriptions" && selectedSubscriptions.length === 0) {
+      setEmailStatus({
+        type: "error",
+        message: "Please select at least one subscription",
+      })
+      return
+    }
+
+    if (!subject.trim()) {
+      setEmailStatus({
+        type: "error",
+        message: "Please enter a subject",
+      })
+      return
+    }
+
+    if (!message.trim()) {
+      setEmailStatus({
+        type: "error",
+        message: "Please enter a message",
+      })
+      return
+    }
 
     try {
       setSending(true)
@@ -206,7 +256,8 @@ export default function EmailPage() {
           "x-admin-password": adminPassword,
         },
         body: JSON.stringify({
-          userIds: selectedUsers,
+          userIds: targetType === "users" ? selectedUsers : undefined,
+          subscriptionIds: targetType === "subscriptions" ? selectedSubscriptions : undefined,
           subject,
           message: message.replace(/\n/g, "<br>"),
           attachments: attachments, // Include attachments
@@ -257,6 +308,61 @@ export default function EmailPage() {
               <CardDescription>Choose users to send emails to</CardDescription>
             </CardHeader>
             <CardContent>
+              <div className="flex items-center mb-4">
+                <Label className="mr-4">Target:</Label>
+                <RadioGroup value={targetType} onValueChange={setTargetType} className="flex space-x-4">
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="users" id="target-users" />
+                    <Label htmlFor="target-users">Individual Users</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="subscriptions" id="target-subscriptions" />
+                    <Label htmlFor="target-subscriptions">Subscription Members</Label>
+                  </div>
+                </RadioGroup>
+              </div>
+
+              {targetType === "subscriptions" && (
+                <div className="mb-4">
+                  <Label>Select Subscriptions</Label>
+                  <div className="mt-2 border rounded-md p-4 max-h-40 overflow-y-auto">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <Checkbox
+                        id="select-all-subscriptions"
+                        checked={selectedSubscriptions.length === subscriptions.length && subscriptions.length > 0}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedSubscriptions(subscriptions.map((sub) => sub.id.toString()))
+                          } else {
+                            setSelectedSubscriptions([])
+                          }
+                        }}
+                      />
+                      <Label htmlFor="select-all-subscriptions">Select All Subscriptions</Label>
+                    </div>
+                    {subscriptions.map((subscription) => (
+                      <div key={subscription.id} className="flex items-center space-x-2 mb-2">
+                        <Checkbox
+                          id={`subscription-${subscription.id}`}
+                          checked={selectedSubscriptions.includes(subscription.id.toString())}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedSubscriptions((prev) => [...prev, subscription.id.toString()])
+                            } else {
+                              setSelectedSubscriptions((prev) => prev.filter((id) => id !== subscription.id.toString()))
+                            }
+                          }}
+                        />
+                        <Label htmlFor={`subscription-${subscription.id}`}>{subscription.name}</Label>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-2 text-sm text-gray-500">
+                    {selectedSubscriptions.length} subscription(s) selected
+                  </div>
+                </div>
+              )}
+
               <div className="flex items-center mb-4">
                 <Search className="mr-2 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -392,11 +498,21 @@ export default function EmailPage() {
               )}
             </CardContent>
             <CardFooter>
-              <Button onClick={sendEmails} disabled={sending || selectedUsers.length === 0} className="w-full">
+              <Button
+                onClick={sendEmails}
+                disabled={
+                  sending || (targetType === "users" ? selectedUsers.length === 0 : selectedSubscriptions.length === 0)
+                }
+                className="w-full"
+              >
                 <Mail className="mr-2 h-4 w-4" />
                 {sending
                   ? "Sending..."
-                  : `Send Email${attachments.length > 0 ? ` with ${attachments.length} attachment${attachments.length !== 1 ? "s" : ""}` : ""} to ${selectedUsers.length} User${selectedUsers.length !== 1 ? "s" : ""}`}
+                  : `Send Email${attachments.length > 0 ? ` with ${attachments.length} attachment${attachments.length !== 1 ? "s" : ""}` : ""} to ${
+                      targetType === "users"
+                        ? `${selectedUsers.length} User${selectedUsers.length !== 1 ? "s" : ""}`
+                        : `${selectedSubscriptions.length} Subscription${selectedSubscriptions.length !== 1 ? "s" : ""}`
+                    }`}
               </Button>
             </CardFooter>
           </Card>

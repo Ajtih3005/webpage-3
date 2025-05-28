@@ -32,7 +32,7 @@ export default function CreateCourse() {
   const [isScheduledSession, setIsScheduledSession] = useState(false)
   const [selectedBatches, setSelectedBatches] = useState<string[]>([])
   const [customBatches, setCustomBatches] = useState<{ id: string; time: string }[]>([])
-  const [subscriptionId, setSubscriptionId] = useState<string | null>(null)
+  const [selectedSubscriptions, setSelectedSubscriptions] = useState<string[]>([])
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>(["English"])
   const [subscriptions, setSubscriptions] = useState<{ id: number; name: string }[]>([])
   const [loading, setLoading] = useState(false)
@@ -62,8 +62,8 @@ export default function CreateCourse() {
     const params = new URLSearchParams(window.location.search)
     const subscriptionParam = params.get("subscription")
     if (subscriptionParam) {
-      setSubscriptionId(subscriptionParam)
-      console.log(`Pre-selected subscription ID: ${subscriptionParam}`)
+      // setSubscriptionId(subscriptionParam)
+      // console.log(`Pre-selected subscription ID: ${subscriptionParam}`)
     }
 
     testDatabaseConnection()
@@ -260,10 +260,54 @@ export default function CreateCourse() {
         courseData.subscription_week = subscriptionWeek
       }
 
-      // Add subscription ID if selected
-      if (subscriptionId && subscriptionId !== "none") {
-        courseData.subscription_id = Number.parseInt(subscriptionId)
+      // Add subscription IDs if selected
+      if (selectedSubscriptions.length > 0 && !selectedSubscriptions.includes("none")) {
+        // Create course entries for each selected subscription
+        const courseEntries = []
+
+        for (const subscriptionId of selectedSubscriptions) {
+          if (isPredefinedBatch) {
+            // Create entries for each batch and each subscription
+            for (const batchNumber of selectedBatches) {
+              const batchCourseData = {
+                ...courseData,
+                batch_number: batchNumber,
+                custom_batch_time: null,
+                subscription_id: Number.parseInt(subscriptionId),
+              }
+              courseEntries.push(batchCourseData)
+            }
+          } else {
+            // Create entries for each custom batch and each subscription
+            for (const batch of customBatches) {
+              if (batch.time.trim()) {
+                const customBatchCourseData = {
+                  ...courseData,
+                  batch_number: null,
+                  custom_batch_time: batch.time,
+                  subscription_id: Number.parseInt(subscriptionId),
+                }
+                courseEntries.push(customBatchCourseData)
+              }
+            }
+          }
+        }
+
+        console.log(`Creating ${courseEntries.length} course entries for multiple subscriptions:`, courseEntries)
+
+        const { data, error } = await getSupabaseBrowserClient().from("courses").insert(courseEntries).select()
+
+        if (error) throw error
+
+        console.log("Courses created successfully:", data)
+        router.push("/admin/courses")
+        return
       }
+
+      // Add subscription ID if selected
+      // if (subscriptionId && subscriptionId !== "none") {
+      //   courseData.subscription_id = Number.parseInt(subscriptionId)
+      // }
 
       // Handle batch information based on whether it's predefined or custom
       if (isPredefinedBatch) {
@@ -680,25 +724,47 @@ export default function CreateCourse() {
                 )}
               </div>
 
-              {/* Subscription Selection */}
+              {/* Multiple Subscription Selection */}
               <div className="space-y-2">
-                <Label htmlFor="subscription">Subscription (Optional)</Label>
-                <Select value={subscriptionId || ""} onValueChange={setSubscriptionId}>
-                  <SelectTrigger id="subscription">
-                    <SelectValue placeholder="No subscription required" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No subscription required</SelectItem>
-                    {subscriptions.map((subscription) => (
-                      <SelectItem key={subscription.id} value={subscription.id.toString()}>
-                        {subscription.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {subscriptionId && subscriptionId !== "none" && (
+                <Label htmlFor="subscriptions">Subscriptions (Optional)</Label>
+                <div className="border rounded-md p-4 max-h-40 overflow-y-auto">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <Checkbox
+                      id="no-subscription"
+                      checked={selectedSubscriptions.includes("none")}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedSubscriptions(["none"])
+                        } else {
+                          setSelectedSubscriptions([])
+                        }
+                      }}
+                    />
+                    <Label htmlFor="no-subscription">No subscription required</Label>
+                  </div>
+                  {subscriptions.map((subscription) => (
+                    <div key={subscription.id} className="flex items-center space-x-2 mb-2">
+                      <Checkbox
+                        id={`subscription-${subscription.id}`}
+                        checked={selectedSubscriptions.includes(subscription.id.toString())}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedSubscriptions((prev) =>
+                              prev.filter((id) => id !== "none").concat(subscription.id.toString()),
+                            )
+                          } else {
+                            setSelectedSubscriptions((prev) => prev.filter((id) => id !== subscription.id.toString()))
+                          }
+                        }}
+                        disabled={selectedSubscriptions.includes("none")}
+                      />
+                      <Label htmlFor={`subscription-${subscription.id}`}>{subscription.name}</Label>
+                    </div>
+                  ))}
+                </div>
+                {selectedSubscriptions.length > 0 && !selectedSubscriptions.includes("none") && (
                   <p className="text-sm text-blue-600 mt-1">
-                    This course will be created for the selected subscription plan.
+                    This course will be created for {selectedSubscriptions.length} selected subscription plan(s).
                   </p>
                 )}
               </div>

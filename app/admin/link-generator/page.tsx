@@ -24,6 +24,7 @@ export default function LinkGeneratorPage() {
   const [targetType, setTargetType] = useState("all")
   const [selectedUsers, setSelectedUsers] = useState<string[]>([])
   const [selectedUser, setSelectedUser] = useState("")
+  const [selectedSubscriptions, setSelectedSubscriptions] = useState<string[]>([])
   const [selectedSubscription, setSelectedSubscription] = useState<string>("")
   const [expiresAt, setExpiresAt] = useState<Date | undefined>(undefined)
   const [showCalendar, setShowCalendar] = useState(false)
@@ -269,7 +270,7 @@ export default function LinkGeneratorPage() {
       } else if (targetType === "user") {
         targetIds = [selectedUser]
       } else if (targetType === "subscription") {
-        targetIds = [selectedSubscription]
+        targetIds = selectedSubscriptions
       }
 
       const response = await fetch("/api/links/create", {
@@ -307,7 +308,7 @@ export default function LinkGeneratorPage() {
       setTargetType("all")
       setSelectedUsers([])
       setSelectedUser("")
-      setSelectedSubscription("")
+      setSelectedSubscriptions([])
       setExpiresAt(undefined)
       setHasExpiration(false)
 
@@ -336,7 +337,7 @@ export default function LinkGeneratorPage() {
       } else if (targetType === "user") {
         targetIds = [selectedUser]
       } else if (targetType === "subscription") {
-        targetIds = [selectedSubscription]
+        targetIds = selectedSubscriptions
       }
 
       const requestBody = {
@@ -416,7 +417,7 @@ export default function LinkGeneratorPage() {
               : targetType === "user"
                 ? [selectedUser]
                 : targetType === "subscription"
-                  ? [subscriptionId]
+                  ? selectedSubscriptions
                   : null,
           expiresAt: hasExpiration ? expiresAt : null,
         }),
@@ -772,19 +773,32 @@ export default function LinkGeneratorPage() {
 
                   {targetType === "subscription" && (
                     <div>
-                      <Label htmlFor="selected-subscription">Select Subscription</Label>
-                      <Select value={selectedSubscription} onValueChange={setSelectedSubscription}>
-                        <SelectTrigger id="selected-subscription" className="mt-2">
-                          <SelectValue placeholder="Select a subscription" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {subscriptions.map((subscription) => (
-                            <SelectItem key={subscription.id} value={subscription.id.toString()}>
-                              {subscription.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <Label htmlFor="selected-subscriptions">Select Subscriptions</Label>
+                      <div className="mt-2 border rounded-md p-4 max-h-40 overflow-y-auto">
+                        {subscriptions.map((subscription) => (
+                          <div key={subscription.id} className="flex items-center space-x-2 mb-2">
+                            <Checkbox
+                              id={`subscription-${subscription.id}`}
+                              checked={selectedSubscriptions.includes(subscription.id.toString())}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setSelectedSubscriptions((prev) => [...prev, subscription.id.toString()])
+                                } else {
+                                  setSelectedSubscriptions((prev) =>
+                                    prev.filter((id) => id !== subscription.id.toString()),
+                                  )
+                                }
+                              }}
+                            />
+                            <Label htmlFor={`subscription-${subscription.id}`}>{subscription.name}</Label>
+                          </div>
+                        ))}
+                      </div>
+                      {selectedSubscriptions.length > 0 && (
+                        <p className="text-sm text-blue-600 mt-1">
+                          {selectedSubscriptions.length} subscription(s) selected
+                        </p>
+                      )}
                     </div>
                   )}
 
@@ -845,7 +859,7 @@ export default function LinkGeneratorPage() {
                               disabled={
                                 creating ||
                                 (targetType === "user" && !selectedUser) ||
-                                (targetType === "subscription" && !selectedSubscription) ||
+                                (targetType === "subscription" && selectedSubscriptions.length === 0) ||
                                 (targetType === "users" && selectedUsers.length === 0)
                               }
                             >
@@ -983,19 +997,32 @@ export default function LinkGeneratorPage() {
 
                   {targetType === "subscription" && (
                     <div>
-                      <Label htmlFor="selected-subscription-whatsapp">Select Subscription</Label>
-                      <Select value={selectedSubscription} onValueChange={setSelectedSubscription}>
-                        <SelectTrigger id="selected-subscription-whatsapp" className="mt-2">
-                          <SelectValue placeholder="Select a subscription" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {subscriptions.map((subscription) => (
-                            <SelectItem key={subscription.id} value={subscription.id.toString()}>
-                              {subscription.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <Label htmlFor="selected-subscriptions-whatsapp">Select Subscriptions</Label>
+                      <div className="mt-2 border rounded-md p-4 max-h-40 overflow-y-auto">
+                        {subscriptions.map((subscription) => (
+                          <div key={subscription.id} className="flex items-center space-x-2 mb-2">
+                            <Checkbox
+                              id={`subscription-whatsapp-${subscription.id}`}
+                              checked={selectedSubscriptions.includes(subscription.id.toString())}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setSelectedSubscriptions((prev) => [...prev, subscription.id.toString()])
+                                } else {
+                                  setSelectedSubscriptions((prev) =>
+                                    prev.filter((id) => id !== subscription.id.toString()),
+                                  )
+                                }
+                              }}
+                            />
+                            <Label htmlFor={`subscription-whatsapp-${subscription.id}`}>{subscription.name}</Label>
+                          </div>
+                        ))}
+                      </div>
+                      {selectedSubscriptions.length > 0 && (
+                        <p className="text-sm text-blue-600 mt-1">
+                          {selectedSubscriptions.length} subscription(s) selected
+                        </p>
+                      )}
                     </div>
                   )}
 
