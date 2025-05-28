@@ -26,52 +26,8 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
       return NextResponse.json({ success: false, error: "Link has expired" }, { status: 403 })
     }
 
-    // Check if the user is allowed to use this link
-    let isAllowed = false
-    let requiresLogin = false
-
-    if (link.target_type === "all") {
-      // Public links - anyone can use them
-      isAllowed = true
-    } else if (
-      link.target_type === "user" &&
-      userId &&
-      link.target_ids &&
-      link.target_ids.includes(Number.parseInt(userId))
-    ) {
-      // Specific user - must be logged in as that user
-      isAllowed = true
-    } else if (link.target_type === "user" && !userId) {
-      // Specific user but not logged in - require login
-      requiresLogin = true
-      isAllowed = false
-    } else if (link.target_type === "users" && userId) {
-      // Multiple users - must be logged in
-      isAllowed = true
-    } else if (link.target_type === "users" && !userId) {
-      // Multiple users but not logged in - require login
-      requiresLogin = true
-      isAllowed = false
-    } else if (link.target_type === "subscription") {
-      if (!userId) {
-        // Subscription-based but not logged in - require login
-        requiresLogin = true
-        isAllowed = false
-      } else {
-        // Check if the user has the specified subscription
-        const { data: userSubscriptions, error: subError } = await supabase
-          .from("user_subscriptions")
-          .select("subscription_id")
-          .eq("user_id", userId)
-
-        if (!subError && userSubscriptions) {
-          const userSubIds = userSubscriptions.map((sub) => sub.subscription_id)
-          isAllowed = link.target_ids.some((id: number) => userSubIds.includes(id))
-        }
-      }
-    }
-
-    if (requiresLogin) {
+    // CRITICAL FIX: ALWAYS require login for ALL links
+    if (!userId) {
       return NextResponse.json(
         {
           success: false,
@@ -81,6 +37,32 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
         },
         { status: 401 },
       )
+    }
+
+    // Check if the user is allowed to use this link
+    let isAllowed = false
+
+    if (link.target_type === "all") {
+      // "All Users" = All LOGGED-IN users (already checked login above)
+      isAllowed = true
+    } else if (link.target_type === "user" && link.target_ids && link.target_ids.includes(Number.parseInt(userId))) {
+      // Specific user - must be logged in as that user
+      isAllowed = true
+    } else if (link.target_type === "users") {
+      // Multiple users - must be logged in (already checked above)
+      // AND must be in the target_ids list
+      isAllowed = link.target_ids && link.target_ids.includes(Number.parseInt(userId))
+    } else if (link.target_type === "subscription") {
+      // Check if the user has the specified subscription
+      const { data: userSubscriptions, error: subError } = await supabase
+        .from("user_subscriptions")
+        .select("subscription_id")
+        .eq("user_id", userId)
+
+      if (!subError && userSubscriptions) {
+        const userSubIds = userSubscriptions.map((sub) => sub.subscription_id)
+        isAllowed = link.target_ids.some((id: number) => userSubIds.includes(id))
+      }
     }
 
     if (!isAllowed) {
@@ -96,7 +78,7 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
         target_url: link.target_url,
         link_type: link.link_type,
       },
-      userInfo: userId ? { loggedIn: true, userId } : { loggedIn: false },
+      userInfo: { loggedIn: true, userId },
     })
   } catch (error) {
     console.error("Error in links/validate route:", error)
