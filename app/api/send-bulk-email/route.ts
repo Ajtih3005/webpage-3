@@ -143,7 +143,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log(`📤 Starting to send ${users.length} emails with SLOW rate limiting`)
+    // Batch processing to prevent timeouts
+    const BATCH_SIZE = 10 // Process 10 emails at a time
+    const EMAIL_DELAY = 3000 // 3 seconds between emails
+    const BATCH_DELAY = 10000 // 10 seconds between batches
+    const MAX_RETRIES = 3
+
+    console.log(`📤 Starting batch email sending: ${users.length} users in batches of ${BATCH_SIZE}`)
 
     // Prepare attachments for Resend API
     const resendAttachments = attachments.map((file: any) => ({
@@ -152,15 +158,13 @@ export async function POST(request: NextRequest) {
       type: file.type,
     }))
 
-    // MUCH SLOWER rate limiting for new Resend accounts
-    const emailDelay = 5000 // 5 seconds delay between emails
-    const maxRetries = 3
     const results = []
+    let totalProcessed = 0
 
     // Helper function to send single email with retry logic
     const sendEmailWithRetry = async (user: any, attempt = 1): Promise<any> => {
       try {
-        console.log(`📧 Sending email ${results.length + 1}/${users.length} to ${user.email} (attempt ${attempt})`)
+        console.log(`📧 Sending email ${totalProcessed + 1}/${users.length} to ${user.email} (attempt ${attempt})`)
 
         const personalizedMessage = message.replace(/\{name\}/g, user.name || "")
         const htmlContent = createBulkEmailTemplate(personalizedMessage, user.name)
@@ -195,9 +199,9 @@ export async function POST(request: NextRequest) {
           console.error(`❌ Error sending email to ${user.email} (attempt ${attempt}):`, responseData)
 
           // Check if it's a rate limit error and retry
-          if (response.status === 429 && attempt < maxRetries) {
-            console.log(`⏳ Rate limited, waiting 10 seconds before retry ${attempt + 1}...`)
-            await new Promise((resolve) => setTimeout(resolve, 10000)) // 10 second wait for rate limit
+          if (response.status === 429 && attempt < MAX_RETRIES) {
+            console.log(`⏳ Rate limited, waiting 15 seconds before retry ${attempt + 1}...`)
+            await new Promise((resolve) => setTimeout(resolve, 15000)) // 15 second wait for rate limit
             return sendEmailWithRetry(user, attempt + 1)
           }
 
@@ -211,9 +215,9 @@ export async function POST(request: NextRequest) {
       } catch (error) {
         console.error(`💥 Exception sending email to ${user.email} (attempt ${attempt}):`, error)
 
-        if (attempt < maxRetries) {
-          console.log(`⏳ Exception occurred, waiting 5 seconds before retry ${attempt + 1}...`)
-          await new Promise((resolve) => setTimeout(resolve, 5000))
+        if (attempt < MAX_RETRIES) {
+          console.log(`⏳ Exception occurred, waiting 10 seconds before retry ${attempt + 1}...`)
+          await new Promise((resolve) => setTimeout(resolve, 10000))
           return sendEmailWithRetry(user, attempt + 1)
         }
 
@@ -221,16 +225,61 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Send emails one by one with long delays
-    for (let i = 0; i < users.length; i++) {
-      const user = users[i]
-      const result = await sendEmailWithRetry(user)
-      results.push(result)
+    // Process users in batches
+    for (let batchIndex = 0; batchIndex < users.length; batchIndex += BATCH_SIZE) {
+      const batch = users.slice(batchIndex, batchIndex + BATCH_SIZE)
+      const batchNumber = Math.floor(batchIndex / BATCH_SIZE) + 1
+      const totalBatches = Math.ceil(users.length / BATCH_SIZE)
 
-      // Add delay between emails (except for the last one)
-      if (i < users.length - 1) {
-        console.log(`⏳ Waiting ${emailDelay / 1000} seconds before next email...`)
-        await new Promise((resolve) => setTimeout(resolve, emailDelay))
+      console.log(`🔄 Processing batch ${batchNumber}/${totalBatches} (${batch.length} users)`)
+
+      try {
+        // Process each email in the batch
+        for (let i = 0; i < batch.length; i++) {
+          const user = batch[i]
+
+          try {
+            const result = await sendEmailWithRetry(user)
+            results.push(result)
+            totalProcessed++
+
+            // Add delay between emails within batch (except for the last one in batch)
+            if (i < batch.length - 1) {
+              console.log(`⏳ Waiting ${EMAIL_DELAY / 1000} seconds before next email...`)
+              await new Promise((resolve) => setTimeout(resolve, EMAIL_DELAY))
+            }
+          } catch (emailError) {
+            console.error(`💥 Failed to send email to ${user.email}:`, emailError)
+            results.push({
+              email: user.email,
+              success: false,
+              error: `Unexpected error: ${String(emailError)}`,
+              attempt: 1,
+            })
+            totalProcessed++
+          }
+        }
+
+        console.log(`✅ Batch ${batchNumber} completed. Processed: ${totalProcessed}/${users.length}`)
+
+        // Add delay between batches (except for the last batch)
+        if (batchIndex + BATCH_SIZE < users.length) {
+          console.log(`⏳ Waiting ${BATCH_DELAY / 1000} seconds before next batch...`)
+          await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY))
+        }
+      } catch (batchError) {
+        console.error(`💥 Batch ${batchNumber} failed:`, batchError)
+
+        // Mark remaining users in this batch as failed
+        for (let i = results.length - totalProcessed; i < batch.length; i++) {
+          results.push({
+            email: batch[i].email,
+            success: false,
+            error: `Batch processing failed: ${String(batchError)}`,
+            attempt: 1,
+          })
+          totalProcessed++
+        }
       }
     }
 
@@ -245,7 +294,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: successful > 0,
-      message: `Successfully sent ${successful} professional emails${attachments.length > 0 ? ` with ${attachments.length} attachment${attachments.length !== 1 ? "s" : ""}` : ""} to ${targetingMethod}. ${failed > 0 ? `${failed} failed due to rate limiting.` : ""} Used slow sending (5s delays) for new Resend account.`,
+      message: `Successfully sent ${successful}/${users.length} emails to ${targetingMethod}. ${failed > 0 ? `${failed} failed.` : ""} Used batch processing (${BATCH_SIZE} per batch) with ${EMAIL_DELAY / 1000}s delays.`,
       results,
       summary: {
         total: users.length,
@@ -253,10 +302,12 @@ export async function POST(request: NextRequest) {
         failed,
         attachments: attachments.length,
         targetingMethod,
-        emailDelay: `${emailDelay / 1000} seconds`,
-        maxRetries,
+        batchSize: BATCH_SIZE,
+        emailDelay: `${EMAIL_DELAY / 1000} seconds`,
+        batchDelay: `${BATCH_DELAY / 1000} seconds`,
+        maxRetries: MAX_RETRIES,
       },
-      service: "Resend API (Slow Rate)",
+      service: "Resend API (Batch Processing)",
       domain: "sthavishtah.com",
     })
   } catch (error) {
