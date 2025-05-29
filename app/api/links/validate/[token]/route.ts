@@ -69,21 +69,30 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
       const targetIds = link.target_ids
 
       console.log("🔍 Checking user access. Target IDs:", targetIds, "User ID:", userIdNum)
+      console.log("🔍 Target IDs type:", typeof targetIds, "Is array:", Array.isArray(targetIds))
 
-      if (Array.isArray(targetIds)) {
+      if (Array.isArray(targetIds) && targetIds.length > 0) {
         // Convert target IDs to numbers for comparison
-        const targetIdNumbers = targetIds.map((id) => {
-          // Handle both string and number IDs
-          return typeof id === "string" ? Number.parseInt(id) : Number(id)
-        })
+        const targetIdNumbers = targetIds
+          .map((id) => {
+            const numId = typeof id === "string" ? Number.parseInt(id) : Number(id)
+            console.log("🔍 Converting ID:", id, "->", numId)
+            return numId
+          })
+          .filter((id) => !isNaN(id)) // Remove any NaN values
+
+        console.log("🔍 Final target ID numbers:", targetIdNumbers)
+        console.log("🔍 User ID to match:", userIdNum)
+
         isAllowed = targetIdNumbers.includes(userIdNum)
-        console.log("🔍 User access check:", {
-          targetIdNumbers,
-          userIdNum,
-          isAllowed,
-        })
+        console.log("🔍 User access check result:", isAllowed)
+      } else if (targetIds && !Array.isArray(targetIds)) {
+        // Handle single ID case
+        const singleId = typeof targetIds === "string" ? Number.parseInt(targetIds) : Number(targetIds)
+        console.log("🔍 Single ID check:", singleId, "vs", userIdNum)
+        isAllowed = singleId === userIdNum
       } else {
-        console.log("❌ Invalid target_ids format for user targeting:", targetIds)
+        console.log("❌ Invalid or empty target_ids for user targeting:", targetIds)
         isAllowed = false
       }
     } else if (link.target_type === "subscription") {
@@ -91,15 +100,20 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
       const targetSubscriptionIds = link.target_ids
 
       console.log("🔍 Checking subscription access...")
-      console.log("Target subscription IDs:", targetSubscriptionIds)
-      console.log("User ID for subscription check:", userIdNum)
+      console.log("🔍 Target subscription IDs:", targetSubscriptionIds, "Type:", typeof targetSubscriptionIds)
+      console.log("🔍 User ID for subscription check:", userIdNum)
 
-      if (Array.isArray(targetSubscriptionIds)) {
+      if (Array.isArray(targetSubscriptionIds) && targetSubscriptionIds.length > 0) {
         // Convert target subscription IDs to numbers
-        const targetSubIds = targetSubscriptionIds.map((id) => {
-          return typeof id === "string" ? Number.parseInt(id) : Number(id)
-        })
-        console.log("🔍 Checking subscription access for IDs:", targetSubIds)
+        const targetSubIds = targetSubscriptionIds
+          .map((id) => {
+            const numId = typeof id === "string" ? Number.parseInt(id) : Number(id)
+            console.log("🔍 Converting subscription ID:", id, "->", numId)
+            return numId
+          })
+          .filter((id) => !isNaN(id))
+
+        console.log("🔍 Final target subscription IDs:", targetSubIds)
 
         // Query user_subscriptions table directly
         const { data: userSubscriptions, error: subError } = await supabase
@@ -114,22 +128,9 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
           console.error("❌ Error fetching user subscriptions:", subError)
           isAllowed = false
         } else if (userSubscriptions && userSubscriptions.length > 0) {
-          console.log("📊 Found user subscriptions:", userSubscriptions.length)
-
-          // Check each subscription
-          for (const sub of userSubscriptions) {
-            console.log("🔍 Subscription details:", {
-              subscription_id: sub.subscription_id,
-              is_active: sub.is_active,
-              activation_date: sub.activation_date,
-              status: sub.status,
-            })
-          }
-
-          // Get ALL subscription IDs that the user has (regardless of active status)
-          const userSubIds = userSubscriptions.map((sub) => sub.subscription_id)
+          // Get ALL subscription IDs that the user has
+          const userSubIds = userSubscriptions.map((sub) => Number(sub.subscription_id)).filter((id) => !isNaN(id))
           console.log("📊 User subscription IDs:", userSubIds)
-          console.log("📊 Target subscription IDs:", targetSubIds)
 
           // Check if user has ANY of the target subscriptions
           const hasMatchingSubscription = targetSubIds.some((targetId) => userSubIds.includes(targetId))
@@ -141,16 +142,26 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
           })
 
           isAllowed = hasMatchingSubscription
-
-          if (hasMatchingSubscription) {
-            console.log("✅ User has matching subscription - access granted")
-          } else {
-            console.log("❌ User does not have any matching subscriptions")
-          }
         } else {
-          console.log("❌ User has no subscriptions at all")
+          console.log("❌ User has no subscriptions")
           isAllowed = false
         }
+      } else if (targetSubscriptionIds && !Array.isArray(targetSubscriptionIds)) {
+        // Handle single subscription ID
+        const singleSubId =
+          typeof targetSubscriptionIds === "string"
+            ? Number.parseInt(targetSubscriptionIds)
+            : Number(targetSubscriptionIds)
+        console.log("🔍 Single subscription ID check:", singleSubId)
+
+        const { data: userSubscriptions, error: subError } = await supabase
+          .from("user_subscriptions")
+          .select("subscription_id")
+          .eq("user_id", userIdNum)
+          .eq("subscription_id", singleSubId)
+
+        isAllowed = !subError && userSubscriptions && userSubscriptions.length > 0
+        console.log("🔍 Single subscription check result:", isAllowed)
       } else {
         console.log("❌ Invalid target_ids format for subscription targeting:", targetSubscriptionIds)
         isAllowed = false
