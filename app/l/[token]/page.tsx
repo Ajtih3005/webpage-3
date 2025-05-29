@@ -12,30 +12,30 @@ export default function LinkRedirectPage({ params }: { params: { token: string }
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [requiresLogin, setRequiresLogin] = useState(false)
-  const [loginUrl, setLoginUrl] = useState<string>("")
 
   useEffect(() => {
-    async function validateAndRedirect() {
+    async function processLink() {
       try {
-        // Step 1: Validate the link
-        const response = await fetch(`/api/links/validate/${params.token}`)
-        const data = await response.json()
+        console.log("🔗 Processing link token:", params.token)
 
-        if (!response.ok) {
-          if (data.requiresLogin) {
+        // Step 1: Validate the link
+        const validateResponse = await fetch(`/api/links/validate/${params.token}`)
+        const validateData = await validateResponse.json()
+
+        if (!validateResponse.ok) {
+          if (validateData.requiresLogin) {
             setRequiresLogin(true)
-            setLoginUrl(data.loginUrl || `/user/login?redirect=/l/${params.token}`)
             setError("You need to log in to access this link")
-            setLoading(false)
-            return
           } else {
-            setError(data.error || "Failed to validate link")
-            setLoading(false)
-            return
+            setError(validateData.error || "Link validation failed")
           }
+          setLoading(false)
+          return
         }
 
-        // Step 2: If validation successful, immediately use the link
+        console.log("✅ Link validated, now using it...")
+
+        // Step 2: Use the link
         const useResponse = await fetch(`/api/links/use/${params.token}`, {
           method: "POST",
         })
@@ -47,23 +47,20 @@ export default function LinkRedirectPage({ params }: { params: { token: string }
           return
         }
 
-        // Step 3: Immediate redirect to target URL
+        console.log("✅ Link used successfully, redirecting to:", useData.target_url)
+
+        // Step 3: Redirect
         window.location.href = useData.target_url
       } catch (err) {
-        console.error("Link processing error:", err)
+        console.error("❌ Link processing error:", err)
         setError("An unexpected error occurred")
         setLoading(false)
       }
     }
 
-    validateAndRedirect()
+    processLink()
   }, [params.token])
 
-  const handleLogin = () => {
-    router.push(loginUrl)
-  }
-
-  // Loading state - validating and redirecting
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -76,7 +73,6 @@ export default function LinkRedirectPage({ params }: { params: { token: string }
     )
   }
 
-  // Login required state
   if (requiresLogin) {
     return (
       <div className="flex min-h-screen items-center justify-center p-4">
@@ -98,7 +94,7 @@ export default function LinkRedirectPage({ params }: { params: { token: string }
             <Button variant="outline" onClick={() => router.push("/")}>
               Go Home
             </Button>
-            <Button onClick={handleLogin}>
+            <Button onClick={() => router.push(`/user/login?redirect=/l/${params.token}`)}>
               <LogIn className="mr-2 h-4 w-4" />
               Login
             </Button>
@@ -108,7 +104,6 @@ export default function LinkRedirectPage({ params }: { params: { token: string }
     )
   }
 
-  // Error state
   if (error) {
     return (
       <div className="flex min-h-screen items-center justify-center p-4">
@@ -132,6 +127,5 @@ export default function LinkRedirectPage({ params }: { params: { token: string }
     )
   }
 
-  // This should never be reached due to automatic redirect
   return null
 }
