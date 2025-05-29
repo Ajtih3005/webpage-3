@@ -8,23 +8,7 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
 
     console.log("🔍 Validating token:", token)
 
-    // Get user ID from cookies
-    const userId = request.cookies.get("userId")?.value
-    console.log("👤 User ID:", userId)
-
-    if (!userId) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Login required",
-          requiresLogin: true,
-          loginUrl: `/user/login?redirect=/l/${token}`,
-        },
-        { status: 401 },
-      )
-    }
-
-    // Get the link
+    // Get the link first (before checking login)
     const { data: link, error: linkError } = await supabase
       .from("generated_links")
       .select("*")
@@ -43,7 +27,12 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
       )
     }
 
-    console.log("✅ Link found:", link)
+    console.log("✅ Link found:", {
+      id: link.id,
+      title: link.title,
+      target_type: link.target_type,
+      link_type: link.link_type,
+    })
 
     // Check expiration
     if (link.expires_at && new Date(link.expires_at) < new Date()) {
@@ -55,6 +44,35 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
         { status: 403 },
       )
     }
+
+    // Check for user login
+    const userId =
+      request.cookies.get("userId")?.value ||
+      request.cookies.get("user_id")?.value ||
+      request.cookies.get("userToken")?.value
+
+    console.log("👤 User ID from cookies:", userId)
+
+    // If not logged in, return login required with link info
+    if (!userId) {
+      console.log("❌ No user ID found - login required")
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Login required",
+          requiresLogin: true,
+          loginUrl: `/user/login?redirect=/l/${token}`,
+          linkInfo: {
+            title: link.title,
+            description: link.description,
+            link_type: link.link_type,
+          },
+        },
+        { status: 401 },
+      )
+    }
+
+    console.log("✅ User is logged in, checking authorization...")
 
     // Check authorization
     const userIdNum = Number.parseInt(userId)

@@ -179,14 +179,11 @@ export default function UserRegister() {
       // Handle post-registration flow based on link type
       if (redirectUrl) {
         if (isWhatsAppLink) {
-          // For WhatsApp links, show the WhatsApp dialog first
+          // For WhatsApp links, show the WhatsApp dialog but DON'T redirect to link
           setShowWhatsAppDialog(true)
         } else {
-          // For non-WhatsApp links, redirect directly
-          console.log("Non-WhatsApp link detected, redirecting directly to:", redirectUrl)
-          setTimeout(() => {
-            router.push(redirectUrl)
-          }, 1000)
+          // For course/other links, show WhatsApp dialog then redirect to link
+          setShowWhatsAppDialog(true)
         }
       } else {
         // No redirect URL, show normal WhatsApp dialog
@@ -203,21 +200,21 @@ export default function UserRegister() {
   const handleWhatsAppRedirect = () => {
     window.open("https://chat.whatsapp.com/H81SwZ9TxAPLqoU43yTYDW", "_blank")
 
-    if (redirectUrl) {
-      // After WhatsApp, redirect to the original link
+    if (redirectUrl && !isWhatsAppLink) {
+      // For non-WhatsApp links, redirect to the original link after WhatsApp
       router.push(redirectUrl)
     } else {
-      // No redirect, go to login with success message
+      // For WhatsApp links or no redirect, go to login with success message
       router.push("/user/login?registered=true")
     }
   }
 
   const handleSkipWhatsApp = () => {
-    if (redirectUrl) {
-      // Skip WhatsApp and go directly to the link
+    if (redirectUrl && !isWhatsAppLink) {
+      // For non-WhatsApp links, go directly to the link
       router.push(redirectUrl)
     } else {
-      // No redirect, go to login
+      // For WhatsApp links or no redirect, go to login
       router.push("/user/login?registered=true")
     }
   }
