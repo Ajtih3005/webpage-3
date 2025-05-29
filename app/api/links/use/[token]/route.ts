@@ -1,12 +1,12 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase"
+import { getSupabaseServerClient } from "@/lib/supabase"
 
 export async function POST(request: NextRequest, { params }: { params: { token: string } }) {
   try {
     console.log("🔍 Starting link usage for token:", params.token)
 
     const token = params.token
-    const supabase = createClient()
+    const supabase = getSupabaseServerClient()
 
     // Get the current user ID from the request cookies
     const userId = request.cookies.get("userId")?.value

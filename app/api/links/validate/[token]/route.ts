@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase"
+import { getSupabaseServerClient } from "@/lib/supabase"
 
 export async function GET(request: NextRequest, { params }: { params: { token: string } }) {
   try {
@@ -10,7 +10,7 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
       return NextResponse.json({ success: false, error: "No token provided" }, { status: 400 })
     }
 
-    const supabase = createClient()
+    const supabase = getSupabaseServerClient()
 
     // Get the current user ID from the request cookies (if logged in)
     const userId = request.cookies.get("userId")?.value
@@ -56,80 +56,62 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
 
     // Check if the user is allowed to use this link
     let isAllowed = false
+    const userIdNum = Number.parseInt(userId)
 
     if (link.target_type === "all") {
       // All logged-in users can access
       console.log("✅ Link is for all users - access granted")
       isAllowed = true
-    } else if (link.target_type === "user") {
-      // Specific single user
-      let targetIds = link.target_ids
-      if (typeof targetIds === "string") {
-        try {
-          targetIds = JSON.parse(targetIds)
-        } catch (e) {
-          targetIds = [targetIds] // Handle single ID as string
-        }
-      }
-      if (!Array.isArray(targetIds)) {
-        targetIds = [targetIds]
-      }
+    } else if (link.target_type === "user" || link.target_type === "users") {
+      // Specific user(s) - check if current user is in target_ids
+      const targetIds = link.target_ids
 
-      const userIdNum = Number.parseInt(userId)
-      isAllowed = targetIds.includes(userIdNum)
-      console.log("🔍 Single user check:", { targetIds, userIdNum, isAllowed })
-    } else if (link.target_type === "users") {
-      // Multiple specific users
-      let targetIds = link.target_ids
-      if (typeof targetIds === "string") {
-        try {
-          targetIds = JSON.parse(targetIds)
-        } catch (e) {
-          targetIds = [targetIds]
-        }
-      }
-      if (!Array.isArray(targetIds)) {
-        targetIds = [targetIds]
-      }
-
-      const userIdNum = Number.parseInt(userId)
-      isAllowed = targetIds.includes(userIdNum)
-      console.log("🔍 Multiple users check:", { targetIds, userIdNum, isAllowed })
-    } else if (link.target_type === "subscription") {
-      // Users with specific subscriptions
-      let targetIds = link.target_ids
-      if (typeof targetIds === "string") {
-        try {
-          targetIds = JSON.parse(targetIds)
-        } catch (e) {
-          targetIds = [targetIds]
-        }
-      }
-      if (!Array.isArray(targetIds)) {
-        targetIds = [targetIds]
-      }
-
-      console.log("🔍 Checking subscription access for IDs:", targetIds)
-
-      // Check if the user has any of the specified subscriptions
-      const { data: userSubscriptions, error: subError } = await supabase
-        .from("user_subscriptions")
-        .select("subscription_id, is_active")
-        .eq("user_id", userId)
-
-      if (subError) {
-        console.error("❌ Error fetching user subscriptions:", subError)
-        isAllowed = false
-      } else if (userSubscriptions && userSubscriptions.length > 0) {
-        const userSubIds = userSubscriptions
-          .filter((sub) => sub.is_active) // Only active subscriptions
-          .map((sub) => sub.subscription_id)
-
-        console.log("User active subscription IDs:", userSubIds)
-        isAllowed = targetIds.some((id: number) => userSubIds.includes(id))
-        console.log("Subscription access allowed:", isAllowed)
+      // Handle JSONB array from database
+      if (Array.isArray(targetIds)) {
+        // Already an array
+        const targetIdNumbers = targetIds.map((id) => Number.parseInt(id.toString()))
+        isAllowed = targetIdNumbers.includes(userIdNum)
+        console.log("🔍 User access check (array):", {
+          targetIds: targetIdNumbers,
+          userIdNum,
+          isAllowed,
+        })
       } else {
-        console.log("❌ User has no active subscriptions")
+        console.log("❌ Invalid target_ids format for user targeting:", targetIds)
+        isAllowed = false
+      }
+    } else if (link.target_type === "subscription") {
+      // Users with specific subscriptions - check active subscriptions
+      const targetSubscriptionIds = link.target_ids
+
+      if (Array.isArray(targetSubscriptionIds)) {
+        const targetSubIds = targetSubscriptionIds.map((id) => Number.parseInt(id.toString()))
+        console.log("🔍 Checking subscription access for IDs:", targetSubIds)
+
+        // Check if the user has any of the specified active subscriptions
+        const { data: userSubscriptions, error: subError } = await supabase
+          .from("user_subscriptions")
+          .select("subscription_id, is_active, activation_date")
+          .eq("user_id", userIdNum)
+          .eq("is_active", true) // Only check active subscriptions
+          .not("activation_date", "is", null) // Must be activated
+
+        if (subError) {
+          console.error("❌ Error fetching user subscriptions:", subError)
+          isAllowed = false
+        } else if (userSubscriptions && userSubscriptions.length > 0) {
+          const userSubIds = userSubscriptions.map((sub) => sub.subscription_id)
+          console.log("User active subscription IDs:", userSubIds)
+
+          // Check if user has any of the target subscriptions
+          isAllowed = targetSubIds.some((targetId) => userSubIds.includes(targetId))
+          console.log("Subscription access allowed:", isAllowed)
+        } else {
+          console.log("❌ User has no active subscriptions")
+          isAllowed = false
+        }
+      } else {
+        console.log("❌ Invalid target_ids format for subscription targeting:", targetSubscriptionIds)
         isAllowed = false
       }
     } else {
@@ -142,11 +124,12 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
       return NextResponse.json(
         {
           success: false,
-          error: "You are not authorized to use this link",
+          error: "You are not authorized to use this link. Please check your subscription status or contact support.",
           debug: {
             target_type: link.target_type,
             target_ids: link.target_ids,
             user_id: userId,
+            user_id_num: userIdNum,
           },
         },
         { status: 403 },
