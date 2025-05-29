@@ -58,6 +58,8 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
     let isAllowed = false
     const userIdNum = Number.parseInt(userId)
 
+    console.log("🔍 Checking authorization for user:", userIdNum, "Link type:", link.target_type)
+
     if (link.target_type === "all") {
       // All logged-in users can access
       console.log("✅ Link is for all users - access granted")
@@ -65,6 +67,8 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
     } else if (link.target_type === "user" || link.target_type === "users") {
       // Specific user(s) - check if current user is in target_ids
       const targetIds = link.target_ids
+
+      console.log("🔍 Checking user access. Target IDs:", targetIds, "User ID:", userIdNum)
 
       // Handle JSONB array from database
       if (Array.isArray(targetIds)) {
@@ -84,30 +88,72 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
       // Users with specific subscriptions - check active subscriptions
       const targetSubscriptionIds = link.target_ids
 
+      console.log("🔍 Checking subscription access...")
+      console.log("Target subscription IDs:", targetSubscriptionIds)
+      console.log("User ID for subscription check:", userIdNum)
+
       if (Array.isArray(targetSubscriptionIds)) {
         const targetSubIds = targetSubscriptionIds.map((id) => Number.parseInt(id.toString()))
         console.log("🔍 Checking subscription access for IDs:", targetSubIds)
 
-        // Check if the user has any of the specified active subscriptions
+        // First, let's check ALL user subscriptions (not just active ones)
+        const { data: allUserSubs, error: allSubsError } = await supabase
+          .from("user_subscriptions")
+          .select("*")
+          .eq("user_id", userIdNum)
+
+        console.log("📊 All user subscriptions:", allUserSubs)
+        console.log("📊 All subs error:", allSubsError)
+
+        // Now check active subscriptions with detailed logging
         const { data: userSubscriptions, error: subError } = await supabase
           .from("user_subscriptions")
-          .select("subscription_id, is_active, activation_date")
+          .select("subscription_id, is_active, activation_date, total_active_days_used")
           .eq("user_id", userIdNum)
-          .eq("is_active", true) // Only check active subscriptions
-          .not("activation_date", "is", null) // Must be activated
+
+        console.log("📊 User subscriptions query result:", userSubscriptions)
+        console.log("📊 Subscription query error:", subError)
 
         if (subError) {
           console.error("❌ Error fetching user subscriptions:", subError)
           isAllowed = false
         } else if (userSubscriptions && userSubscriptions.length > 0) {
-          const userSubIds = userSubscriptions.map((sub) => sub.subscription_id)
-          console.log("User active subscription IDs:", userSubIds)
+          console.log("📊 Found user subscriptions:", userSubscriptions.length)
 
-          // Check if user has any of the target subscriptions
-          isAllowed = targetSubIds.some((targetId) => userSubIds.includes(targetId))
-          console.log("Subscription access allowed:", isAllowed)
+          // Check each subscription
+          for (const sub of userSubscriptions) {
+            console.log("🔍 Checking subscription:", {
+              subscription_id: sub.subscription_id,
+              is_active: sub.is_active,
+              activation_date: sub.activation_date,
+              total_active_days_used: sub.total_active_days_used,
+            })
+          }
+
+          // Get active subscriptions
+          const activeSubscriptions = userSubscriptions.filter(
+            (sub) => sub.is_active === true && sub.activation_date !== null,
+          )
+
+          console.log("📊 Active subscriptions:", activeSubscriptions)
+
+          if (activeSubscriptions.length > 0) {
+            const userSubIds = activeSubscriptions.map((sub) => sub.subscription_id)
+            console.log("User active subscription IDs:", userSubIds)
+
+            // Check if user has any of the target subscriptions
+            isAllowed = targetSubIds.some((targetId) => userSubIds.includes(targetId))
+            console.log("Subscription access check result:", {
+              targetSubIds,
+              userSubIds,
+              isAllowed,
+            })
+          } else {
+            console.log("❌ User has no active subscriptions")
+            isAllowed = false
+          }
         } else {
-          console.log("❌ User has no active subscriptions")
+          console.log("❌ User has no subscriptions at all")
           isAllowed = false
         }
       } else {
