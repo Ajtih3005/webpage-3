@@ -27,50 +27,53 @@ export async function POST(request: NextRequest, { params }: { params: { token: 
       return NextResponse.json({ success: false, error: "Link not found or inactive" }, { status: 404 })
     }
 
-    // For WhatsApp links, check if user has already used this link
-    if (link.link_type === "whatsapp") {
-      console.log("🔍 Checking WhatsApp link usage...")
+    // REMOVE this WhatsApp-only condition:
+    // if (link.link_type === "whatsapp") {
 
-      // Check if link_usages table exists, if not create it
-      const { data: existingUsage, error: usageError } = await supabase
-        .from("link_usages")
-        .select("*")
-        .eq("link_id", link.id)
-        .eq("user_id", userId)
-        .single()
+    // REPLACE with universal tracking for ALL link types:
+    console.log("📝 Recording link usage for all link types...")
 
-      if (usageError && usageError.code !== "PGRST116") {
-        // PGRST116 = no rows found, which is fine
-        console.error("❌ Error checking link usage:", usageError)
-        // Continue anyway for now
-      }
+    // Check if user has already used this link (for usage limits)
+    const { data: existingUsage, error: usageError } = await supabase
+      .from("link_usages")
+      .select("*")
+      .eq("link_id", link.id)
+      .eq("user_id", userId)
+      .single()
 
-      if (existingUsage) {
-        console.log("❌ WhatsApp link already used by user")
-        return NextResponse.json(
-          {
-            success: false,
-            error: "You have already used this WhatsApp link. Please contact admin for additional access.",
-          },
-          { status: 403 },
-        )
-      }
-
-      // Record the usage for WhatsApp links
-      console.log("📝 Recording WhatsApp link usage...")
-      const { error: insertError } = await supabase.from("link_usages").upsert({
-        link_id: link.id,
-        user_id: Number.parseInt(userId),
-        used_at: new Date().toISOString(),
-        ip_address: request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown",
-        user_agent: request.headers.get("user-agent") || "unknown",
-      })
-
-      if (insertError) {
-        console.error("❌ Error recording link usage:", insertError)
-        // Don't fail the request for this, just log it
-      }
+    if (usageError && usageError.code !== "PGRST116") {
+      console.error("❌ Error checking link usage:", usageError)
     }
+
+    // For WhatsApp links, prevent duplicate usage
+    if (link.link_type === "whatsapp" && existingUsage) {
+      console.log("❌ WhatsApp link already used by user")
+      return NextResponse.json(
+        {
+          success: false,
+          error: "You have already used this WhatsApp link. Please contact admin for additional access.",
+        },
+        { status: 403 },
+      )
+    }
+
+    // Record the usage for ALL link types
+    const { error: insertError } = await supabase.from("link_usages").upsert({
+      link_id: link.id,
+      user_id: Number.parseInt(userId),
+      used_at: new Date().toISOString(),
+      ip_address: request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown",
+      user_agent: request.headers.get("user-agent") || "unknown",
+      link_type: link.link_type, // Track what type of link was used
+    })
+
+    if (insertError) {
+      console.error("❌ Error recording link usage:", insertError)
+      // Don't fail the request for this, just log it
+    }
+
+    console.log("✅ Link usage recorded successfully")
+    // }
 
     console.log("✅ Returning target URL:", link.target_url)
     return NextResponse.json({

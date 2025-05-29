@@ -70,13 +70,15 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
 
       console.log("🔍 Checking user access. Target IDs:", targetIds, "User ID:", userIdNum)
 
-      // Handle JSONB array from database
       if (Array.isArray(targetIds)) {
-        // Already an array
-        const targetIdNumbers = targetIds.map((id) => Number.parseInt(id.toString()))
+        // Convert target IDs to numbers for comparison
+        const targetIdNumbers = targetIds.map((id) => {
+          // Handle both string and number IDs
+          return typeof id === "string" ? Number.parseInt(id) : Number(id)
+        })
         isAllowed = targetIdNumbers.includes(userIdNum)
-        console.log("🔍 User access check (array):", {
-          targetIds: targetIdNumbers,
+        console.log("🔍 User access check:", {
+          targetIdNumbers,
           userIdNum,
           isAllowed,
         })
@@ -85,7 +87,7 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
         isAllowed = false
       }
     } else if (link.target_type === "subscription") {
-      // Users with specific subscriptions - check ALL subscriptions (active or inactive)
+      // Users with specific subscriptions - check user_subscriptions table
       const targetSubscriptionIds = link.target_ids
 
       console.log("🔍 Checking subscription access...")
@@ -93,16 +95,19 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
       console.log("User ID for subscription check:", userIdNum)
 
       if (Array.isArray(targetSubscriptionIds)) {
-        const targetSubIds = targetSubscriptionIds.map((id) => Number.parseInt(id.toString()))
+        // Convert target subscription IDs to numbers
+        const targetSubIds = targetSubscriptionIds.map((id) => {
+          return typeof id === "string" ? Number.parseInt(id) : Number(id)
+        })
         console.log("🔍 Checking subscription access for IDs:", targetSubIds)
 
-        // Get ALL user subscriptions (both active and inactive)
+        // Query user_subscriptions table directly
         const { data: userSubscriptions, error: subError } = await supabase
           .from("user_subscriptions")
-          .select("subscription_id, is_active, activation_date")
+          .select("subscription_id, is_active, activation_date, status")
           .eq("user_id", userIdNum)
 
-        console.log("📊 ALL user subscriptions (active and inactive):", userSubscriptions)
+        console.log("📊 Raw user subscriptions from DB:", userSubscriptions)
         console.log("📊 Subscription query error:", subError)
 
         if (subError) {
@@ -113,24 +118,35 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
 
           // Check each subscription
           for (const sub of userSubscriptions) {
-            console.log("🔍 Checking subscription:", {
+            console.log("🔍 Subscription details:", {
               subscription_id: sub.subscription_id,
               is_active: sub.is_active,
               activation_date: sub.activation_date,
+              status: sub.status,
             })
           }
 
-          // Get ALL subscription IDs (both active and inactive)
+          // Get ALL subscription IDs that the user has (regardless of active status)
           const userSubIds = userSubscriptions.map((sub) => sub.subscription_id)
-          console.log("User ALL subscription IDs (active and inactive):", userSubIds)
+          console.log("📊 User subscription IDs:", userSubIds)
+          console.log("📊 Target subscription IDs:", targetSubIds)
 
-          // Check if user has any of the target subscriptions (active or inactive)
-          isAllowed = targetSubIds.some((targetId) => userSubIds.includes(targetId))
-          console.log("Subscription access check result:", {
+          // Check if user has ANY of the target subscriptions
+          const hasMatchingSubscription = targetSubIds.some((targetId) => userSubIds.includes(targetId))
+
+          console.log("🔍 Subscription match check:", {
             targetSubIds,
             userSubIds,
-            isAllowed,
+            hasMatchingSubscription,
           })
+
+          isAllowed = hasMatchingSubscription
+
+          if (hasMatchingSubscription) {
+            console.log("✅ User has matching subscription - access granted")
+          } else {
+            console.log("❌ User does not have any matching subscriptions")
+          }
         } else {
           console.log("❌ User has no subscriptions at all")
           isAllowed = false
@@ -145,23 +161,31 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
     }
 
     if (!isAllowed) {
-      console.log("❌ User not authorized for this link")
+      console.log("❌ Final result: User not authorized for this link")
+
+      // Enhanced debug information
+      const debugInfo = {
+        target_type: link.target_type,
+        target_ids: link.target_ids,
+        user_id: userId,
+        user_id_num: userIdNum,
+        link_id: link.id,
+        link_title: link.title,
+      }
+
+      console.log("🔍 Debug info:", debugInfo)
+
       return NextResponse.json(
         {
           success: false,
           error: "You are not authorized to use this link. Please check your subscription status or contact support.",
-          debug: {
-            target_type: link.target_type,
-            target_ids: link.target_ids,
-            user_id: userId,
-            user_id_num: userIdNum,
-          },
+          debug: debugInfo,
         },
         { status: 403 },
       )
     }
 
-    console.log("✅ User authorized, returning success")
+    console.log("✅ Final result: User authorized, returning success")
     return NextResponse.json({
       success: true,
       link: {

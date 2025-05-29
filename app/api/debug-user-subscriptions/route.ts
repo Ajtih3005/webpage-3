@@ -17,47 +17,42 @@ export async function GET(request: NextRequest) {
     }
 
     console.log("🔍 Debugging subscriptions for user:", userId)
+    const userIdNum = Number.parseInt(userId)
 
-    // Get all user subscriptions with full details
+    // Get user details
+    const { data: user, error: userError } = await supabase.from("users").select("*").eq("id", userIdNum).single()
+
+    // Get user subscriptions from user_subscriptions table
     const { data: userSubs, error: subError } = await supabase
       .from("user_subscriptions")
-      .select(`
-        *,
-        subscription:subscriptions (
-          id,
-          name,
-          description,
-          price,
-          duration_days,
-          is_active
-        )
-      `)
-      .eq("user_id", userId)
+      .select("*")
+      .eq("user_id", userIdNum)
 
-    console.log("📊 User subscriptions result:", userSubs)
-    console.log("📊 Error:", subError)
+    // Get subscription details
+    const { data: allSubscriptions } = await supabase.from("subscriptions").select("*")
 
-    // Also check if user exists
-    const { data: user, error: userError } = await supabase.from("users").select("*").eq("id", userId).single()
+    // Get any generated links for testing
+    const { data: testLinks } = await supabase.from("generated_links").select("*").eq("is_active", true).limit(5)
 
     console.log("👤 User data:", user)
-    console.log("👤 User error:", userError)
-
-    // Get all available subscriptions
-    const { data: allSubscriptions } = await supabase.from("subscriptions").select("*")
+    console.log("📊 User subscriptions:", userSubs)
 
     return NextResponse.json({
       success: true,
       userId,
+      userIdNum,
       user,
       userError,
-      subscriptions: userSubs,
+      userSubscriptions: userSubs,
       subscriptionError: subError,
       allAvailableSubscriptions: allSubscriptions,
+      sampleLinks: testLinks,
       debug: {
         userIdType: typeof userId,
-        userIdParsed: Number.parseInt(userId),
+        userIdParsed: userIdNum,
         timestamp: new Date().toISOString(),
+        cookieUserId: userIdCookie,
+        paramUserId: userIdParam,
       },
     })
   } catch (error) {
