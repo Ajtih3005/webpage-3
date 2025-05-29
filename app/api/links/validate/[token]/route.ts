@@ -7,19 +7,16 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
 
     const token = params.token
     if (!token) {
-      console.error("❌ No token provided")
       return NextResponse.json({ success: false, error: "No token provided" }, { status: 400 })
     }
 
     const supabase = createClient()
-    console.log("✅ Supabase client created")
 
     // Get the current user ID from the request cookies (if logged in)
     const userId = request.cookies.get("userId")?.value
     console.log("👤 User ID from cookies:", userId || "Not logged in")
 
-    // Fetch the link with better error handling
-    console.log("🔍 Fetching link from database...")
+    // Fetch the link
     const { data: link, error } = await supabase
       .from("generated_links")
       .select("*")
@@ -27,13 +24,8 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
       .eq("is_active", true)
       .single()
 
-    if (error) {
-      console.error("❌ Database error fetching link:", error)
-      return NextResponse.json({ success: false, error: "Link not found or inactive" }, { status: 404 })
-    }
-
-    if (!link) {
-      console.error("❌ No link found for token:", token)
+    if (error || !link) {
+      console.error("❌ Link not found:", error)
       return NextResponse.json({ success: false, error: "Link not found or inactive" }, { status: 404 })
     }
 
@@ -42,18 +34,15 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
       title: link.title,
       target_type: link.target_type,
       target_ids: link.target_ids,
-      expires_at: link.expires_at,
     })
 
     // Check if the link has expired
     if (link.expires_at && new Date(link.expires_at) < new Date()) {
-      console.log("❌ Link has expired:", link.expires_at)
       return NextResponse.json({ success: false, error: "Link has expired" }, { status: 403 })
     }
 
     // ALWAYS require login for ALL links
     if (!userId) {
-      console.log("❌ User not logged in, requiring login")
       return NextResponse.json(
         {
           success: false,
@@ -67,89 +56,101 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
 
     // Check if the user is allowed to use this link
     let isAllowed = false
-    console.log("🔍 Checking user authorization...")
 
-    try {
-      if (link.target_type === "all") {
-        console.log("✅ Link is for all users")
-        isAllowed = true
-      } else if (link.target_type === "user") {
-        console.log("🔍 Checking single user access...")
-
-        // Handle target_ids as either array or JSON string
-        let targetIds = link.target_ids
-        if (typeof targetIds === "string") {
-          try {
-            targetIds = JSON.parse(targetIds)
-          } catch (e) {
-            console.error("❌ Error parsing target_ids JSON:", e)
-            targetIds = []
-          }
+    if (link.target_type === "all") {
+      // All logged-in users can access
+      console.log("✅ Link is for all users - access granted")
+      isAllowed = true
+    } else if (link.target_type === "user") {
+      // Specific single user
+      let targetIds = link.target_ids
+      if (typeof targetIds === "string") {
+        try {
+          targetIds = JSON.parse(targetIds)
+        } catch (e) {
+          targetIds = [targetIds] // Handle single ID as string
         }
+      }
+      if (!Array.isArray(targetIds)) {
+        targetIds = [targetIds]
+      }
 
-        console.log("Target IDs:", targetIds, "User ID:", userId)
-        isAllowed = targetIds && targetIds.includes(Number.parseInt(userId))
-        console.log("Single user access allowed:", isAllowed)
-      } else if (link.target_type === "users") {
-        console.log("🔍 Checking multiple users access...")
-
-        // Handle target_ids as either array or JSON string
-        let targetIds = link.target_ids
-        if (typeof targetIds === "string") {
-          try {
-            targetIds = JSON.parse(targetIds)
-          } catch (e) {
-            console.error("❌ Error parsing target_ids JSON:", e)
-            targetIds = []
-          }
+      const userIdNum = Number.parseInt(userId)
+      isAllowed = targetIds.includes(userIdNum)
+      console.log("🔍 Single user check:", { targetIds, userIdNum, isAllowed })
+    } else if (link.target_type === "users") {
+      // Multiple specific users
+      let targetIds = link.target_ids
+      if (typeof targetIds === "string") {
+        try {
+          targetIds = JSON.parse(targetIds)
+        } catch (e) {
+          targetIds = [targetIds]
         }
+      }
+      if (!Array.isArray(targetIds)) {
+        targetIds = [targetIds]
+      }
 
-        console.log("Target IDs:", targetIds, "User ID:", userId)
-        isAllowed = targetIds && targetIds.includes(Number.parseInt(userId))
-        console.log("Multiple users access allowed:", isAllowed)
-      } else if (link.target_type === "subscription") {
-        console.log("🔍 Checking subscription access...")
-
-        // Handle target_ids as either array or JSON string
-        let targetIds = link.target_ids
-        if (typeof targetIds === "string") {
-          try {
-            targetIds = JSON.parse(targetIds)
-          } catch (e) {
-            console.error("❌ Error parsing target_ids JSON:", e)
-            targetIds = []
-          }
+      const userIdNum = Number.parseInt(userId)
+      isAllowed = targetIds.includes(userIdNum)
+      console.log("🔍 Multiple users check:", { targetIds, userIdNum, isAllowed })
+    } else if (link.target_type === "subscription") {
+      // Users with specific subscriptions
+      let targetIds = link.target_ids
+      if (typeof targetIds === "string") {
+        try {
+          targetIds = JSON.parse(targetIds)
+        } catch (e) {
+          targetIds = [targetIds]
         }
+      }
+      if (!Array.isArray(targetIds)) {
+        targetIds = [targetIds]
+      }
 
-        console.log("Subscription target IDs:", targetIds)
+      console.log("🔍 Checking subscription access for IDs:", targetIds)
 
-        // Check if the user has the specified subscription
-        const { data: userSubscriptions, error: subError } = await supabase
-          .from("user_subscriptions")
-          .select("subscription_id")
-          .eq("user_id", userId)
+      // Check if the user has any of the specified subscriptions
+      const { data: userSubscriptions, error: subError } = await supabase
+        .from("user_subscriptions")
+        .select("subscription_id, is_active")
+        .eq("user_id", userId)
 
-        if (subError) {
-          console.error("❌ Error fetching user subscriptions:", subError)
-          isAllowed = false
-        } else if (userSubscriptions) {
-          const userSubIds = userSubscriptions.map((sub) => sub.subscription_id)
-          console.log("User subscription IDs:", userSubIds)
-          isAllowed = targetIds && targetIds.some((id: number) => userSubIds.includes(id))
-          console.log("Subscription access allowed:", isAllowed)
-        }
+      if (subError) {
+        console.error("❌ Error fetching user subscriptions:", subError)
+        isAllowed = false
+      } else if (userSubscriptions && userSubscriptions.length > 0) {
+        const userSubIds = userSubscriptions
+          .filter((sub) => sub.is_active) // Only active subscriptions
+          .map((sub) => sub.subscription_id)
+
+        console.log("User active subscription IDs:", userSubIds)
+        isAllowed = targetIds.some((id: number) => userSubIds.includes(id))
+        console.log("Subscription access allowed:", isAllowed)
       } else {
-        console.log("❌ Unknown target_type:", link.target_type)
+        console.log("❌ User has no active subscriptions")
         isAllowed = false
       }
-    } catch (authError) {
-      console.error("❌ Error during authorization check:", authError)
-      return NextResponse.json({ success: false, error: "Authorization check failed" }, { status: 500 })
+    } else {
+      console.log("❌ Unknown target_type:", link.target_type)
+      isAllowed = false
     }
 
     if (!isAllowed) {
       console.log("❌ User not authorized for this link")
-      return NextResponse.json({ success: false, error: "You are not authorized to use this link" }, { status: 403 })
+      return NextResponse.json(
+        {
+          success: false,
+          error: "You are not authorized to use this link",
+          debug: {
+            target_type: link.target_type,
+            target_ids: link.target_ids,
+            user_id: userId,
+          },
+        },
+        { status: 403 },
+      )
     }
 
     console.log("✅ User authorized, returning success")
