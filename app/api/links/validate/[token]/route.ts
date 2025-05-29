@@ -85,7 +85,7 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
         isAllowed = false
       }
     } else if (link.target_type === "subscription") {
-      // Users with specific subscriptions - check active subscriptions
+      // Users with specific subscriptions - check ALL subscriptions (active or inactive)
       const targetSubscriptionIds = link.target_ids
 
       console.log("🔍 Checking subscription access...")
@@ -96,22 +96,13 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
         const targetSubIds = targetSubscriptionIds.map((id) => Number.parseInt(id.toString()))
         console.log("🔍 Checking subscription access for IDs:", targetSubIds)
 
-        // First, let's check ALL user subscriptions (not just active ones)
-        const { data: allUserSubs, error: allSubsError } = await supabase
-          .from("user_subscriptions")
-          .select("*")
-          .eq("user_id", userIdNum)
-
-        console.log("📊 All user subscriptions:", allUserSubs)
-        console.log("📊 All subs error:", allSubsError)
-
-        // Now check active subscriptions with detailed logging
+        // Get ALL user subscriptions (both active and inactive)
         const { data: userSubscriptions, error: subError } = await supabase
           .from("user_subscriptions")
-          .select("subscription_id, is_active, activation_date, total_active_days_used")
+          .select("subscription_id, is_active, activation_date")
           .eq("user_id", userIdNum)
 
-        console.log("📊 User subscriptions query result:", userSubscriptions)
+        console.log("📊 ALL user subscriptions (active and inactive):", userSubscriptions)
         console.log("📊 Subscription query error:", subError)
 
         if (subError) {
@@ -126,32 +117,20 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
               subscription_id: sub.subscription_id,
               is_active: sub.is_active,
               activation_date: sub.activation_date,
-              total_active_days_used: sub.total_active_days_used,
             })
           }
 
-          // Get active subscriptions
-          const activeSubscriptions = userSubscriptions.filter(
-            (sub) => sub.is_active === true && sub.activation_date !== null,
-          )
+          // Get ALL subscription IDs (both active and inactive)
+          const userSubIds = userSubscriptions.map((sub) => sub.subscription_id)
+          console.log("User ALL subscription IDs (active and inactive):", userSubIds)
 
-          console.log("📊 Active subscriptions:", activeSubscriptions)
-
-          if (activeSubscriptions.length > 0) {
-            const userSubIds = activeSubscriptions.map((sub) => sub.subscription_id)
-            console.log("User active subscription IDs:", userSubIds)
-
-            // Check if user has any of the target subscriptions
-            isAllowed = targetSubIds.some((targetId) => userSubIds.includes(targetId))
-            console.log("Subscription access check result:", {
-              targetSubIds,
-              userSubIds,
-              isAllowed,
-            })
-          } else {
-            console.log("❌ User has no active subscriptions")
-            isAllowed = false
-          }
+          // Check if user has any of the target subscriptions (active or inactive)
+          isAllowed = targetSubIds.some((targetId) => userSubIds.includes(targetId))
+          console.log("Subscription access check result:", {
+            targetSubIds,
+            userSubIds,
+            isAllowed,
+          })
         } else {
           console.log("❌ User has no subscriptions at all")
           isAllowed = false

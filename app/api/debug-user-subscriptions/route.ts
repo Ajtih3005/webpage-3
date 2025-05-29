@@ -43,6 +43,9 @@ export async function GET(request: NextRequest) {
     console.log("👤 User data:", user)
     console.log("👤 User error:", userError)
 
+    // Get all available subscriptions
+    const { data: allSubscriptions } = await supabase.from("subscriptions").select("*")
+
     return NextResponse.json({
       success: true,
       userId,
@@ -50,6 +53,7 @@ export async function GET(request: NextRequest) {
       userError,
       subscriptions: userSubs,
       subscriptionError: subError,
+      allAvailableSubscriptions: allSubscriptions,
       debug: {
         userIdType: typeof userId,
         userIdParsed: Number.parseInt(userId),
