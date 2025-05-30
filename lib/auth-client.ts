@@ -1,61 +1,59 @@
 /**
- * Client-side authentication utilities
+ * Nuclear logout - clears ALL browser storage
  */
-
-/**
- * Logs the user out by clearing ALL browser storage
- */
-export async function logout() {
+export async function nuclearLogout() {
   try {
-    console.log("🔐 Logging out and clearing ALL storage...")
+    console.log("🔥 NUCLEAR LOGOUT - Clearing ALL browser storage...")
 
-    // Get token from cookie or localStorage if available
-    const token =
-      getCookie("userToken") ||
-      getCookie("authToken") ||
-      getCookie("userId") ||
-      localStorage.getItem("userToken") ||
-      localStorage.getItem("userId")
-
-    // Call logout API
+    // 1. Call logout API
     const response = await fetch("/api/logout", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ token }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: getCookie("userId") }),
     })
 
-    if (!response.ok) {
-      console.error("❌ Logout API error:", response.status)
-    }
-
-    // Clear ALL cookies (not just auth cookies)
+    // 2. Clear ALL cookies manually
     document.cookie.split(";").forEach((cookie) => {
       const [name] = cookie.trim().split("=")
+      // Clear for current domain
       document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/;`
+      // Clear for all subdomains
+      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=.sthavishtah.com;`
     })
 
-    // Clear localStorage
+    // 3. Clear localStorage
     localStorage.clear()
 
-    // Clear sessionStorage
+    // 4. Clear sessionStorage
     sessionStorage.clear()
 
-    console.log("✅ Logout complete - ALL browser storage cleared")
+    // 5. Clear IndexedDB (if any)
+    if ("indexedDB" in window) {
+      const databases = await indexedDB.databases()
+      databases.forEach((db) => {
+        if (db.name) {
+          indexedDB.deleteDatabase(db.name)
+        }
+      })
+    }
 
-    // Redirect to home page
+    // 6. Clear cache storage
+    if ("caches" in window) {
+      const cacheNames = await caches.keys()
+      await Promise.all(cacheNames.map((name) => caches.delete(name)))
+    }
+
+    console.log("✅ NUCLEAR LOGOUT COMPLETE - ALL storage cleared")
+
+    // 7. Force page reload to ensure clean state
     window.location.href = "/"
   } catch (error) {
-    console.error("❌ Logout error:", error)
-    // Force redirect even if error
-    window.location.href = "/"
+    console.error("❌ Nuclear logout error:", error)
+    // Force reload anyway
+    window.location.reload()
   }
 }
 
-/**
- * Helper to get a cookie value
- */
 function getCookie(name: string): string | null {
   const value = `; ${document.cookie}`
   const parts = value.split(`; ${name}=`)
