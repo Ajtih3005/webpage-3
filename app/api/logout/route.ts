@@ -1,40 +1,42 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
-    const { userId } = await request.json()
-    console.log("🔐 Logout request for userId:", userId)
+    console.log("🔐 Logout request received")
 
     const response = NextResponse.json({
       success: true,
       message: "Logged out successfully",
     })
 
-    // Clear the specific cookies we found
-    const cookiesToClear = ["userId", "visitor", "userToken", "authToken", "sessionId"]
-
-    cookiesToClear.forEach((cookieName) => {
-      // Clear for current domain
-      response.cookies.set({
-        name: cookieName,
-        value: "",
-        expires: new Date(0),
-        path: "/",
-      })
-      // Clear for subdomain
-      response.cookies.set({
-        name: cookieName,
-        value: "",
-        expires: new Date(0),
-        path: "/",
-        domain: ".sthavishtah.com",
-      })
+    // 🚨 COMPLETELY REMOVE userId COOKIE
+    response.cookies.set({
+      name: "userId",
+      value: "",
+      expires: new Date(0),
+      path: "/",
+      maxAge: 0,
     })
 
-    console.log("✅ Logout API - cookies cleared")
+    // Also clear pvisitor if it's related to auth
+    response.cookies.set({
+      name: "pvisitor",
+      value: "",
+      expires: new Date(0),
+      path: "/",
+      maxAge: 0,
+    })
+
+    console.log("✅ Logout successful - userId cookie removed")
     return response
   } catch (error) {
-    console.error("❌ Logout API error:", error)
-    return NextResponse.json({ success: false, message: "Logout failed" }, { status: 500 })
+    console.error("❌ Error logging out:", error)
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Server error during logout",
+      },
+      { status: 500 },
+    )
   }
 }
