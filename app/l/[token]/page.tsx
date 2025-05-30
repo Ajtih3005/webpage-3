@@ -24,12 +24,16 @@ export default function LinkRedirectPage({ params }: { params: { token: string }
         const validateResponse = await fetch(`/api/links/validate/${params.token}`)
         const validateData = await validateResponse.json()
 
+        console.log("🔍 Validation response:", validateData)
+
         if (!validateResponse.ok) {
           if (validateData.requiresLogin) {
+            console.log("🔐 Login required - showing login/register page")
             setRequiresLogin(true)
-            setLinkData(validateData.linkInfo) // Get link info even if login required
+            setLinkData(validateData.linkInfo)
             setError("You need to log in to access this content")
           } else {
+            console.log("❌ Validation failed:", validateData.error)
             setError(validateData.error || "Link validation failed")
           }
           setLoading(false)
@@ -65,13 +69,16 @@ export default function LinkRedirectPage({ params }: { params: { token: string }
   }, [params.token])
 
   const handleLogin = () => {
+    console.log("🔐 Redirecting to login")
     router.push(`/user/login?redirect=/l/${params.token}`)
   }
 
   const handleRegister = () => {
+    console.log("📝 Redirecting to register")
     router.push(`/user/register?redirect=/l/${params.token}`)
   }
 
+  // Loading state
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center forest-bg relative overflow-hidden">
@@ -85,6 +92,7 @@ export default function LinkRedirectPage({ params }: { params: { token: string }
     )
   }
 
+  // 🚨 LOGIN/REGISTER REQUIRED STATE - SHOWS BOTH BUTTONS
   if (requiresLogin) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4 forest-bg relative overflow-hidden">
@@ -145,7 +153,7 @@ export default function LinkRedirectPage({ params }: { params: { token: string }
             </CardContent>
 
             <CardFooter className="flex flex-col space-y-4">
-              {/* Action Buttons */}
+              {/* 🚨 BOTH LOGIN AND REGISTER BUTTONS */}
               <div className="flex w-full gap-3">
                 <Button onClick={handleLogin} className="flex-1 forest-button">
                   <LogIn className="mr-2 h-4 w-4" />
@@ -181,6 +189,7 @@ export default function LinkRedirectPage({ params }: { params: { token: string }
     )
   }
 
+  // Error state
   if (error) {
     return (
       <div className="flex min-h-screen items-center justify-center p-4">

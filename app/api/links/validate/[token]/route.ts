@@ -7,6 +7,7 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
     const { token } = params
 
     console.log("🔍 Validating token:", token)
+    console.log("🍪 All cookies received:", request.cookies.getAll())
 
     // Get the link from generated_links table
     const { data: link, error: linkError } = await supabase
@@ -31,7 +32,6 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
       id: link.id,
       title: link.title,
       target_type: link.target_type,
-      target_ids: link.target_ids,
       link_type: link.link_type,
     })
 
@@ -46,13 +46,43 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
       )
     }
 
-    // Check for user login
-    const userId = request.cookies.get("userId")?.value
-    console.log("👤 User ID from cookies:", userId)
+    // 🚨 COMPREHENSIVE LOGIN CHECK - Try all possible cookie names
+    let userId = null
+    const possibleCookieNames = [
+      "userId",
+      "user_id",
+      "userToken",
+      "user_token",
+      "authToken",
+      "auth_token",
+      "sessionId",
+      "session_id",
+      "loginToken",
+      "login_token",
+    ]
 
-    // If not logged in, return login required with link info
+    // Try each possible cookie name
+    for (const cookieName of possibleCookieNames) {
+      const cookieValue = request.cookies.get(cookieName)?.value
+      if (cookieValue) {
+        console.log(`✅ Found user cookie: ${cookieName} = ${cookieValue}`)
+        userId = cookieValue
+        break
+      }
+    }
+
+    // Also check Authorization header
+    const authHeader = request.headers.get("authorization")
+    if (!userId && authHeader?.startsWith("Bearer ")) {
+      userId = authHeader.substring(7)
+      console.log("✅ Found user token in Authorization header")
+    }
+
+    console.log("👤 Final user ID:", userId)
+
+    // 🚨 FORCE LOGIN CHECK - If no user ID found, ALWAYS require login
     if (!userId) {
-      console.log("❌ No user ID found - login required")
+      console.log("❌ NO USER ID FOUND - FORCING LOGIN")
       return NextResponse.json(
         {
           success: false,
@@ -64,6 +94,11 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
             description: link.description,
             link_type: link.link_type,
           },
+          debug: {
+            allCookies: request.cookies.getAll().map((c) => c.name),
+            checkedCookieNames: possibleCookieNames,
+            hasAuthHeader: !!authHeader,
+          },
         },
         { status: 401 },
       )
@@ -71,8 +106,44 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
 
     console.log("✅ User is logged in, checking authorization...")
 
-    // Check authorization based on your actual schema
+    // Validate user exists in database
     const userIdNum = Number.parseInt(userId)
+    if (isNaN(userIdNum)) {
+      console.log("❌ Invalid user ID format:", userId)
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Invalid user session",
+          requiresLogin: true,
+          loginUrl: `/user/login?redirect=/l/${token}`,
+        },
+        { status: 401 },
+      )
+    }
+
+    // Check if user exists in database
+    const { data: user, error: userError } = await supabase
+      .from("users")
+      .select("id, name, email")
+      .eq("id", userIdNum)
+      .single()
+
+    if (userError || !user) {
+      console.log("❌ User not found in database:", userError)
+      return NextResponse.json(
+        {
+          success: false,
+          error: "User session invalid",
+          requiresLogin: true,
+          loginUrl: `/user/login?redirect=/l/${token}`,
+        },
+        { status: 401 },
+      )
+    }
+
+    console.log("✅ User validated:", user.name)
+
+    // Check authorization based on target type
     let isAuthorized = false
 
     console.log("🔍 Checking authorization for user:", userIdNum, "Target type:", link.target_type)
@@ -85,15 +156,12 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
 
       case "user":
       case "users":
-        // target_ids is JSONB in your schema
         if (link.target_ids) {
           let allowedUserIds = []
 
-          // Handle JSONB target_ids
           if (Array.isArray(link.target_ids)) {
             allowedUserIds = link.target_ids.map((id) => Number(id))
           } else if (typeof link.target_ids === "string") {
-            // If it's a string, try to parse as JSON or split by comma
             try {
               allowedUserIds = JSON.parse(link.target_ids).map((id) => Number(id))
             } catch {
@@ -107,11 +175,9 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
         break
 
       case "subscription":
-        // target_ids is JSONB in your schema
         if (link.target_ids) {
           let allowedSubIds = []
 
-          // Handle JSONB target_ids
           if (Array.isArray(link.target_ids)) {
             allowedSubIds = link.target_ids.map((id) => Number(id))
           } else if (typeof link.target_ids === "string") {
@@ -124,7 +190,6 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
 
           console.log("🔍 Checking subscriptions:", allowedSubIds)
 
-          // Check user_subscriptions table
           const { data: userSubs, error: subError } = await supabase
             .from("user_subscriptions")
             .select("subscription_id")
@@ -166,6 +231,11 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
         description: link.description,
         target_url: link.target_url,
         link_type: link.link_type,
+      },
+      userInfo: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
       },
     })
   } catch (error) {
