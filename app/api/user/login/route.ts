@@ -5,7 +5,7 @@ import bcrypt from "bcryptjs"
 export async function POST(request: Request) {
   try {
     const { phone, password } = await request.json()
-    console.log("Login attempt for phone:", phone)
+    console.log("🔐 Login attempt for phone:", phone)
 
     if (!phone || !password) {
       return NextResponse.json({ error: "Phone and password are required" }, { status: 400 })
@@ -13,8 +13,9 @@ export async function POST(request: Request) {
 
     const supabase = getSupabaseServerClient()
 
-    // Clean phone number - remove spaces, dashes, etc.
+    // Clean phone number
     const cleanPhone = phone.replace(/\s+|-|$$|$$|\+|\./g, "")
+    console.log("📱 Cleaned phone:", cleanPhone)
 
     // Try different phone formats based on your schema
     const phoneVariants = [
@@ -25,32 +26,33 @@ export async function POST(request: Request) {
       cleanPhone.startsWith("91") ? cleanPhone.substring(2) : cleanPhone, // Remove 91 if present
     ]
 
-    console.log("Trying phone variants:", phoneVariants)
+    console.log("🔍 Trying phone variants:", phoneVariants)
 
-    // Query users table with multiple phone column options
+    // Query users table with your actual column names
     let user = null
 
     for (const phoneVariant of phoneVariants) {
-      // Try phone_number column first (most likely based on schema)
       const { data: userData, error } = await supabase
         .from("users")
         .select("id, user_id, name, email, phone_number, phone, whatsapp_number, password")
         .or(`phone_number.eq.${phoneVariant},phone.eq.${phoneVariant},whatsapp_number.eq.${phoneVariant}`)
         .limit(1)
 
+      console.log(`🔍 Query for ${phoneVariant}:`, { userData, error })
+
       if (userData && userData.length > 0) {
         user = userData[0]
-        console.log("User found with phone variant:", phoneVariant)
+        console.log("✅ User found with phone variant:", phoneVariant)
         break
       }
     }
 
     if (!user) {
-      console.log("No user found with provided phone number")
+      console.log("❌ No user found with provided phone number")
       return NextResponse.json({ error: "Invalid phone number or password" }, { status: 401 })
     }
 
-    console.log("User found:", {
+    console.log("👤 User found:", {
       id: user.id,
       name: user.name,
       phone_number: user.phone_number,
@@ -58,7 +60,7 @@ export async function POST(request: Request) {
       whatsapp_number: user.whatsapp_number,
     })
 
-    // Verify password using the 'password' column
+    // Verify password
     let isValidPassword = false
 
     if (user.password) {
@@ -66,22 +68,22 @@ export async function POST(request: Request) {
         // Try bcrypt first (for hashed passwords)
         if (user.password.startsWith("$2")) {
           isValidPassword = await bcrypt.compare(password, user.password)
-          console.log("Bcrypt comparison result:", isValidPassword)
+          console.log("🔐 Bcrypt comparison result:", isValidPassword)
         } else {
           // Plain text comparison (for legacy passwords)
           isValidPassword = password === user.password
-          console.log("Plain text comparison result:", isValidPassword)
+          console.log("🔐 Plain text comparison result:", isValidPassword)
         }
       } catch (passwordError) {
-        console.error("Password comparison error:", passwordError)
+        console.error("❌ Password comparison error:", passwordError)
         // Fallback to plain text
         isValidPassword = password === user.password
-        console.log("Fallback comparison result:", isValidPassword)
+        console.log("🔐 Fallback comparison result:", isValidPassword)
       }
     }
 
     if (!isValidPassword) {
-      console.log("Password validation failed")
+      console.log("❌ Password validation failed")
       return NextResponse.json({ error: "Invalid phone number or password" }, { status: 401 })
     }
 
@@ -96,13 +98,13 @@ export async function POST(request: Request) {
       })
 
       if (logError) {
-        console.warn("Could not log authentication:", logError)
+        console.warn("⚠️ Could not log authentication:", logError)
       }
     } catch (logErr) {
-      console.warn("Auth logging error:", logErr)
+      console.warn("⚠️ Auth logging error:", logErr)
     }
 
-    console.log("Login successful for user:", user.id)
+    console.log("✅ Login successful for user:", user.id)
 
     // Return user data (excluding password)
     return NextResponse.json({
@@ -117,7 +119,7 @@ export async function POST(request: Request) {
       },
     })
   } catch (error) {
-    console.error("Login error:", error)
+    console.error("❌ Login error:", error)
     return NextResponse.json({ error: "An error occurred while logging in" }, { status: 500 })
   }
 }

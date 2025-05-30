@@ -8,7 +8,7 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
 
     console.log("🔍 Validating token:", token)
 
-    // Get the link first (before checking login)
+    // Get the link from generated_links table
     const { data: link, error: linkError } = await supabase
       .from("generated_links")
       .select("*")
@@ -31,6 +31,7 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
       id: link.id,
       title: link.title,
       target_type: link.target_type,
+      target_ids: link.target_ids,
       link_type: link.link_type,
     })
 
@@ -46,11 +47,7 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
     }
 
     // Check for user login
-    const userId =
-      request.cookies.get("userId")?.value ||
-      request.cookies.get("user_id")?.value ||
-      request.cookies.get("userToken")?.value
-
+    const userId = request.cookies.get("userId")?.value
     console.log("👤 User ID from cookies:", userId)
 
     // If not logged in, return login required with link info
@@ -74,7 +71,7 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
 
     console.log("✅ User is logged in, checking authorization...")
 
-    // Check authorization
+    // Check authorization based on your actual schema
     const userIdNum = Number.parseInt(userId)
     let isAuthorized = false
 
@@ -87,42 +84,65 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
         break
 
       case "user":
+      case "users":
+        // target_ids is JSONB in your schema
         if (link.target_ids) {
-          const allowedUserIds = link.target_ids.split(",").map((id) => Number.parseInt(id.trim()))
+          let allowedUserIds = []
+
+          // Handle JSONB target_ids
+          if (Array.isArray(link.target_ids)) {
+            allowedUserIds = link.target_ids.map((id) => Number(id))
+          } else if (typeof link.target_ids === "string") {
+            // If it's a string, try to parse as JSON or split by comma
+            try {
+              allowedUserIds = JSON.parse(link.target_ids).map((id) => Number(id))
+            } catch {
+              allowedUserIds = link.target_ids.split(",").map((id) => Number(id.trim()))
+            }
+          }
+
           isAuthorized = allowedUserIds.includes(userIdNum)
           console.log("🔍 User check:", { allowedUserIds, userIdNum, isAuthorized })
         }
         break
 
-      case "users":
-        if (link.target_ids) {
-          const allowedUserIds = link.target_ids.split(",").map((id) => Number.parseInt(id.trim()))
-          isAuthorized = allowedUserIds.includes(userIdNum)
-          console.log("🔍 Users check:", { allowedUserIds, userIdNum, isAuthorized })
-        }
-        break
-
       case "subscription":
+        // target_ids is JSONB in your schema
         if (link.target_ids) {
-          const allowedSubIds = link.target_ids.split(",").map((id) => Number.parseInt(id.trim()))
+          let allowedSubIds = []
+
+          // Handle JSONB target_ids
+          if (Array.isArray(link.target_ids)) {
+            allowedSubIds = link.target_ids.map((id) => Number(id))
+          } else if (typeof link.target_ids === "string") {
+            try {
+              allowedSubIds = JSON.parse(link.target_ids).map((id) => Number(id))
+            } catch {
+              allowedSubIds = link.target_ids.split(",").map((id) => Number(id.trim()))
+            }
+          }
+
           console.log("🔍 Checking subscriptions:", allowedSubIds)
 
-          // Check if user has any of these subscriptions
+          // Check user_subscriptions table
           const { data: userSubs, error: subError } = await supabase
             .from("user_subscriptions")
             .select("subscription_id")
             .eq("user_id", userIdNum)
 
-          if (!subError && userSubs) {
+          if (!subError && userSubs && userSubs.length > 0) {
             const userSubIds = userSubs.map((sub) => sub.subscription_id)
             isAuthorized = allowedSubIds.some((subId) => userSubIds.includes(subId))
             console.log("🔍 Subscription check:", { allowedSubIds, userSubIds, isAuthorized })
+          } else {
+            console.log("❌ User has no subscriptions or error:", subError)
+            isAuthorized = false
           }
         }
         break
 
       default:
-        console.log("❌ Unknown target type:", link.target_type)
+        console.log("❌ Unknown target_type:", link.target_type)
         isAuthorized = false
     }
 
