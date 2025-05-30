@@ -3,83 +3,101 @@ import { getSupabaseServerClient } from "@/lib/supabase"
 
 export async function POST(request: NextRequest, { params }: { params: { token: string } }) {
   try {
+    console.log("🔍 Starting link usage for token:", params.token)
+
+    const token = params.token
     const supabase = getSupabaseServerClient()
-    const { token } = params
 
-    console.log("🔗 Using link with token:", token)
-
-    // Get user ID from cookies
+    // Get the current user ID from the request cookies
     const userId = request.cookies.get("userId")?.value
+
     if (!userId) {
+      console.log("❌ No userId cookie found - login required")
       return NextResponse.json(
         {
           success: false,
           error: "Login required",
+          requiresLogin: true,
+          loginUrl: `/user/login?redirect=/l/${token}`,
         },
         { status: 401 },
       )
     }
 
-    // First validate the link (reuse validation logic)
-    const validateResponse = await fetch(`${request.nextUrl.origin}/api/links/validate/${token}`, {
-      headers: {
-        Cookie: request.headers.get("cookie") || "",
-      },
-    })
+    // Fetch the link
+    const { data: link, error } = await supabase
+      .from("generated_links")
+      .select("*")
+      .eq("token", token)
+      .eq("is_active", true)
+      .single()
 
-    if (!validateResponse.ok) {
-      const validateData = await validateResponse.json()
-      return NextResponse.json(validateData, { status: validateResponse.status })
+    if (error || !link) {
+      console.log("❌ Link not found or inactive:", error)
+      return NextResponse.json({ success: false, error: "Link not found or inactive" }, { status: 404 })
     }
 
-    const { link } = await validateResponse.json()
+    console.log("✅ Link found:", link.id, "Type:", link.link_type)
 
-    // For WhatsApp links, check if already used
+    // For WhatsApp links, check if user has already used this link
     if (link.link_type === "whatsapp") {
-      const { data: existingUsage } = await supabase
+      console.log("🔍 Checking WhatsApp link usage for user:", userId)
+
+      // Check if user has already used this link
+      const { data: existingUsage, error: usageError } = await supabase
         .from("link_usages")
-        .select("id")
+        .select("*")
         .eq("link_id", link.id)
-        .eq("user_id", Number.parseInt(userId))
+        .eq("user_id", userId)
         .single()
 
+      if (usageError && usageError.code !== "PGRST116") {
+        // PGRST116 = no rows found, which is fine
+        console.error("❌ Error checking link usage:", usageError)
+        // Continue anyway for now
+      }
+
       if (existingUsage) {
+        console.log("❌ WhatsApp link already used by user:", userId)
         return NextResponse.json(
           {
             success: false,
-            error: "You have already used this WhatsApp link. Contact admin for additional access.",
+            error: "You have already used this WhatsApp link. Please contact admin for additional access.",
+            alreadyUsed: true,
           },
           { status: 403 },
         )
       }
     }
 
-    // Record usage
-    const { error: usageError } = await supabase.from("link_usages").insert({
+    // Record the usage for ALL link types (not just WhatsApp)
+    console.log("📝 Recording link usage for user:", userId)
+    const { error: insertError } = await supabase.from("link_usages").insert({
       link_id: link.id,
-      user_id: Number.parseInt(userId),
-      ip_address: request.headers.get("x-forwarded-for") || "unknown",
+      user_id: Number(userId),
+      used_at: new Date().toISOString(),
+      ip_address: request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown",
       user_agent: request.headers.get("user-agent") || "unknown",
-      success: true,
     })
 
-    if (usageError) {
-      console.error("❌ Error recording usage:", usageError)
+    if (insertError) {
+      console.error("❌ Error recording link usage:", insertError)
+      // Don't fail the request for this, just log it
     }
 
-    console.log("✅ Link used successfully, redirecting to:", link.target_url)
-
+    console.log("✅ Returning target URL:", link.target_url)
     return NextResponse.json({
       success: true,
       target_url: link.target_url,
       link_type: link.link_type,
     })
   } catch (error) {
-    console.error("❌ Usage error:", error)
+    console.error("❌ Unexpected error in links/use route:", error)
     return NextResponse.json(
       {
         success: false,
         error: "Internal server error",
+        details: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 },
     )
