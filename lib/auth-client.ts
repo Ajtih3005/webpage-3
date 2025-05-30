@@ -3,14 +3,19 @@
  */
 
 /**
- * Logs the user out by clearing cookies and invalidating the token
+ * Logs the user out by clearing ALL browser storage
  */
 export async function logout() {
   try {
-    console.log("🔐 Logging out...")
+    console.log("🔐 Logging out and clearing ALL storage...")
 
-    // Get token from cookie if available
-    const token = getCookie("userToken") || getCookie("authToken") || getCookie("sessionId")
+    // Get token from cookie or localStorage if available
+    const token =
+      getCookie("userToken") ||
+      getCookie("authToken") ||
+      getCookie("userId") ||
+      localStorage.getItem("userToken") ||
+      localStorage.getItem("userId")
 
     // Call logout API
     const response = await fetch("/api/logout", {
@@ -25,30 +30,26 @@ export async function logout() {
       console.error("❌ Logout API error:", response.status)
     }
 
-    // Clear cookies manually as backup
-    const cookiesToClear = [
-      "userId",
-      "user_id",
-      "userToken",
-      "user_token",
-      "authToken",
-      "auth_token",
-      "sessionId",
-      "session_id",
-      "loginToken",
-      "login_token",
-    ]
+    // Clear ALL cookies (not just auth cookies)
+    document.cookie.split(";").forEach((cookie) => {
+      const [name] = cookie.trim().split("=")
+      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/;`
+    })
 
-    for (const cookieName of cookiesToClear) {
-      document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/;`
-    }
+    // Clear localStorage
+    localStorage.clear()
 
-    console.log("✅ Logout complete - cookies cleared")
+    // Clear sessionStorage
+    sessionStorage.clear()
+
+    console.log("✅ Logout complete - ALL browser storage cleared")
 
     // Redirect to home page
     window.location.href = "/"
   } catch (error) {
     console.error("❌ Logout error:", error)
+    // Force redirect even if error
+    window.location.href = "/"
   }
 }
 

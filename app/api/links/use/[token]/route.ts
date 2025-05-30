@@ -3,62 +3,94 @@ import { getSupabaseServerClient } from "@/lib/supabase"
 
 export async function POST(request: NextRequest, { params }: { params: { token: string } }) {
   try {
-    console.log("🔍 Starting link usage for token:", params.token)
-
-    const token = params.token
     const supabase = getSupabaseServerClient()
+    const { token } = params
 
-    // Get the current user ID from the request cookies
-    const userId = request.cookies.get("userId")?.value
+    console.log("🔗 Using link token:", token)
 
-    if (!userId) {
-      console.log("❌ No userId cookie found - login required")
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Login required",
-          requiresLogin: true,
-          loginUrl: `/user/login?redirect=/l/${token}`,
-        },
-        { status: 401 },
-      )
-    }
-
-    // Fetch the link
-    const { data: link, error } = await supabase
+    // Get the link
+    const { data: link, error: linkError } = await supabase
       .from("generated_links")
       .select("*")
       .eq("token", token)
       .eq("is_active", true)
       .single()
 
-    if (error || !link) {
-      console.log("❌ Link not found or inactive:", error)
-      return NextResponse.json({ success: false, error: "Link not found or inactive" }, { status: 404 })
+    if (linkError || !link) {
+      console.error("❌ Link not found:", linkError)
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Link not found or inactive",
+        },
+        { status: 404 },
+      )
     }
 
-    console.log("✅ Link found:", link.id, "Type:", link.link_type)
+    console.log("✅ Link found:", link.title)
 
-    // For WhatsApp links, check if user has already used this link
+    // Check expiration
+    if (link.expires_at && new Date(link.expires_at) < new Date()) {
+      console.log("❌ Link expired")
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Link has expired",
+        },
+        { status: 403 },
+      )
+    }
+
+    // 🚨 CRITICAL: VERIFY USER IS LOGGED IN
+    let userId = null
+    const cookieNames = ["userId", "user_id", "userToken", "authToken", "sessionId"]
+
+    for (const cookieName of cookieNames) {
+      const cookieValue = request.cookies.get(cookieName)?.value
+      if (cookieValue && cookieValue !== "undefined" && cookieValue !== "null") {
+        console.log(`✅ Found cookie ${cookieName}:`, cookieValue)
+        userId = cookieValue
+        break
+      }
+    }
+
+    if (!userId) {
+      console.log("❌ No user ID found - login required")
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Login required to use this link",
+          requiresLogin: true,
+        },
+        { status: 401 },
+      )
+    }
+
+    const userIdNum = Number.parseInt(userId)
+    if (isNaN(userIdNum)) {
+      console.log("❌ Invalid user ID format:", userId)
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Invalid user session",
+          requiresLogin: true,
+        },
+        { status: 401 },
+      )
+    }
+
+    // For WhatsApp links, check if already used
     if (link.link_type === "whatsapp") {
-      console.log("🔍 Checking WhatsApp link usage for user:", userId)
+      console.log("🔍 Checking if WhatsApp link already used by this user...")
 
-      // Check if user has already used this link
-      const { data: existingUsage, error: usageError } = await supabase
+      const { data: usages, error: usageError } = await supabase
         .from("link_usages")
         .select("*")
         .eq("link_id", link.id)
-        .eq("user_id", userId)
-        .single()
+        .eq("user_id", userIdNum)
 
-      if (usageError && usageError.code !== "PGRST116") {
-        // PGRST116 = no rows found, which is fine
-        console.error("❌ Error checking link usage:", usageError)
-        // Continue anyway for now
-      }
-
-      if (existingUsage) {
-        console.log("❌ WhatsApp link already used by user:", userId)
+      if (!usageError && usages && usages.length > 0) {
+        console.log("❌ WhatsApp link already used by this user:", usages.length, "times")
         return NextResponse.json(
           {
             success: false,
@@ -68,36 +100,34 @@ export async function POST(request: NextRequest, { params }: { params: { token: 
           { status: 403 },
         )
       }
+
+      console.log("✅ WhatsApp link not used by this user yet")
     }
 
-    // Record the usage for ALL link types (not just WhatsApp)
-    console.log("📝 Recording link usage for user:", userId)
-    const { error: insertError } = await supabase.from("link_usages").insert({
+    // Record usage
+    const { error: usageError } = await supabase.from("link_usages").insert({
       link_id: link.id,
-      user_id: Number(userId),
-      used_at: new Date().toISOString(),
-      ip_address: request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown",
+      user_id: userIdNum,
+      ip_address: request.headers.get("x-forwarded-for") || "unknown",
       user_agent: request.headers.get("user-agent") || "unknown",
     })
 
-    if (insertError) {
-      console.error("❌ Error recording link usage:", insertError)
-      // Don't fail the request for this, just log it
+    if (usageError) {
+      console.error("❌ Error recording link usage:", usageError)
+      // Continue anyway - don't block access due to usage recording failure
     }
 
-    console.log("✅ Returning target URL:", link.target_url)
+    console.log("✅ Link usage recorded, returning target URL:", link.target_url)
     return NextResponse.json({
       success: true,
       target_url: link.target_url,
-      link_type: link.link_type,
     })
   } catch (error) {
-    console.error("❌ Unexpected error in links/use route:", error)
+    console.error("❌ Error using link:", error)
     return NextResponse.json(
       {
         success: false,
-        error: "Internal server error",
-        details: error instanceof Error ? error.message : "Unknown error",
+        error: "An error occurred while processing this link",
       },
       { status: 500 },
     )

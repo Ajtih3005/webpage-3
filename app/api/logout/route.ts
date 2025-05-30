@@ -18,9 +18,24 @@ export async function POST(request: NextRequest) {
     const response = NextResponse.json({
       success: true,
       message: "Logged out successfully",
+      clearScript: `
+        // Clear all cookies
+        document.cookie.split(';').forEach(cookie => {
+          const [name] = cookie.trim().split('=');
+          document.cookie = \`\${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/;\`;
+        });
+        
+        // Clear localStorage
+        localStorage.clear();
+        
+        // Clear sessionStorage
+        sessionStorage.clear();
+        
+        console.log('All browser storage cleared');
+      `,
     })
 
-    // 🚨 CRITICAL: CLEAR ALL AUTH COOKIES
+    // 🚨 CLEAR ALL POSSIBLE AUTH COOKIES
     const cookiesToClear = [
       "userId",
       "user_id",
@@ -32,12 +47,22 @@ export async function POST(request: NextRequest) {
       "session_id",
       "loginToken",
       "login_token",
+      "userAuthenticated",
+      "userName",
+      "userEmail",
+      "userPhone",
     ]
 
     // Clear each possible auth cookie
     for (const cookieName of cookiesToClear) {
       console.log(`🍪 Clearing cookie: ${cookieName}`)
-      response.cookies.delete(cookieName)
+      // Set to empty, expired, and path=/
+      response.cookies.set({
+        name: cookieName,
+        value: "",
+        expires: new Date(0),
+        path: "/",
+      })
     }
 
     console.log("✅ Logout successful - all cookies cleared")

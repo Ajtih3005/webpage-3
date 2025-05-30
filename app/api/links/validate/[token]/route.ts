@@ -42,13 +42,14 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
       )
     }
 
-    // 🚨 CRITICAL: CHECK LOGIN STATUS
+    // 🚨 CRITICAL: STRICT LOGIN CHECK
     console.log("🔐 CHECKING LOGIN STATUS...")
 
     // Try to find user ID in cookies
     let userId = null
     const cookieNames = ["userId", "user_id", "userToken", "authToken", "sessionId"]
 
+    // Check all possible cookie names
     for (const cookieName of cookieNames) {
       const cookieValue = request.cookies.get(cookieName)?.value
       if (cookieValue && cookieValue !== "undefined" && cookieValue !== "null") {
@@ -58,10 +59,9 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
       }
     }
 
-    // 🚨 FORCE LOGIN REQUIREMENT
+    // 🚨 FORCE LOGIN REQUIREMENT - NO EXCEPTIONS
     if (!userId) {
       console.log("❌ NO USER ID FOUND - FORCING LOGIN REQUIREMENT")
-      console.log("🔐 Returning requiresLogin: true")
 
       return NextResponse.json(
         {
@@ -193,6 +193,31 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
         },
         { status: 403 },
       )
+    }
+
+    // For WhatsApp links, check if already used
+    if (link.link_type === "whatsapp") {
+      console.log("🔍 Checking if WhatsApp link already used by this user...")
+
+      const { data: usages, error: usageError } = await supabase
+        .from("link_usages")
+        .select("*")
+        .eq("link_id", link.id)
+        .eq("user_id", userIdNum)
+
+      if (!usageError && usages && usages.length > 0) {
+        console.log("❌ WhatsApp link already used by this user:", usages.length, "times")
+        return NextResponse.json(
+          {
+            success: false,
+            error: "You have already used this WhatsApp link. Please contact admin for additional access.",
+            alreadyUsed: true,
+          },
+          { status: 403 },
+        )
+      }
+
+      console.log("✅ WhatsApp link not used by this user yet")
     }
 
     console.log("✅ User authorized - allowing access")
