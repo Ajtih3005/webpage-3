@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { extractYoutubeVideoId } from "@/lib/utils"
-import { Loader2, ArrowLeft, Lock } from "lucide-react"
+import { Loader2, ArrowLeft, Lock, Camera, CameraOff, X } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
 
@@ -19,6 +19,9 @@ interface CourseDetails {
   custom_batch_time: string | null
   is_predefined_batch: boolean
   videoDuration?: number
+  scheduling_type?: string
+  subscription_day?: number | null
+  subscription_week?: number | null
 }
 
 export default function VideoPlayer({ params }: { params: { courseId: string } }) {
@@ -26,7 +29,6 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
   const [loading, setLoading] = useState(true)
   const [courseDetails, setCourseDetails] = useState<CourseDetails | null>(null)
   const [elapsedTime, setElapsedTime] = useState(0)
-  const [remainingTime, setRemainingTime] = useState<number | null>(null)
   const [userDbId, setUserDbId] = useState<number | null>(null)
   const [youtubeVideoId, setYoutubeVideoId] = useState<string>("")
   const [ytApiLoaded, setYtApiLoaded] = useState(false)
@@ -42,6 +44,11 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
   const [fullscreenAttempts, setFullscreenAttempts] = useState(0)
   const [showFullscreenWarning, setShowFullscreenWarning] = useState(false)
 
+  // Camera states
+  const [showCameraPreview, setShowCameraPreview] = useState(false)
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null)
+  const [cameraError, setCameraError] = useState<string | null>(null)
+
   const youtubePlayer = useRef<any>(null)
   const playerContainerRef = useRef<HTMLDivElement | null>(null)
   const videoTimer = useRef<NodeJS.Timeout | null>(null)
@@ -52,6 +59,42 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
   const isMounted = useRef(true)
   const videoWrapperRef = useRef<HTMLDivElement | null>(null)
   const fullscreenOverlayRef = useRef<HTMLDivElement | null>(null)
+  const cameraVideoRef = useRef<HTMLVideoElement | null>(null)
+
+  // Camera functions
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: 320, height: 240 },
+        audio: false,
+      })
+      setCameraStream(stream)
+      setShowCameraPreview(true)
+      setCameraError(null)
+
+      // Set video stream
+      if (cameraVideoRef.current) {
+        cameraVideoRef.current.srcObject = stream
+      }
+    } catch (error) {
+      console.error("Error accessing camera:", error)
+      setCameraError("Camera access denied or not available")
+      toast({
+        title: "Camera Error",
+        description: "Could not access camera. Please check permissions.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const stopCamera = () => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach((track) => track.stop())
+      setCameraStream(null)
+    }
+    setShowCameraPreview(false)
+    setCameraError(null)
+  }
 
   // Function to request fullscreen with all possible methods
   const requestFullscreen = (element: HTMLElement) => {
@@ -281,6 +324,9 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
     return () => {
       isMounted.current = false
 
+      // Stop camera
+      stopCamera()
+
       // Remove body class
       document.body.classList.remove("video-playing")
       document.body.classList.remove("inactive-cursor")
@@ -374,7 +420,24 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
     const now = new Date()
     const scheduledDate = new Date(courseDetails.scheduled_date)
 
-    // Get the batch time
+    // NEW LOGIC: Check if batch times are specified
+    const hasBatchTimes = courseDetails.batch_number || courseDetails.custom_batch_time
+
+    if (!hasBatchTimes) {
+      // NO BATCH TIMES: Allow access for full day
+      const todayLocalDate = now.toLocaleDateString("en-CA")
+      const scheduledLocalDate = scheduledDate.toLocaleDateString("en-CA")
+
+      if (scheduledLocalDate === todayLocalDate) {
+        setSessionActive(true)
+        return
+      } else {
+        setSessionActive(false)
+        return
+      }
+    }
+
+    // HAS BATCH TIMES: Use existing batch time logic
     let startHour = 0
     let startMinute = 0
 
@@ -538,13 +601,36 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
       }
 
       setYoutubeVideoId(videoId)
-      setRemainingTime(videoDuration)
 
       // Check if the session is active
       const now = new Date()
       const scheduledDate = new Date(data.scheduled_date)
 
-      // Get the batch time
+      // NEW LOGIC: Check if batch times are specified
+      const hasBatchTimes = data.batch_number || data.custom_batch_time
+
+      if (!hasBatchTimes) {
+        // NO BATCH TIMES: Allow access for full day
+        const todayLocalDate = now.toLocaleDateString("en-CA")
+        const scheduledLocalDate = scheduledDate.toLocaleDateString("en-CA")
+
+        if (scheduledLocalDate === todayLocalDate) {
+          setSessionActive(true)
+        } else {
+          toast({
+            title: "Session Not Active",
+            description: "This session is not currently active. Returning to course list.",
+            variant: "destructive",
+          })
+
+          setTimeout(() => {
+            router.push("/user/access-course")
+          }, 3000)
+        }
+        return
+      }
+
+      // HAS BATCH TIMES: Use existing batch time logic
       let startHour = 0
       let startMinute = 0
 
@@ -717,10 +803,6 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
             if (duration && duration > 0) {
               console.log("Actual video duration:", duration)
               setActualVideoDuration(duration)
-
-              // Calculate remaining time based on current position
-              const remainingSeconds = duration - currentTimePosition
-              setRemainingTime(remainingSeconds > 0 ? remainingSeconds : 0)
             }
 
             // Start video timer
@@ -829,14 +911,6 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
     console.log("Starting video timer...")
     videoTimer.current = setInterval(() => {
       setElapsedTime((prev) => prev + 1)
-      setRemainingTime((prev) => {
-        if (prev === null || prev <= 1) {
-          clearInterval(videoTimer.current!)
-          handleVideoEnd()
-          return 0
-        }
-        return prev - 1
-      })
     }, 1000)
   }
 
@@ -844,11 +918,13 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
   const handleVideoEnd = async () => {
     console.log("Video ended")
     clearInterval(videoTimer.current!)
-    setRemainingTime(0)
     setHasCompletedVideo(true)
 
     // Mark video as completed
     await markVideoCompleted()
+
+    // Stop camera if active
+    stopCamera()
 
     // Exit fullscreen
     if (document.fullscreenElement) {
@@ -970,23 +1046,11 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
     }
   }
 
-  // Format time in HH:MM:SS
-  const formatTime = (seconds: number): string => {
-    const hours = Math.floor(seconds / 3600)
-    const minutes = Math.floor((seconds % 3600) / 60)
-    const secs = seconds % 60
-
-    return [
-      hours > 0 ? hours : null,
-      minutes.toString().padStart(hours > 0 ? 2 : 1, "0"),
-      secs.toString().padStart(2, "0"),
-    ]
-      .filter(Boolean)
-      .join(":")
-  }
-
   // Handle back button click
-  const handleBackClick = () => {
+  const handleExitClick = () => {
+    // Stop camera if active
+    stopCamera()
+
     // Exit fullscreen
     if (document.fullscreenElement) {
       document.exitFullscreen().catch((err) => console.error("Error exiting fullscreen:", err))
@@ -1016,7 +1080,7 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
         <div className="text-center p-6 bg-gray-800 rounded-lg max-w-md">
           <h2 className="text-white text-xl font-bold mb-4">Session Not Active</h2>
           <p className="text-gray-300 mb-6">This session is no longer active. Please return to the course list.</p>
-          <Button onClick={handleBackClick}>
+          <Button onClick={handleExitClick}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Courses
           </Button>
@@ -1033,7 +1097,7 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
           <p className="text-gray-300 mb-6">
             This session has been terminated due to multiple fullscreen exits. Please return to the course list.
           </p>
-          <Button onClick={handleBackClick}>
+          <Button onClick={handleExitClick}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Courses
           </Button>
@@ -1050,8 +1114,26 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
         ref={playerContainerRef}
       ></div>
 
+      {/* Camera Preview Window */}
+      {showCameraPreview && (
+        <div className="absolute top-4 right-4 z-50 bg-black rounded-lg border-2 border-white overflow-hidden">
+          <div className="relative">
+            <video ref={cameraVideoRef} autoPlay muted playsInline className="w-64 h-48 object-cover" />
+            <button
+              onClick={stopCamera}
+              className="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white rounded-full p-1 transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            <div className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+              Local Preview Only
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* LIVE Indicator */}
-      <div className="absolute top-2 right-2 z-50 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-md flex items-center">
+      <div className="absolute top-2 left-2 z-50 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-md flex items-center">
         <span className="animate-pulse mr-1 h-2 w-2 rounded-full bg-white inline-block"></span>
         LIVE
       </div>
@@ -1087,17 +1169,11 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
         </div>
       )}
 
-      {/* Controls Overlay */}
+      {/* NEW SIMPLIFIED CONTROLS BAR */}
       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 text-white z-10">
         <div className="flex justify-between items-center mb-2">
           {courseDetails?.title && <h1 className="text-xl font-bold">{courseDetails.title}</h1>}
-          <Button variant="ghost" size="sm" onClick={handleBackClick} className="text-white">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Exit
-          </Button>
         </div>
-
-        {remainingTime !== null && <div className="text-sm">Remaining Time: {formatTime(remainingTime)}</div>}
 
         {attendanceError && <div className="text-red-400 text-sm mt-2">{attendanceError}</div>}
 
@@ -1105,13 +1181,24 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
           <div className="text-green-400 text-sm mt-2">Video completed! Returning to course list...</div>
         )}
 
-        {/* Emoji Reaction Bar - Only shown during live sessions */}
-        {sessionActive && !hasCompletedVideo && (
-          <div className="emoji-reaction-bar mt-4 flex items-center justify-center space-x-3 pb-2">
+        {/* NEW SIMPLIFIED CONTROL BAR */}
+        <div className="flex items-center justify-between mt-4 bg-black/50 rounded-lg p-3">
+          {/* Video Preview Button */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={showCameraPreview ? stopCamera : startCamera}
+            className="text-white hover:bg-white/20 flex items-center gap-2"
+          >
+            {showCameraPreview ? <CameraOff className="h-4 w-4" /> : <Camera className="h-4 w-4" />}
+            Video Preview
+          </Button>
+
+          {/* Emoji Reaction Bar */}
+          <div className="flex items-center space-x-3">
             <button
               className="emoji-btn p-2 rounded-full hover:bg-white/20 transition-colors"
               onClick={() => {
-                // Visual feedback only - no storage
                 const btn = document.createElement("div")
                 btn.className = "absolute animate-emoji text-2xl"
                 btn.textContent = "✋"
@@ -1126,7 +1213,6 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
             <button
               className="emoji-btn p-2 rounded-full hover:bg-white/20 transition-colors"
               onClick={() => {
-                // Visual feedback only - no storage
                 const btn = document.createElement("div")
                 btn.className = "absolute animate-emoji text-2xl"
                 btn.textContent = "❤️"
@@ -1141,7 +1227,6 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
             <button
               className="emoji-btn p-2 rounded-full hover:bg-white/20 transition-colors"
               onClick={() => {
-                // Visual feedback only - no storage
                 const btn = document.createElement("div")
                 btn.className = "absolute animate-emoji text-2xl"
                 btn.textContent = "👍"
@@ -1156,7 +1241,6 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
             <button
               className="emoji-btn p-2 rounded-full hover:bg-white/20 transition-colors"
               onClick={() => {
-                // Visual feedback only - no storage
                 const btn = document.createElement("div")
                 btn.className = "absolute animate-emoji text-2xl"
                 btn.textContent = "😊"
@@ -1171,7 +1255,6 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
             <button
               className="emoji-btn p-2 rounded-full hover:bg-white/20 transition-colors"
               onClick={() => {
-                // Visual feedback only - no storage
                 const btn = document.createElement("div")
                 btn.className = "absolute animate-emoji text-2xl"
                 btn.textContent = "👏"
@@ -1184,7 +1267,18 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
               <span className="text-xl">👏</span>
             </button>
           </div>
-        )}
+
+          {/* Exit Button */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleExitClick}
+            className="text-white hover:bg-red-600/20 flex items-center gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Exit
+          </Button>
+        </div>
       </div>
     </div>
   )
