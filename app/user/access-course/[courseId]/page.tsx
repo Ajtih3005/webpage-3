@@ -88,20 +88,47 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
       })
 
       console.log("🎥 Camera stream obtained:", stream)
+      console.log("🎥 Stream tracks:", stream.getTracks())
+
       setCameraStream(stream)
       setCameraOn(true)
       setCameraError(null)
 
-      // Set video stream
+      // Set video stream with better handling
       if (cameraVideoRef.current) {
         console.log("🎥 Setting video source...")
         cameraVideoRef.current.srcObject = stream
 
-        // Ensure video plays
+        // Force video to load and play
         cameraVideoRef.current.onloadedmetadata = () => {
-          console.log("🎥 Video metadata loaded, playing...")
-          cameraVideoRef.current?.play().catch(console.error)
+          console.log("🎥 Video metadata loaded")
+          if (cameraVideoRef.current) {
+            cameraVideoRef.current
+              .play()
+              .then(() => {
+                console.log("🎥 Video playing successfully")
+              })
+              .catch((error) => {
+                console.error("🎥 Error playing video:", error)
+              })
+          }
         }
+
+        // Additional event listeners for debugging
+        cameraVideoRef.current.oncanplay = () => {
+          console.log("🎥 Video can play")
+        }
+
+        cameraVideoRef.current.onplay = () => {
+          console.log("🎥 Video started playing")
+        }
+
+        cameraVideoRef.current.onerror = (error) => {
+          console.error("🎥 Video error:", error)
+        }
+
+        // Force load
+        cameraVideoRef.current.load()
       }
 
       toast({
@@ -124,7 +151,7 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
     console.log("🎥 Stopping camera...")
     if (cameraStream) {
       cameraStream.getTracks().forEach((track) => {
-        console.log("🎥 Stopping track:", track.kind)
+        console.log("🎥 Stopping track:", track.kind, track.label)
         track.stop()
       })
       setCameraStream(null)
@@ -132,11 +159,14 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
 
     if (cameraVideoRef.current) {
       cameraVideoRef.current.srcObject = null
+      cameraVideoRef.current.pause()
     }
 
     setCameraOn(false)
+    setShowCameraPreview(false) // Also hide preview when stopping camera
     setCameraError(null)
 
+    console.log("🎥 Camera stopped completely")
     toast({
       title: "Camera Stopped",
       description: "Your camera has been turned off.",
@@ -144,6 +174,14 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
   }
 
   const toggleCameraPreview = () => {
+    if (!cameraOn) {
+      toast({
+        title: "Camera Not Active",
+        description: "Please turn on the camera first.",
+        variant: "destructive",
+      })
+      return
+    }
     setShowCameraPreview(!showCameraPreview)
   }
 
@@ -157,11 +195,13 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
 
   // Handle camera permission
   const handleCameraPermissionGranted = () => {
+    console.log("🎥 Camera permission granted")
     setCameraPermissionGranted(true)
     setShowCameraPermission(false)
   }
 
   const handleSkipCamera = () => {
+    console.log("🎥 Camera permission skipped")
     setCameraPermissionGranted(false)
     setShowCameraPermission(false)
   }
@@ -208,6 +248,8 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
         // If too many attempts, block fullscreen and redirect
         if (newCount > 5) {
           setFullscreenBlocked(true)
+          // Stop camera when session is terminated
+          stopCamera()
           toast({
             title: "Session Terminated",
             description: "Too many fullscreen exits detected. Session has been terminated.",
@@ -263,16 +305,6 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
 
     // Only proceed if camera permission check is done
     if (!showCameraPermission) {
-      // Apply fullscreen on mount
-      const enterFullscreen = () => {
-        if (document.documentElement) {
-          requestFullscreen(document.documentElement)
-        }
-      }
-
-      // Try to enter fullscreen after a short delay
-      setTimeout(enterFullscreen, 1000)
-
       // Add fullscreen change event listeners for all browser variants
       const handleFullscreenChange = () => {
         enforceFullscreen()
@@ -396,7 +428,8 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
       return () => {
         isMounted.current = false
 
-        // Stop camera
+        // IMPORTANT: Stop camera when component unmounts
+        console.log("🎥 Component unmounting - stopping camera")
         stopCamera()
 
         // Remove body class
@@ -573,6 +606,9 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
 
     // If session is no longer active and video is not completed, redirect back
     if (!isActive && !hasCompletedVideo) {
+      // Stop camera when session ends
+      stopCamera()
+
       toast({
         title: "Session Ended",
         description: "This session is no longer active. Returning to course list.",
@@ -996,7 +1032,7 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
     // Mark video as completed
     await markVideoCompleted()
 
-    // Stop camera if active
+    // IMPORTANT: Stop camera when video ends
     stopCamera()
 
     // Exit fullscreen
@@ -1121,7 +1157,7 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
 
   // Handle back button click
   const handleExitClick = () => {
-    // Stop camera if active
+    // IMPORTANT: Stop camera when exiting
     stopCamera()
 
     // Exit fullscreen
@@ -1192,11 +1228,18 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
         ref={playerContainerRef}
       ></div>
 
-      {/* Camera Preview Window */}
-      {showCameraPreview && cameraOn && (
+      {/* Camera Preview Window - IMPROVED */}
+      {showCameraPreview && cameraOn && cameraStream && (
         <div className="absolute top-4 right-4 z-50 bg-black rounded-lg border-2 border-white overflow-hidden shadow-2xl">
           <div className="relative">
-            <video ref={cameraVideoRef} autoPlay muted playsInline className="w-64 h-48 object-cover bg-gray-800" />
+            <video
+              ref={cameraVideoRef}
+              autoPlay
+              muted
+              playsInline
+              className="w-64 h-48 object-cover bg-gray-800"
+              style={{ transform: "scaleX(-1)" }} // Mirror the video for better UX
+            />
             <button
               onClick={() => setShowCameraPreview(false)}
               className="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white rounded-full p-1 transition-colors"
@@ -1263,7 +1306,7 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
           <div className="text-green-400 text-sm mt-2">Video completed! Returning to course list...</div>
         )}
 
-        {/* NEW CONTROL BAR WITH CAMERA TOGGLE */}
+        {/* NEW CONTROL BAR WITH IMPROVED CAMERA CONTROLS */}
         <div className="flex items-center justify-between mt-4 bg-black/50 rounded-lg p-3">
           {/* Camera Controls */}
           <div className="flex items-center gap-2">
@@ -1272,7 +1315,7 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
               variant="ghost"
               size="sm"
               onClick={toggleCameraPreview}
-              disabled={!cameraPermissionGranted}
+              disabled={!cameraPermissionGranted || !cameraOn}
               className="text-white hover:bg-white/20 flex items-center gap-2"
             >
               <Camera className="h-4 w-4" />
