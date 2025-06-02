@@ -13,20 +13,6 @@ export default function CameraPermission({ onPermissionGranted, onSkip }: Camera
   const [checking, setChecking] = useState(false)
   const [permissionStatus, setPermissionStatus] = useState<"unknown" | "granted" | "denied">("unknown")
 
-  // Function to request fullscreen
-  const requestFullscreen = () => {
-    const element = document.documentElement
-    if (element.requestFullscreen) {
-      element.requestFullscreen().catch((err) => console.error("Error entering fullscreen:", err))
-    } else if ((element as any).mozRequestFullScreen) {
-      ;(element as any).mozRequestFullScreen().catch((err) => console.error("Error entering fullscreen:", err))
-    } else if ((element as any).webkitRequestFullscreen) {
-      ;(element as any).webkitRequestFullscreen().catch((err) => console.error("Error entering fullscreen:", err))
-    } else if ((element as any).msRequestFullscreen) {
-      ;(element as any).msRequestFullscreen().catch((err) => console.error("Error entering fullscreen:", err))
-    }
-  }
-
   const checkCameraPermission = async () => {
     setChecking(true)
     try {
@@ -40,14 +26,8 @@ export default function CameraPermission({ onPermissionGranted, onSkip }: Camera
       stream.getTracks().forEach((track) => track.stop())
 
       setPermissionStatus("granted")
-
-      // Enter fullscreen immediately after permission granted
       setTimeout(() => {
-        requestFullscreen()
-        // Wait a bit for fullscreen to activate, then proceed
-        setTimeout(() => {
-          onPermissionGranted()
-        }, 500)
+        onPermissionGranted()
       }, 1000)
     } catch (error) {
       console.error("Camera permission denied:", error)
@@ -55,14 +35,6 @@ export default function CameraPermission({ onPermissionGranted, onSkip }: Camera
     } finally {
       setChecking(false)
     }
-  }
-
-  const handleSkip = () => {
-    // Enter fullscreen even when skipping camera
-    requestFullscreen()
-    setTimeout(() => {
-      onSkip()
-    }, 500)
   }
 
   return (
@@ -96,7 +68,7 @@ export default function CameraPermission({ onPermissionGranted, onSkip }: Camera
                 </>
               )}
             </Button>
-            <Button onClick={handleSkip} variant="outline" className="w-full">
+            <Button onClick={onSkip} variant="outline" className="w-full">
               <Play className="mr-2 h-4 w-4" />
               Skip & Continue
             </Button>
@@ -106,7 +78,7 @@ export default function CameraPermission({ onPermissionGranted, onSkip }: Camera
         {permissionStatus === "granted" && (
           <div className="text-green-400">
             <Camera className="h-8 w-8 mx-auto mb-2" />
-            <p>Camera access granted! Entering fullscreen...</p>
+            <p>Camera access granted! Starting session...</p>
           </div>
         )}
 
@@ -116,7 +88,7 @@ export default function CameraPermission({ onPermissionGranted, onSkip }: Camera
               <CameraOff className="h-8 w-8 mx-auto mb-2" />
               <p>Camera access denied. You can still join the session.</p>
             </div>
-            <Button onClick={handleSkip} className="w-full">
+            <Button onClick={onSkip} className="w-full">
               <Play className="mr-2 h-4 w-4" />
               Continue Without Camera
             </Button>
