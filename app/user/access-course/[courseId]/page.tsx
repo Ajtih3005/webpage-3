@@ -65,7 +65,7 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
   const fullscreenOverlayRef = useRef<HTMLDivElement | null>(null)
   const cameraVideoRef = useRef<HTMLVideoElement | null>(null)
 
-  // Camera functions
+  // ENHANCED Camera functions
   const startCamera = async () => {
     if (!cameraPermissionGranted) {
       toast({
@@ -78,11 +78,18 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
 
     try {
       console.log("🎥 Starting camera...")
+
+      // Stop any existing stream first
+      if (cameraStream) {
+        cameraStream.getTracks().forEach((track) => track.stop())
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          width: { ideal: 320 },
-          height: { ideal: 240 },
+          width: { ideal: 320, max: 640 },
+          height: { ideal: 240, max: 480 },
           facingMode: "user",
+          frameRate: { ideal: 30 },
         },
         audio: false,
       })
@@ -94,41 +101,34 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
       setCameraOn(true)
       setCameraError(null)
 
-      // Set video stream with better handling
+      // IMPROVED: Set video stream with immediate connection
       if (cameraVideoRef.current) {
-        console.log("🎥 Setting video source...")
+        console.log("🎥 Connecting stream to video element...")
+
+        // Clear any existing source
+        cameraVideoRef.current.srcObject = null
+
+        // Set new stream
         cameraVideoRef.current.srcObject = stream
 
-        // Force video to load and play
-        cameraVideoRef.current.onloadedmetadata = () => {
-          console.log("🎥 Video metadata loaded")
-          if (cameraVideoRef.current) {
-            cameraVideoRef.current
-              .play()
-              .then(() => {
-                console.log("🎥 Video playing successfully")
-              })
-              .catch((error) => {
-                console.error("🎥 Error playing video:", error)
-              })
-          }
+        // Force immediate play
+        try {
+          await cameraVideoRef.current.play()
+          console.log("🎥 Video playing successfully")
+        } catch (playError) {
+          console.error("🎥 Play error:", playError)
+          // Try again after a short delay
+          setTimeout(async () => {
+            try {
+              if (cameraVideoRef.current) {
+                await cameraVideoRef.current.play()
+                console.log("🎥 Video playing on retry")
+              }
+            } catch (retryError) {
+              console.error("🎥 Retry play error:", retryError)
+            }
+          }, 100)
         }
-
-        // Additional event listeners for debugging
-        cameraVideoRef.current.oncanplay = () => {
-          console.log("🎥 Video can play")
-        }
-
-        cameraVideoRef.current.onplay = () => {
-          console.log("🎥 Video started playing")
-        }
-
-        cameraVideoRef.current.onerror = (error) => {
-          console.error("🎥 Video error:", error)
-        }
-
-        // Force load
-        cameraVideoRef.current.load()
       }
 
       toast({
@@ -148,7 +148,9 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
   }
 
   const stopCamera = () => {
-    console.log("🎥 Stopping camera...")
+    console.log("🎥 FORCE STOPPING camera...")
+
+    // Stop all tracks
     if (cameraStream) {
       cameraStream.getTracks().forEach((track) => {
         console.log("🎥 Stopping track:", track.kind, track.label)
@@ -157,16 +159,19 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
       setCameraStream(null)
     }
 
+    // Clear video element
     if (cameraVideoRef.current) {
       cameraVideoRef.current.srcObject = null
       cameraVideoRef.current.pause()
+      cameraVideoRef.current.load() // Force reload to clear
     }
 
+    // Reset all states
     setCameraOn(false)
-    setShowCameraPreview(false) // Also hide preview when stopping camera
+    setShowCameraPreview(false)
     setCameraError(null)
 
-    console.log("🎥 Camera stopped completely")
+    console.log("🎥 Camera COMPLETELY stopped")
     toast({
       title: "Camera Stopped",
       description: "Your camera has been turned off.",
@@ -182,6 +187,7 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
       })
       return
     }
+    console.log("🎥 Toggling camera preview:", !showCameraPreview)
     setShowCameraPreview(!showCameraPreview)
   }
 
@@ -248,7 +254,7 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
         // If too many attempts, block fullscreen and redirect
         if (newCount > 5) {
           setFullscreenBlocked(true)
-          // Stop camera when session is terminated
+          // FORCE Stop camera when session is terminated
           stopCamera()
           toast({
             title: "Session Terminated",
@@ -428,8 +434,8 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
       return () => {
         isMounted.current = false
 
-        // IMPORTANT: Stop camera when component unmounts
-        console.log("🎥 Component unmounting - stopping camera")
+        // FORCE Stop camera when component unmounts
+        console.log("🎥 Component unmounting - FORCE stopping camera")
         stopCamera()
 
         // Remove body class
@@ -606,7 +612,7 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
 
     // If session is no longer active and video is not completed, redirect back
     if (!isActive && !hasCompletedVideo) {
-      // Stop camera when session ends
+      // FORCE Stop camera when session ends
       stopCamera()
 
       toast({
@@ -825,7 +831,7 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
     }
   }
 
-  // Function to initialize YouTube player
+  // ENHANCED Function to initialize YouTube player
   const initializeYouTubePlayer = () => {
     if (!window.YT || !window.YT.Player || !playerContainerRef.current || !youtubeVideoId) {
       console.log("YouTube API or player container not ready")
@@ -858,27 +864,31 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
         playerContainerRef.current.appendChild(playerDiv)
       }
 
-      // Create new player
+      console.log("🎬 Creating YouTube player with video ID:", youtubeVideoId)
+
+      // Create new player with ENHANCED parameters
       youtubePlayer.current = new window.YT.Player("youtube-player", {
         videoId: youtubeVideoId,
         playerVars: {
-          autoplay: 1,
-          controls: 0,
-          disablekb: 1,
-          fs: 0,
-          rel: 0,
-          showinfo: 0,
-          iv_load_policy: 3,
-          modestbranding: 1,
-          cc_load_policy: 0,
-          playsinline: 1,
+          autoplay: 1, // Auto-play the video
+          controls: 0, // Hide player controls
+          disablekb: 1, // Disable keyboard controls
+          fs: 0, // Hide fullscreen button
+          rel: 0, // Don't show related videos
+          showinfo: 0, // Hide video info
+          iv_load_policy: 3, // Hide video annotations
+          modestbranding: 1, // Hide YouTube logo
+          cc_load_policy: 0, // TURN OFF CLOSED CAPTIONS
+          playsinline: 1, // Play inline on mobile
           origin: window.location.origin,
-          mute: 0, // Ensure audio is not muted
-          start: currentTimePosition > 0 ? currentTimePosition : 0, // Start from current position if joining late
+          mute: 0, // Don't mute audio
+          start: currentTimePosition > 0 ? currentTimePosition : 0,
+          enablejsapi: 1, // Enable JavaScript API
+          widget_referrer: window.location.origin,
         },
         events: {
           onReady: (event) => {
-            console.log("YouTube player ready")
+            console.log("🎬 YouTube player ready")
 
             // Set player size to fill container
             const iframe = event.target.getIframe()
@@ -889,8 +899,6 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
               iframe.style.top = "0"
               iframe.style.left = "0"
               iframe.style.border = "none"
-
-              // Add additional styles to prevent interaction
               iframe.style.pointerEvents = "none"
 
               // Add a transparent overlay to capture all events
@@ -910,8 +918,24 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
             // Get the actual video duration from YouTube API
             const duration = event.target.getDuration()
             if (duration && duration > 0) {
-              console.log("Actual video duration:", duration)
+              console.log("🎬 Actual video duration:", duration)
               setActualVideoDuration(duration)
+            }
+
+            // FORCE PLAY the video
+            try {
+              event.target.playVideo()
+              console.log("🎬 Video play command sent")
+            } catch (playError) {
+              console.error("🎬 Error playing video:", playError)
+            }
+
+            // Set volume to 70%
+            event.target.setVolume(70)
+
+            // Start the video at the current position if joining late
+            if (currentTimePosition > 0) {
+              event.target.seekTo(currentTimePosition, true)
             }
 
             // Start video timer
@@ -921,37 +945,36 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
             startVideoTimeout.current = setTimeout(() => {
               markAttendance()
             }, 60000) // Mark attendance after 1 minute
-
-            // Start the video at the current position if joining late
-            if (currentTimePosition > 0) {
-              event.target.seekTo(currentTimePosition, true)
-            }
-
-            event.target.playVideo()
-
-            // Set volume to 50%
-            event.target.setVolume(50)
           },
           onStateChange: (event) => {
+            console.log("🎬 YouTube player state changed:", event.data)
+
             // YT.PlayerState.ENDED = 0
             if (event.data === 0) {
+              console.log("🎬 Video ended")
               handleVideoEnd()
+            }
+
+            // YT.PlayerState.PLAYING = 1
+            if (event.data === 1) {
+              console.log("🎬 Video is playing")
             }
 
             // If video is paused, play it again (prevent user from pausing)
             if (event.data === 2) {
-              // YT.PlayerState.PAUSED = 2
-              event.target.playVideo()
+              console.log("🎬 Video paused - forcing play")
+              setTimeout(() => {
+                event.target.playVideo()
+              }, 100)
             }
 
             // If video is buffering, show loading state
             if (event.data === 3) {
-              // YT.PlayerState.BUFFERING = 3
-              console.log("Video is buffering...")
+              console.log("🎬 Video is buffering...")
             }
           },
           onError: (event) => {
-            console.error("YouTube player error:", event.data)
+            console.error("🎬 YouTube player error:", event.data)
             toast({
               title: "Video Error",
               description: "There was an error playing the video. Please try again.",
@@ -959,9 +982,10 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
             })
           },
           onPlaybackQualityChange: (event) => {
-            console.log("Playback quality changed to:", event.data)
+            console.log("🎬 Playback quality changed to:", event.data)
           },
           onPlaybackRateChange: (event) => {
+            console.log("🎬 Playback rate changed to:", event.data)
             // If playback rate changes, reset it to 1
             if (event.data !== 1) {
               event.target.setPlaybackRate(1)
@@ -970,9 +994,9 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
         },
       })
     } catch (error) {
-      console.error("Error initializing YouTube player:", error)
+      console.error("🎬 Error initializing YouTube player:", error)
 
-      // Fallback to iframe if YT Player fails
+      // Enhanced fallback to iframe
       if (playerContainerRef.current) {
         playerContainerRef.current.innerHTML = ""
         const iframe = document.createElement("iframe")
@@ -980,7 +1004,7 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
         // Add start parameter to start from current position if joining late
         const startParam = currentTimePosition > 0 ? `&start=${currentTimePosition}` : ""
 
-        iframe.src = `https://www.youtube.com/embed/${youtubeVideoId}?autoplay=1&controls=0&disablekb=1&fs=0&rel=0&showinfo=0&iv_load_policy=3&modestbranding=1&cc_load_policy=0&playsinline=1${startParam}&origin=${window.location.origin}`
+        iframe.src = `https://www.youtube.com/embed/${youtubeVideoId}?autoplay=1&controls=0&disablekb=1&fs=0&rel=0&showinfo=0&iv_load_policy=3&modestbranding=1&cc_load_policy=0&playsinline=1&mute=0${startParam}&origin=${encodeURIComponent(window.location.origin)}&enablejsapi=1`
         iframe.title = "YouTube video player"
         iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
         iframe.allowFullscreen = true
@@ -1017,7 +1041,7 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
 
   // Function to start the video timer
   const startVideoTimer = () => {
-    console.log("Starting video timer...")
+    console.log("⏱️ Starting video timer...")
     videoTimer.current = setInterval(() => {
       setElapsedTime((prev) => prev + 1)
     }, 1000)
@@ -1025,14 +1049,14 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
 
   // Function to handle video end
   const handleVideoEnd = async () => {
-    console.log("Video ended")
+    console.log("🎬 Video ended")
     clearInterval(videoTimer.current!)
     setHasCompletedVideo(true)
 
     // Mark video as completed
     await markVideoCompleted()
 
-    // IMPORTANT: Stop camera when video ends
+    // FORCE Stop camera when video ends
     stopCamera()
 
     // Exit fullscreen
@@ -1155,9 +1179,11 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
     }
   }
 
-  // Handle back button click
+  // ENHANCED Handle exit click
   const handleExitClick = () => {
-    // IMPORTANT: Stop camera when exiting
+    console.log("🚪 Exit button clicked - FORCE stopping camera")
+
+    // FORCE Stop camera when exiting
     stopCamera()
 
     // Exit fullscreen
@@ -1228,9 +1254,9 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
         ref={playerContainerRef}
       ></div>
 
-      {/* Camera Preview Window - IMPROVED */}
-      {showCameraPreview && cameraOn && cameraStream && (
-        <div className="absolute top-4 right-4 z-50 bg-black rounded-lg border-2 border-white overflow-hidden shadow-2xl">
+      {/* ENHANCED Camera Preview Window */}
+      {showCameraPreview && cameraOn && (
+        <div className="absolute top-4 right-4 z-50 bg-black rounded-lg border-2 border-green-500 overflow-hidden shadow-2xl">
           <div className="relative">
             <video
               ref={cameraVideoRef}
@@ -1238,10 +1264,25 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
               muted
               playsInline
               className="w-64 h-48 object-cover bg-gray-800"
-              style={{ transform: "scaleX(-1)" }} // Mirror the video for better UX
+              style={{
+                transform: "scaleX(-1)",
+                display: "block",
+              }}
+              onLoadedMetadata={() => {
+                console.log("🎥 Camera video metadata loaded")
+              }}
+              onPlay={() => {
+                console.log("🎥 Camera video started playing")
+              }}
+              onError={(e) => {
+                console.error("🎥 Camera video error:", e)
+              }}
             />
             <button
-              onClick={() => setShowCameraPreview(false)}
+              onClick={() => {
+                console.log("🎥 Closing camera preview")
+                setShowCameraPreview(false)
+              }}
               className="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white rounded-full p-1 transition-colors"
             >
               <X className="h-4 w-4" />
@@ -1294,7 +1335,7 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
         </div>
       )}
 
-      {/* NEW SIMPLIFIED CONTROLS BAR */}
+      {/* ENHANCED CONTROLS BAR */}
       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 text-white z-10">
         <div className="flex justify-between items-center mb-2">
           {courseDetails?.title && <h1 className="text-xl font-bold">{courseDetails.title}</h1>}
@@ -1306,7 +1347,7 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
           <div className="text-green-400 text-sm mt-2">Video completed! Returning to course list...</div>
         )}
 
-        {/* NEW CONTROL BAR WITH IMPROVED CAMERA CONTROLS */}
+        {/* ENHANCED CONTROL BAR */}
         <div className="flex items-center justify-between mt-4 bg-black/50 rounded-lg p-3">
           {/* Camera Controls */}
           <div className="flex items-center gap-2">
@@ -1316,7 +1357,9 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
               size="sm"
               onClick={toggleCameraPreview}
               disabled={!cameraPermissionGranted || !cameraOn}
-              className="text-white hover:bg-white/20 flex items-center gap-2"
+              className={`text-white hover:bg-white/20 flex items-center gap-2 ${
+                showCameraPreview ? "bg-blue-600/20" : ""
+              }`}
             >
               <Camera className="h-4 w-4" />
               Video Preview
