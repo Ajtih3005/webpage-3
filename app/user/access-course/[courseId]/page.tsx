@@ -4,9 +4,10 @@ import { useEffect, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { extractYoutubeVideoId } from "@/lib/utils"
-import { Loader2, ArrowLeft, Lock, Camera, CameraOff, X } from "lucide-react"
+import { Loader2, ArrowLeft, Lock, Camera, X, Video, VideoOff } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
+import CameraPermission from "./camera-permission"
 
 interface CourseDetails {
   id: number
@@ -27,6 +28,8 @@ interface CourseDetails {
 export default function VideoPlayer({ params }: { params: { courseId: string } }) {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
+  const [showCameraPermission, setShowCameraPermission] = useState(true)
+  const [cameraPermissionGranted, setCameraPermissionGranted] = useState(false)
   const [courseDetails, setCourseDetails] = useState<CourseDetails | null>(null)
   const [elapsedTime, setElapsedTime] = useState(0)
   const [userDbId, setUserDbId] = useState<number | null>(null)
@@ -46,6 +49,7 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
 
   // Camera states
   const [showCameraPreview, setShowCameraPreview] = useState(false)
+  const [cameraOn, setCameraOn] = useState(false)
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null)
   const [cameraError, setCameraError] = useState<string | null>(null)
 
@@ -63,22 +67,51 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
 
   // Camera functions
   const startCamera = async () => {
+    if (!cameraPermissionGranted) {
+      toast({
+        title: "Camera Permission Required",
+        description: "Please refresh and allow camera access first.",
+        variant: "destructive",
+      })
+      return
+    }
+
     try {
+      console.log("🎥 Starting camera...")
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 320, height: 240 },
+        video: {
+          width: { ideal: 320 },
+          height: { ideal: 240 },
+          facingMode: "user",
+        },
         audio: false,
       })
+
+      console.log("🎥 Camera stream obtained:", stream)
       setCameraStream(stream)
-      setShowCameraPreview(true)
+      setCameraOn(true)
       setCameraError(null)
 
       // Set video stream
       if (cameraVideoRef.current) {
+        console.log("🎥 Setting video source...")
         cameraVideoRef.current.srcObject = stream
+
+        // Ensure video plays
+        cameraVideoRef.current.onloadedmetadata = () => {
+          console.log("🎥 Video metadata loaded, playing...")
+          cameraVideoRef.current?.play().catch(console.error)
+        }
       }
+
+      toast({
+        title: "Camera Started",
+        description: "Your camera is now active.",
+      })
     } catch (error) {
-      console.error("Error accessing camera:", error)
-      setCameraError("Camera access denied or not available")
+      console.error("❌ Error accessing camera:", error)
+      setCameraError("Camera access failed")
+      setCameraOn(false)
       toast({
         title: "Camera Error",
         description: "Could not access camera. Please check permissions.",
@@ -88,12 +121,49 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
   }
 
   const stopCamera = () => {
+    console.log("🎥 Stopping camera...")
     if (cameraStream) {
-      cameraStream.getTracks().forEach((track) => track.stop())
+      cameraStream.getTracks().forEach((track) => {
+        console.log("🎥 Stopping track:", track.kind)
+        track.stop()
+      })
       setCameraStream(null)
     }
-    setShowCameraPreview(false)
+
+    if (cameraVideoRef.current) {
+      cameraVideoRef.current.srcObject = null
+    }
+
+    setCameraOn(false)
     setCameraError(null)
+
+    toast({
+      title: "Camera Stopped",
+      description: "Your camera has been turned off.",
+    })
+  }
+
+  const toggleCameraPreview = () => {
+    setShowCameraPreview(!showCameraPreview)
+  }
+
+  const toggleCamera = () => {
+    if (cameraOn) {
+      stopCamera()
+    } else {
+      startCamera()
+    }
+  }
+
+  // Handle camera permission
+  const handleCameraPermissionGranted = () => {
+    setCameraPermissionGranted(true)
+    setShowCameraPermission(false)
+  }
+
+  const handleSkipCamera = () => {
+    setCameraPermissionGranted(false)
+    setShowCameraPermission(false)
   }
 
   // Function to request fullscreen with all possible methods
@@ -191,205 +261,208 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
     `
     document.head.appendChild(style)
 
-    // Apply fullscreen on mount
-    const enterFullscreen = () => {
-      if (document.documentElement) {
-        requestFullscreen(document.documentElement)
+    // Only proceed if camera permission check is done
+    if (!showCameraPermission) {
+      // Apply fullscreen on mount
+      const enterFullscreen = () => {
+        if (document.documentElement) {
+          requestFullscreen(document.documentElement)
+        }
       }
-    }
 
-    // Try to enter fullscreen after a short delay
-    setTimeout(enterFullscreen, 1000)
+      // Try to enter fullscreen after a short delay
+      setTimeout(enterFullscreen, 1000)
 
-    // Add fullscreen change event listeners for all browser variants
-    const handleFullscreenChange = () => {
-      enforceFullscreen()
-    }
-
-    document.addEventListener("fullscreenchange", handleFullscreenChange)
-    document.addEventListener("webkitfullscreenchange", handleFullscreenChange)
-    document.addEventListener("mozfullscreenchange", handleFullscreenChange)
-    document.addEventListener("MSFullscreenChange", handleFullscreenChange)
-
-    // Start interval to continuously check fullscreen status
-    fullscreenCheckInterval.current = setInterval(() => {
-      enforceFullscreen()
-    }, 1000)
-
-    // Prevent keyboard shortcuts
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Allow only volume controls
-      if (!(e.key === "ArrowUp" || e.key === "ArrowDown")) {
-        e.preventDefault()
-        e.stopPropagation()
-        return false
+      // Add fullscreen change event listeners for all browser variants
+      const handleFullscreenChange = () => {
+        enforceFullscreen()
       }
-    }
 
-    window.addEventListener("keydown", handleKeyDown, true)
+      document.addEventListener("fullscreenchange", handleFullscreenChange)
+      document.addEventListener("webkitfullscreenchange", handleFullscreenChange)
+      document.addEventListener("mozfullscreenchange", handleFullscreenChange)
+      document.addEventListener("MSFullscreenChange", handleFullscreenChange)
 
-    // Prevent right-click
-    const handleContextMenu = (e: MouseEvent) => {
-      e.preventDefault()
-      return false
-    }
+      // Start interval to continuously check fullscreen status
+      fullscreenCheckInterval.current = setInterval(() => {
+        enforceFullscreen()
+      }, 1000)
 
-    document.addEventListener("contextmenu", handleContextMenu)
+      // Prevent keyboard shortcuts
+      const handleKeyDown = (e: KeyboardEvent) => {
+        // Allow only volume controls
+        if (!(e.key === "ArrowUp" || e.key === "ArrowDown")) {
+          e.preventDefault()
+          e.stopPropagation()
+          return false
+        }
+      }
 
-    // Prevent picture-in-picture
-    const handlePictureInPicture = (e: Event) => {
-      e.preventDefault()
-      return false
-    }
+      window.addEventListener("keydown", handleKeyDown, true)
 
-    document.addEventListener("enterpictureinpicture", handlePictureInPicture)
-
-    // Prevent copying
-    const handleCopy = (e: ClipboardEvent) => {
-      e.preventDefault()
-      return false
-    }
-
-    document.addEventListener("copy", handleCopy)
-
-    // Prevent selection
-    const handleSelectStart = (e: Event) => {
-      e.preventDefault()
-      return false
-    }
-
-    document.addEventListener("selectstart", handleSelectStart)
-
-    // Prevent drag
-    const handleDragStart = (e: DragEvent) => {
-      e.preventDefault()
-      return false
-    }
-
-    document.addEventListener("dragstart", handleDragStart)
-
-    // Prevent mouse wheel for zooming
-    const handleWheel = (e: WheelEvent) => {
-      if (e.ctrlKey) {
+      // Prevent right-click
+      const handleContextMenu = (e: MouseEvent) => {
         e.preventDefault()
         return false
       }
-    }
 
-    document.addEventListener("wheel", handleWheel, { passive: false })
+      document.addEventListener("contextmenu", handleContextMenu)
 
-    // Hide cursor after inactivity
-    let cursorTimeout: NodeJS.Timeout | null = null
-    const handleMouseMove = () => {
-      document.body.classList.remove("inactive-cursor")
-
-      if (cursorTimeout) {
-        clearTimeout(cursorTimeout)
+      // Prevent picture-in-picture
+      const handlePictureInPicture = (e: Event) => {
+        e.preventDefault()
+        return false
       }
 
+      document.addEventListener("enterpictureinpicture", handlePictureInPicture)
+
+      // Prevent copying
+      const handleCopy = (e: ClipboardEvent) => {
+        e.preventDefault()
+        return false
+      }
+
+      document.addEventListener("copy", handleCopy)
+
+      // Prevent selection
+      const handleSelectStart = (e: Event) => {
+        e.preventDefault()
+        return false
+      }
+
+      document.addEventListener("selectstart", handleSelectStart)
+
+      // Prevent drag
+      const handleDragStart = (e: DragEvent) => {
+        e.preventDefault()
+        return false
+      }
+
+      document.addEventListener("dragstart", handleDragStart)
+
+      // Prevent mouse wheel for zooming
+      const handleWheel = (e: WheelEvent) => {
+        if (e.ctrlKey) {
+          e.preventDefault()
+          return false
+        }
+      }
+
+      document.addEventListener("wheel", handleWheel, { passive: false })
+
+      // Hide cursor after inactivity
+      let cursorTimeout: NodeJS.Timeout | null = null
+      const handleMouseMove = () => {
+        document.body.classList.remove("inactive-cursor")
+
+        if (cursorTimeout) {
+          clearTimeout(cursorTimeout)
+        }
+
+        cursorTimeout = setTimeout(() => {
+          document.body.classList.add("inactive-cursor")
+        }, 3000)
+      }
+
+      document.addEventListener("mousemove", handleMouseMove)
+
+      // Initial cursor timeout
       cursorTimeout = setTimeout(() => {
         document.body.classList.add("inactive-cursor")
       }, 3000)
-    }
 
-    document.addEventListener("mousemove", handleMouseMove)
+      fetchUserData()
+      fetchCourseDetails()
 
-    // Initial cursor timeout
-    cursorTimeout = setTimeout(() => {
-      document.body.classList.add("inactive-cursor")
-    }, 3000)
+      // Load YouTube API
+      if (!window.YT) {
+        const tag = document.createElement("script")
+        tag.src = "https://www.youtube.com/iframe_api"
+        const firstScriptTag = document.getElementsByTagName("script")[0]
+        firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag)
 
-    fetchUserData()
-    fetchCourseDetails()
+        // Define the onYouTubeIframeAPIReady function
+        window.onYouTubeIframeAPIReady = () => {
+          console.log("YouTube API ready")
+          if (isMounted.current) {
+            setYtApiLoaded(true)
+          }
+        }
+      } else {
+        setYtApiLoaded(true)
+      }
 
-    // Load YouTube API
-    if (!window.YT) {
-      const tag = document.createElement("script")
-      tag.src = "https://www.youtube.com/iframe_api"
-      const firstScriptTag = document.getElementsByTagName("script")[0]
-      firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag)
+      // Cleanup on unmount
+      return () => {
+        isMounted.current = false
 
-      // Define the onYouTubeIframeAPIReady function
-      window.onYouTubeIframeAPIReady = () => {
-        console.log("YouTube API ready")
-        if (isMounted.current) {
-          setYtApiLoaded(true)
+        // Stop camera
+        stopCamera()
+
+        // Remove body class
+        document.body.classList.remove("video-playing")
+        document.body.classList.remove("inactive-cursor")
+
+        if (videoTimer.current) clearInterval(videoTimer.current)
+        if (startVideoTimeout.current) clearTimeout(startVideoTimeout.current)
+        if (sessionCheckInterval.current) clearInterval(sessionCheckInterval.current)
+        if (fullscreenCheckInterval.current) clearInterval(fullscreenCheckInterval.current)
+        if (fullscreenRetryTimeout.current) clearTimeout(fullscreenRetryTimeout.current)
+        if (cursorTimeout) clearTimeout(cursorTimeout)
+
+        // Exit fullscreen on unmount
+        if (document.fullscreenElement) {
+          document.exitFullscreen().catch((err) => console.error("Error exiting fullscreen:", err))
+        } else if ((document as any).webkitExitFullscreen) {
+          ;(document as any).webkitExitFullscreen()
+        } else if ((document as any).mozCancelFullScreen) {
+          ;(document as any).mozCancelFullScreen()
+        } else if ((document as any).msExitFullscreen) {
+          ;(document as any).msExitFullscreen()
+        }
+
+        // Remove event listeners
+        document.removeEventListener("fullscreenchange", handleFullscreenChange)
+        document.removeEventListener("webkitfullscreenchange", handleFullscreenChange)
+        document.removeEventListener("mozfullscreenchange", handleFullscreenChange)
+        document.removeEventListener("MSFullscreenChange", handleFullscreenChange)
+        window.removeEventListener("keydown", handleKeyDown, true)
+        document.removeEventListener("contextmenu", handleContextMenu)
+        document.removeEventListener("enterpictureinpicture", handlePictureInPicture)
+        document.removeEventListener("copy", handleCopy)
+        document.removeEventListener("selectstart", handleSelectStart)
+        document.removeEventListener("dragstart", handleDragStart)
+        document.removeEventListener("wheel", handleWheel)
+        document.removeEventListener("mousemove", handleMouseMove)
+
+        // Destroy YouTube player if it exists
+        if (youtubePlayer.current) {
+          try {
+            youtubePlayer.current.destroy()
+          } catch (error) {
+            console.error("Error destroying YouTube player:", error)
+          }
+        }
+
+        // Remove the added style element
+        const addedStyle = document.head.querySelector("style:last-child")
+        if (addedStyle) {
+          addedStyle.remove()
         }
       }
-    } else {
-      setYtApiLoaded(true)
     }
-
-    // Cleanup on unmount
-    return () => {
-      isMounted.current = false
-
-      // Stop camera
-      stopCamera()
-
-      // Remove body class
-      document.body.classList.remove("video-playing")
-      document.body.classList.remove("inactive-cursor")
-
-      if (videoTimer.current) clearInterval(videoTimer.current)
-      if (startVideoTimeout.current) clearTimeout(startVideoTimeout.current)
-      if (sessionCheckInterval.current) clearInterval(sessionCheckInterval.current)
-      if (fullscreenCheckInterval.current) clearInterval(fullscreenCheckInterval.current)
-      if (fullscreenRetryTimeout.current) clearTimeout(fullscreenRetryTimeout.current)
-      if (cursorTimeout) clearTimeout(cursorTimeout)
-
-      // Exit fullscreen on unmount
-      if (document.fullscreenElement) {
-        document.exitFullscreen().catch((err) => console.error("Error exiting fullscreen:", err))
-      } else if ((document as any).webkitExitFullscreen) {
-        ;(document as any).webkitExitFullscreen()
-      } else if ((document as any).mozCancelFullScreen) {
-        ;(document as any).mozCancelFullScreen()
-      } else if ((document as any).msExitFullscreen) {
-        ;(document as any).msExitFullscreen()
-      }
-
-      // Remove event listeners
-      document.removeEventListener("fullscreenchange", handleFullscreenChange)
-      document.removeEventListener("webkitfullscreenchange", handleFullscreenChange)
-      document.removeEventListener("mozfullscreenchange", handleFullscreenChange)
-      document.removeEventListener("MSFullscreenChange", handleFullscreenChange)
-      window.removeEventListener("keydown", handleKeyDown, true)
-      document.removeEventListener("contextmenu", handleContextMenu)
-      document.removeEventListener("enterpictureinpicture", handlePictureInPicture)
-      document.removeEventListener("copy", handleCopy)
-      document.removeEventListener("selectstart", handleSelectStart)
-      document.removeEventListener("dragstart", handleDragStart)
-      document.removeEventListener("wheel", handleWheel)
-      document.removeEventListener("mousemove", handleMouseMove)
-
-      // Destroy YouTube player if it exists
-      if (youtubePlayer.current) {
-        try {
-          youtubePlayer.current.destroy()
-        } catch (error) {
-          console.error("Error destroying YouTube player:", error)
-        }
-      }
-
-      // Remove the added style element
-      const addedStyle = document.head.querySelector("style:last-child")
-      if (addedStyle) {
-        addedStyle.remove()
-      }
-    }
-  }, [params.courseId, router])
+  }, [params.courseId, router, showCameraPermission])
 
   // Effect to initialize YouTube player when API is loaded and video ID is set
   useEffect(() => {
-    if (ytApiLoaded && youtubeVideoId && playerContainerRef.current) {
+    if (ytApiLoaded && youtubeVideoId && playerContainerRef.current && !showCameraPermission) {
       initializeYouTubePlayer()
     }
-  }, [ytApiLoaded, youtubeVideoId])
+  }, [ytApiLoaded, youtubeVideoId, showCameraPermission])
 
   // Effect to check if session is still active
   useEffect(() => {
-    if (courseDetails) {
+    if (courseDetails && !showCameraPermission) {
       // Start a timer to periodically check if the session is still active
       sessionCheckInterval.current = setInterval(() => {
         checkSessionStatus()
@@ -404,7 +477,7 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
         }
       }
     }
-  }, [courseDetails])
+  }, [courseDetails, showCameraPermission])
 
   // Calculate the current time position in the video based on session start time
   const calculateCurrentTimePosition = (startTime: Date): number => {
@@ -1063,6 +1136,11 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
     router.push("/user/access-course")
   }
 
+  // Show camera permission screen first
+  if (showCameraPermission) {
+    return <CameraPermission onPermissionGranted={handleCameraPermissionGranted} onSkip={handleSkipCamera} />
+  }
+
   if (loading) {
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-black">
@@ -1115,18 +1193,22 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
       ></div>
 
       {/* Camera Preview Window */}
-      {showCameraPreview && (
-        <div className="absolute top-4 right-4 z-50 bg-black rounded-lg border-2 border-white overflow-hidden">
+      {showCameraPreview && cameraOn && (
+        <div className="absolute top-4 right-4 z-50 bg-black rounded-lg border-2 border-white overflow-hidden shadow-2xl">
           <div className="relative">
-            <video ref={cameraVideoRef} autoPlay muted playsInline className="w-64 h-48 object-cover" />
+            <video ref={cameraVideoRef} autoPlay muted playsInline className="w-64 h-48 object-cover bg-gray-800" />
             <button
-              onClick={stopCamera}
+              onClick={() => setShowCameraPreview(false)}
               className="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white rounded-full p-1 transition-colors"
             >
               <X className="h-4 w-4" />
             </button>
             <div className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
               Local Preview Only
+            </div>
+            <div className="absolute top-2 left-2 bg-green-600 text-white text-xs px-2 py-1 rounded flex items-center">
+              <div className="w-2 h-2 bg-white rounded-full mr-1 animate-pulse"></div>
+              LIVE
             </div>
           </div>
         </div>
@@ -1181,18 +1263,37 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
           <div className="text-green-400 text-sm mt-2">Video completed! Returning to course list...</div>
         )}
 
-        {/* NEW SIMPLIFIED CONTROL BAR */}
+        {/* NEW CONTROL BAR WITH CAMERA TOGGLE */}
         <div className="flex items-center justify-between mt-4 bg-black/50 rounded-lg p-3">
-          {/* Video Preview Button */}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={showCameraPreview ? stopCamera : startCamera}
-            className="text-white hover:bg-white/20 flex items-center gap-2"
-          >
-            {showCameraPreview ? <CameraOff className="h-4 w-4" /> : <Camera className="h-4 w-4" />}
-            Video Preview
-          </Button>
+          {/* Camera Controls */}
+          <div className="flex items-center gap-2">
+            {/* Video Preview Button */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleCameraPreview}
+              disabled={!cameraPermissionGranted}
+              className="text-white hover:bg-white/20 flex items-center gap-2"
+            >
+              <Camera className="h-4 w-4" />
+              Video Preview
+            </Button>
+
+            {/* Camera Toggle */}
+            {cameraPermissionGranted && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={toggleCamera}
+                className={`text-white hover:bg-white/20 flex items-center gap-2 ${
+                  cameraOn ? "bg-green-600/20" : "bg-gray-600/20"
+                }`}
+              >
+                {cameraOn ? <Video className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}
+                {cameraOn ? "ON" : "OFF"}
+              </Button>
+            )}
+          </div>
 
           {/* Emoji Reaction Bar */}
           <div className="flex items-center space-x-3">
