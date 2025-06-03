@@ -1,35 +1,54 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { db } from "@/lib/db"
+import { createClient } from "@supabase/supabase-js"
+
+const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+
+export async function GET() {
+  try {
+    const { data: pages, error } = await supabase
+      .from("subscription_pages")
+      .select(`
+        *,
+        info_cards:subscription_page_cards(count),
+        sections:subscription_page_sections(count),
+        subscriptions:subscription_page_plans(count)
+      `)
+      .order("created_at", { ascending: false })
+
+    if (error) throw error
+
+    const formattedPages = pages?.map((page) => ({
+      ...page,
+      info_cards_count: page.info_cards?.[0]?.count || 0,
+      sections_count: page.sections?.[0]?.count || 0,
+      subscriptions_count: page.subscriptions?.[0]?.count || 0,
+    }))
+
+    return NextResponse.json({ pages: formattedPages })
+  } catch (error) {
+    console.error("Error fetching subscription pages:", error)
+    return NextResponse.json({ error: "Failed to fetch pages" }, { status: 500 })
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
-    const data = await request.json()
-    const { slug, title, subtitle, heroImage, introTitle, introContent, infoCards, sections, selectedSubscriptions } =
-      data
+    const body = await request.json()
+    const { info_cards, sections, subscription_ids, ...pageData } = body
 
     // Insert main page
-    const { data: pageData, error: pageError } = await db
+    const { data: page, error: pageError } = await supabase
       .from("subscription_pages")
-      .insert({
-        slug,
-        title,
-        subtitle,
-        hero_image_url: heroImage,
-        introduction_title: introTitle,
-        introduction_content: introContent,
-        status: "published",
-      })
+      .insert([pageData])
       .select()
       .single()
 
     if (pageError) throw pageError
 
-    const pageId = pageData.id
-
     // Insert info cards
-    if (infoCards.length > 0) {
-      const cardsToInsert = infoCards.map((card: any, index: number) => ({
-        page_id: pageId,
+    if (info_cards && info_cards.length > 0) {
+      const cardsToInsert = info_cards.map((card: any, index: number) => ({
+        page_id: page.id,
         card_type: card.icon,
         title: card.title,
         value: card.value,
@@ -37,73 +56,41 @@ export async function POST(request: NextRequest) {
         display_order: index,
       }))
 
-      const { error: cardsError } = await db.from("subscription_page_cards").insert(cardsToInsert)
+      const { error: cardsError } = await supabase.from("subscription_page_cards").insert(cardsToInsert)
 
       if (cardsError) throw cardsError
     }
 
     // Insert sections
-    if (sections.length > 0) {
+    if (sections && sections.length > 0) {
       const sectionsToInsert = sections.map((section: any, index: number) => ({
-        page_id: pageId,
+        page_id: page.id,
         title: section.title,
         content: section.content,
         display_order: index,
       }))
 
-      const { error: sectionsError } = await db.from("subscription_page_sections").insert(sectionsToInsert)
+      const { error: sectionsError } = await supabase.from("subscription_page_sections").insert(sectionsToInsert)
 
       if (sectionsError) throw sectionsError
     }
 
-    // Insert subscription plans
-    if (selectedSubscriptions.length > 0) {
-      const plansToInsert = selectedSubscriptions.map((subscriptionId: string, index: number) => ({
-        page_id: pageId,
-        subscription_id: subscriptionId,
+    // Insert subscription relationships
+    if (subscription_ids && subscription_ids.length > 0) {
+      const plansToInsert = subscription_ids.map((id: number, index: number) => ({
+        page_id: page.id,
+        subscription_id: id,
         display_order: index,
       }))
 
-      const { error: plansError } = await db.from("subscription_page_plans").insert(plansToInsert)
+      const { error: plansError } = await supabase.from("subscription_page_plans").insert(plansToInsert)
 
       if (plansError) throw plansError
     }
 
-    return NextResponse.json({
-      success: true,
-      message: "Subscription page created successfully",
-      pageId,
-    })
+    return NextResponse.json({ success: true, page })
   } catch (error) {
     console.error("Error creating subscription page:", error)
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to create subscription page",
-      },
-      { status: 500 },
-    )
-  }
-}
-
-export async function GET() {
-  try {
-    const { data: pages, error } = await db
-      .from("subscription_pages")
-      .select("*")
-      .order("created_at", { ascending: false })
-
-    if (error) throw error
-
-    return NextResponse.json({ success: true, pages })
-  } catch (error) {
-    console.error("Error fetching subscription pages:", error)
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to fetch subscription pages",
-      },
-      { status: 500 },
-    )
+    return NextResponse.json({ error: "Failed to create page" }, { status: 500 })
   }
 }
