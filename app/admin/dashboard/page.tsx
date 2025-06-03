@@ -650,36 +650,6 @@ export default function AdminDashboard() {
             </Card>
           </div>
 
-          {/* Subscription Pages Card */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Subscription Pages</CardTitle>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-4 w-4 text-muted-foreground"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"
-                />
-              </svg>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">0</div>
-              <p className="text-xs text-muted-foreground">Landing pages created</p>
-              <div className="mt-2">
-                <Button asChild size="sm">
-                  <Link href="/admin/subscription-pages/create">Create New Page</Link>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Video Analytics Overview - All cards in a single line */}
           <Card className="col-span-2">
             <CardHeader>
