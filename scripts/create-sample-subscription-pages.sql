@@ -1,59 +1,43 @@
--- Create sample subscription detail pages
-
--- First, let's create the subscription_pages table if it doesn't exist
-CREATE TABLE IF NOT EXISTS subscription_pages (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    slug VARCHAR(255) UNIQUE NOT NULL,
-    title VARCHAR(255) NOT NULL,
-    subtitle TEXT,
-    hero_image_url TEXT,
-    introduction_title VARCHAR(255),
-    introduction_content TEXT,
-    status VARCHAR(50) DEFAULT 'published',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+-- Create sample subscription pages
+INSERT INTO subscription_pages (id, slug, title, subtitle, hero_image_url, introduction_title, introduction_content, status, created_at, updated_at) VALUES
+(
+  gen_random_uuid(),
+  'yoga-programs',
+  'Yoga Programs',
+  'Transform your mind, body, and spirit through ancient practices',
+  '/images/yoga-hero-bg.jpg',
+  'Discover Inner Peace Through Yoga',
+  'Our comprehensive yoga programs combine traditional asanas, breathing techniques, and meditation to help you achieve physical strength, mental clarity, and spiritual balance. Whether you''re a beginner or advanced practitioner, our expert instructors will guide you on your journey to wellness.',
+  'published',
+  NOW(),
+  NOW()
+),
+(
+  gen_random_uuid(),
+  'fitness-training',
+  'Fitness Training',
+  'Build strength, endurance, and confidence',
+  '/images/fitness-hero-bg.jpg',
+  'Achieve Your Fitness Goals',
+  'Our fitness training programs are designed to help you build strength, improve cardiovascular health, and boost your overall fitness level. With personalized workout plans and expert guidance, you''ll see results faster than ever before.',
+  'published',
+  NOW(),
+  NOW()
+),
+(
+  gen_random_uuid(),
+  'wellness-packages',
+  'Wellness Packages',
+  'Holistic approach to health and well-being',
+  '/images/wellness-bg.jpg',
+  'Complete Wellness Solutions',
+  'Our wellness packages combine nutrition guidance, stress management techniques, and lifestyle coaching to help you achieve optimal health. Take a holistic approach to your well-being with our comprehensive programs.',
+  'published',
+  NOW(),
+  NOW()
 );
 
--- Create subscription_page_cards table if it doesn't exist
-CREATE TABLE IF NOT EXISTS subscription_page_cards (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    page_id UUID REFERENCES subscription_pages(id) ON DELETE CASCADE,
-    card_type VARCHAR(100) NOT NULL,
-    title VARCHAR(255) NOT NULL,
-    value TEXT NOT NULL,
-    icon VARCHAR(100),
-    display_order INTEGER DEFAULT 0,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Create subscription_page_sections table if it doesn't exist
-CREATE TABLE IF NOT EXISTS subscription_page_sections (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    page_id UUID REFERENCES subscription_pages(id) ON DELETE CASCADE,
-    title VARCHAR(255) NOT NULL,
-    content TEXT NOT NULL,
-    display_order INTEGER DEFAULT 0,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Create subscription_page_plans table if it doesn't exist
-CREATE TABLE IF NOT EXISTS subscription_page_plans (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    page_id UUID REFERENCES subscription_pages(id) ON DELETE CASCADE,
-    subscription_id INTEGER REFERENCES subscriptions(id) ON DELETE CASCADE,
-    display_order INTEGER DEFAULT 0,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Insert sample subscription pages
-INSERT INTO subscription_pages (slug, title, subtitle, hero_image_url, introduction_title, introduction_content, status) VALUES
-('yoga-programs', 'Yoga Programs', 'Transform your mind, body, and spirit through ancient practices', '/images/yoga-hero-bg.jpg', 'Discover Inner Peace Through Yoga', 'Our comprehensive yoga programs are designed to guide you on a transformative journey of self-discovery. Whether you''re a beginner or an experienced practitioner, our expert instructors will help you develop strength, flexibility, and mindfulness through traditional and modern yoga practices.', 'published'),
-
-('fitness-training', 'Fitness Training', 'Build strength, endurance, and achieve your fitness goals', '/images/forest-wellness-bg.jpg', 'Achieve Your Fitness Goals', 'Our fitness training programs combine the best of traditional exercise methods with modern fitness science. From strength training to cardio workouts, our certified trainers will create personalized programs to help you reach your fitness objectives in a supportive and motivating environment.', 'published'),
-
-('wellness-packages', 'Wellness Packages', 'Holistic approach to health and well-being', '/images/serene-forest-meditation.jpg', 'Complete Wellness Solutions', 'Our wellness packages offer a holistic approach to health, combining physical fitness, mental well-being, and spiritual growth. These comprehensive programs include yoga, meditation, nutrition guidance, and lifestyle coaching to help you achieve optimal health and happiness.', 'published');
-
--- Get the page IDs for adding cards and sections
+-- Get the page IDs for linking
 DO $$
 DECLARE
     yoga_page_id UUID;
@@ -65,83 +49,46 @@ BEGIN
     SELECT id INTO fitness_page_id FROM subscription_pages WHERE slug = 'fitness-training';
     SELECT id INTO wellness_page_id FROM subscription_pages WHERE slug = 'wellness-packages';
 
-    -- Insert info cards for Yoga Programs
-    INSERT INTO subscription_page_cards (page_id, card_type, title, value, icon, display_order) VALUES
-    (yoga_page_id, 'info', 'Program Start', 'Every Monday', 'calendar', 1),
-    (yoga_page_id, 'info', 'Session Duration', '60-90 minutes', 'clock', 2),
-    (yoga_page_id, 'info', 'Class Size', 'Max 15 students', 'users', 3),
-    (yoga_page_id, 'info', 'Experience Level', 'All levels welcome', 'star', 4);
+    -- Create info cards for yoga programs
+    INSERT INTO subscription_page_cards (id, page_id, card_type, title, value, icon, display_order) VALUES
+    (gen_random_uuid(), yoga_page_id, 'info', 'Start Date', 'Flexible Start', 'calendar', 1),
+    (gen_random_uuid(), yoga_page_id, 'info', 'Duration', '30-365 Days', 'clock', 2),
+    (gen_random_uuid(), yoga_page_id, 'info', 'Price Range', 'From ₹2,999', 'star', 3),
+    (gen_random_uuid(), yoga_page_id, 'info', 'Batches', '6 Available', 'users', 4);
 
-    -- Insert content sections for Yoga Programs
-    INSERT INTO subscription_page_sections (page_id, title, content, display_order) VALUES
-    (yoga_page_id, 'What You''ll Learn', '<p>Our yoga programs cover a comprehensive range of practices including:</p><ul><li>Hatha Yoga fundamentals and advanced poses</li><li>Pranayama (breathing techniques) for stress relief</li><li>Meditation and mindfulness practices</li><li>Yoga philosophy and lifestyle principles</li><li>Proper alignment and injury prevention</li></ul>', 1),
-    (yoga_page_id, 'Class Schedule', '<p>We offer flexible scheduling to fit your lifestyle:</p><ul><li><strong>Morning Sessions:</strong> 6:00 AM - 7:30 AM (Monday to Friday)</li><li><strong>Evening Sessions:</strong> 6:00 PM - 7:30 PM (Monday to Friday)</li><li><strong>Weekend Classes:</strong> 8:00 AM - 9:30 AM (Saturday & Sunday)</li><li><strong>Special Workshops:</strong> Monthly intensive sessions</li></ul>', 2),
-    (yoga_page_id, 'Benefits & Results', '<p>Regular practice with our programs will help you achieve:</p><ul><li>Improved flexibility and strength</li><li>Better posture and body alignment</li><li>Reduced stress and anxiety</li><li>Enhanced mental clarity and focus</li><li>Better sleep quality</li><li>Increased energy levels</li></ul>', 3);
+    -- Create content sections for yoga programs
+    INSERT INTO subscription_page_sections (id, page_id, title, content, display_order) VALUES
+    (gen_random_uuid(), yoga_page_id, 'What You''ll Learn', '<ul><li>Traditional Hatha and Vinyasa yoga sequences</li><li>Pranayama (breathing techniques)</li><li>Meditation and mindfulness practices</li><li>Proper alignment and posture</li><li>Stress reduction techniques</li></ul>', 1),
+    (gen_random_uuid(), yoga_page_id, 'Class Schedule', '<p>Our yoga classes are available at flexible timings to accommodate your schedule:</p><ul><li>Morning sessions: 6:00 AM - 8:00 AM</li><li>Evening sessions: 6:00 PM - 8:00 PM</li><li>Weekend workshops: 10:00 AM - 12:00 PM</li></ul>', 2),
+    (gen_random_uuid(), yoga_page_id, 'Benefits & Results', '<p>Regular practice of yoga offers numerous benefits:</p><ul><li>Improved flexibility and strength</li><li>Better posture and balance</li><li>Reduced stress and anxiety</li><li>Enhanced mental clarity</li><li>Better sleep quality</li><li>Increased energy levels</li></ul>', 3);
 
-    -- Insert info cards for Fitness Training
-    INSERT INTO subscription_page_cards (page_id, card_type, title, value, icon, display_order) VALUES
-    (fitness_page_id, 'info', 'Training Start', 'Flexible start dates', 'calendar', 1),
-    (fitness_page_id, 'info', 'Workout Duration', '45-75 minutes', 'clock', 2),
-    (fitness_page_id, 'info', 'Group Size', 'Small groups (8-12)', 'users', 3),
-    (fitness_page_id, 'info', 'Fitness Level', 'Beginner to advanced', 'star', 4);
+    -- Link subscription plans to yoga page (assuming some subscription IDs exist)
+    INSERT INTO subscription_page_plans (id, page_id, subscription_id, display_order)
+    SELECT gen_random_uuid(), yoga_page_id, s.id, ROW_NUMBER() OVER (ORDER BY s.price)
+    FROM subscriptions s 
+    WHERE s.price > 0 
+    LIMIT 3;
 
-    -- Insert content sections for Fitness Training
-    INSERT INTO subscription_page_sections (page_id, title, content, display_order) VALUES
-    (fitness_page_id, 'Training Programs', '<p>Our comprehensive fitness training includes:</p><ul><li>Strength training with free weights and machines</li><li>Cardiovascular conditioning programs</li><li>Functional movement training</li><li>High-Intensity Interval Training (HIIT)</li><li>Flexibility and mobility work</li><li>Personalized workout plans</li></ul>', 1),
-    (fitness_page_id, 'Training Schedule', '<p>Choose from multiple training sessions throughout the week:</p><ul><li><strong>Early Morning:</strong> 5:30 AM - 6:45 AM</li><li><strong>Morning:</strong> 7:00 AM - 8:15 AM</li><li><strong>Evening:</strong> 6:00 PM - 7:15 PM</li><li><strong>Late Evening:</strong> 7:30 PM - 8:45 PM</li><li><strong>Weekend Sessions:</strong> 9:00 AM - 10:15 AM</li></ul>', 2),
-    (fitness_page_id, 'Expected Results', '<p>With consistent training, you can expect:</p><ul><li>Increased muscle strength and endurance</li><li>Improved cardiovascular health</li><li>Better body composition (muscle gain, fat loss)</li><li>Enhanced athletic performance</li><li>Increased metabolism</li><li>Greater confidence and self-esteem</li></ul>', 3);
+    -- Create similar content for fitness training
+    INSERT INTO subscription_page_cards (id, page_id, card_type, title, value, icon, display_order) VALUES
+    (gen_random_uuid(), fitness_page_id, 'info', 'Training Type', 'Strength & Cardio', 'star', 1),
+    (gen_random_uuid(), fitness_page_id, 'info', 'Duration', '30-90 Days', 'clock', 2),
+    (gen_random_uuid(), fitness_page_id, 'info', 'Equipment', 'Minimal Required', 'users', 3),
+    (gen_random_uuid(), fitness_page_id, 'info', 'Difficulty', 'All Levels', 'calendar', 4);
 
-    -- Insert info cards for Wellness Packages
-    INSERT INTO subscription_page_cards (page_id, card_type, title, value, icon, display_order) VALUES
-    (wellness_page_id, 'info', 'Program Duration', '3-12 months', 'calendar', 1),
-    (wellness_page_id, 'info', 'Session Types', 'Multiple modalities', 'clock', 2),
-    (wellness_page_id, 'info', 'Support Level', '1-on-1 & group sessions', 'users', 3),
-    (wellness_page_id, 'info', 'Approach', 'Holistic wellness', 'star', 4);
+    INSERT INTO subscription_page_sections (id, page_id, title, content, display_order) VALUES
+    (gen_random_uuid(), fitness_page_id, 'Training Components', '<ul><li>Strength training with bodyweight and weights</li><li>Cardiovascular conditioning</li><li>Functional movement patterns</li><li>Flexibility and mobility work</li><li>Nutrition guidance</li></ul>', 1),
+    (gen_random_uuid(), fitness_page_id, 'Workout Schedule', '<p>Structured training schedule designed for optimal results:</p><ul><li>3-4 training sessions per week</li><li>45-60 minutes per session</li><li>Progressive difficulty levels</li><li>Rest and recovery days included</li></ul>', 2);
 
-    -- Insert content sections for Wellness Packages
-    INSERT INTO subscription_page_sections (page_id, title, content, display_order) VALUES
-    (wellness_page_id, 'Comprehensive Approach', '<p>Our wellness packages integrate multiple disciplines:</p><ul><li>Yoga and meditation practices</li><li>Fitness and strength training</li><li>Nutrition counseling and meal planning</li><li>Stress management techniques</li><li>Lifestyle coaching and habit formation</li><li>Mental health and emotional well-being support</li></ul>', 1),
-    (wellness_page_id, 'Program Structure', '<p>Each wellness package is carefully structured:</p><ul><li><strong>Initial Assessment:</strong> Comprehensive health and wellness evaluation</li><li><strong>Personalized Plan:</strong> Custom program based on your goals</li><li><strong>Regular Sessions:</strong> Weekly group and individual sessions</li><li><strong>Progress Tracking:</strong> Monthly assessments and plan adjustments</li><li><strong>Ongoing Support:</strong> 24/7 access to wellness resources</li></ul>', 2),
-    (wellness_page_id, 'Transformation Goals', '<p>Our wellness packages help you achieve:</p><ul><li>Optimal physical health and vitality</li><li>Mental clarity and emotional balance</li><li>Sustainable healthy lifestyle habits</li><li>Improved work-life balance</li><li>Enhanced relationships and social connections</li><li>Greater sense of purpose and fulfillment</li></ul>', 3);
+    -- Create content for wellness packages
+    INSERT INTO subscription_page_cards (id, page_id, card_type, title, value, icon, display_order) VALUES
+    (gen_random_uuid(), wellness_page_id, 'info', 'Approach', 'Holistic Wellness', 'star', 1),
+    (gen_random_uuid(), wellness_page_id, 'info', 'Support', '24/7 Guidance', 'users', 2),
+    (gen_random_uuid(), wellness_page_id, 'info', 'Duration', 'Ongoing Support', 'clock', 3),
+    (gen_random_uuid(), wellness_page_id, 'info', 'Focus Areas', 'Mind, Body, Spirit', 'calendar', 4);
+
+    INSERT INTO subscription_page_sections (id, page_id, title, content, display_order) VALUES
+    (gen_random_uuid(), wellness_page_id, 'Wellness Components', '<ul><li>Personalized nutrition planning</li><li>Stress management techniques</li><li>Sleep optimization strategies</li><li>Mindfulness and meditation</li><li>Lifestyle coaching</li></ul>', 1),
+    (gen_random_uuid(), wellness_page_id, 'Support System', '<p>Comprehensive support for your wellness journey:</p><ul><li>Weekly one-on-one consultations</li><li>24/7 chat support</li><li>Progress tracking and adjustments</li><li>Community support groups</li></ul>', 2);
 
 END $$;
-
--- Link existing subscription plans to pages (if any exist)
--- This will link all existing paid subscriptions to each page for demonstration
-DO $$
-DECLARE
-    yoga_page_id UUID;
-    fitness_page_id UUID;
-    wellness_page_id UUID;
-    sub_record RECORD;
-    counter INTEGER := 1;
-BEGIN
-    -- Get page IDs
-    SELECT id INTO yoga_page_id FROM subscription_pages WHERE slug = 'yoga-programs';
-    SELECT id INTO fitness_page_id FROM subscription_pages WHERE slug = 'fitness-training';
-    SELECT id INTO wellness_page_id FROM subscription_pages WHERE slug = 'wellness-packages';
-
-    -- Link subscriptions to pages (distribute them across pages)
-    FOR sub_record IN SELECT id FROM subscriptions WHERE price > 0 ORDER BY price LOOP
-        IF counter % 3 = 1 THEN
-            INSERT INTO subscription_page_plans (page_id, subscription_id, display_order) 
-            VALUES (yoga_page_id, sub_record.id, counter);
-        ELSIF counter % 3 = 2 THEN
-            INSERT INTO subscription_page_plans (page_id, subscription_id, display_order) 
-            VALUES (fitness_page_id, sub_record.id, counter);
-        ELSE
-            INSERT INTO subscription_page_plans (page_id, subscription_id, display_order) 
-            VALUES (wellness_page_id, sub_record.id, counter);
-        END IF;
-        counter := counter + 1;
-    END LOOP;
-END $$;
-
--- Create indexes for better performance
-CREATE INDEX IF NOT EXISTS idx_subscription_pages_slug ON subscription_pages(slug);
-CREATE INDEX IF NOT EXISTS idx_subscription_pages_status ON subscription_pages(status);
-CREATE INDEX IF NOT EXISTS idx_subscription_page_cards_page_id ON subscription_page_cards(page_id);
-CREATE INDEX IF NOT EXISTS idx_subscription_page_sections_page_id ON subscription_page_sections(page_id);
-CREATE INDEX IF NOT EXISTS idx_subscription_page_plans_page_id ON subscription_page_plans(page_id);
-
-SELECT 'Sample subscription pages created successfully!' as result;
