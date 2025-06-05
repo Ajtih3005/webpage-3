@@ -11,9 +11,19 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ArrowLeft, Save, Plus, Edit, Trash2, ExternalLink } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { ArrowLeft, Save, Plus, Trash2, ExternalLink, AlertCircle } from "lucide-react"
 import Link from "next/link"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 interface SubscriptionPage {
   id: string
@@ -55,6 +65,14 @@ interface LinkedPlan {
   }
 }
 
+interface Subscription {
+  id: string
+  name: string
+  description: string
+  price: number
+  duration_days: number
+}
+
 export default function EditSubscriptionPage({ params }: { params: { id: string } }) {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
@@ -63,7 +81,19 @@ export default function EditSubscriptionPage({ params }: { params: { id: string 
   const [infoCards, setInfoCards] = useState<InfoCard[]>([])
   const [contentSections, setContentSections] = useState<ContentSection[]>([])
   const [linkedPlans, setLinkedPlans] = useState<LinkedPlan[]>([])
-  const [availableSubscriptions, setAvailableSubscriptions] = useState<any[]>([])
+  const [availableSubscriptions, setAvailableSubscriptions] = useState<Subscription[]>([])
+  const [loadingSubscriptions, setLoadingSubscriptions] = useState(false)
+  const [subscriptionError, setSubscriptionError] = useState<string | null>(null)
+
+  // Dialog states
+  const [cardDialogOpen, setCardDialogOpen] = useState(false)
+  const [sectionDialogOpen, setSectionDialogOpen] = useState(false)
+  const [planDialogOpen, setPlanDialogOpen] = useState(false)
+
+  // Form states
+  const [newCard, setNewCard] = useState({ title: "", value: "", icon: "star", card_type: "info" })
+  const [newSection, setNewSection] = useState({ title: "", content: "" })
+  const [selectedPlanId, setSelectedPlanId] = useState("")
 
   useEffect(() => {
     fetchPageData()
@@ -131,18 +161,31 @@ export default function EditSubscriptionPage({ params }: { params: { id: string 
   }
 
   const fetchAvailableSubscriptions = async () => {
+    setLoadingSubscriptions(true)
+    setSubscriptionError(null)
     const supabase = getSupabaseBrowserClient()
+
     try {
+      // Get all active subscriptions
       const { data, error } = await supabase
         .from("subscriptions")
         .select("id, name, description, price, duration_days")
-        .eq("is_active", true)
         .order("name")
 
       if (error) throw error
+
+      console.log("Available subscriptions:", data)
+
+      if (!data || data.length === 0) {
+        setSubscriptionError("No subscriptions found in the database. Please create subscriptions first.")
+      }
+
       setAvailableSubscriptions(data || [])
     } catch (error) {
       console.error("Error fetching subscriptions:", error)
+      setSubscriptionError("Failed to load subscriptions. Please try again.")
+    } finally {
+      setLoadingSubscriptions(false)
     }
   }
 
@@ -175,6 +218,114 @@ export default function EditSubscriptionPage({ params }: { params: { id: string 
       setSaving(false)
     }
   }
+
+  const handleAddCard = async () => {
+    const supabase = getSupabaseBrowserClient()
+    try {
+      const { error } = await supabase.from("subscription_page_cards").insert({
+        page_id: params.id,
+        title: newCard.title,
+        value: newCard.value,
+        icon: newCard.icon,
+        card_type: newCard.card_type,
+        display_order: infoCards.length + 1,
+      })
+
+      if (error) throw error
+
+      setNewCard({ title: "", value: "", icon: "star", card_type: "info" })
+      setCardDialogOpen(false)
+      fetchPageData() // Refresh data
+    } catch (error) {
+      console.error("Error adding card:", error)
+      alert("Error adding card. Please try again.")
+    }
+  }
+
+  const handleAddSection = async () => {
+    const supabase = getSupabaseBrowserClient()
+    try {
+      const { error } = await supabase.from("subscription_page_sections").insert({
+        page_id: params.id,
+        title: newSection.title,
+        content: newSection.content,
+        display_order: contentSections.length + 1,
+      })
+
+      if (error) throw error
+
+      setNewSection({ title: "", content: "" })
+      setSectionDialogOpen(false)
+      fetchPageData() // Refresh data
+    } catch (error) {
+      console.error("Error adding section:", error)
+      alert("Error adding section. Please try again.")
+    }
+  }
+
+  const handleLinkPlan = async () => {
+    const supabase = getSupabaseBrowserClient()
+    if (!selectedPlanId) return
+
+    try {
+      const { error } = await supabase.from("subscription_page_plans").insert({
+        page_id: params.id,
+        subscription_id: selectedPlanId,
+        display_order: linkedPlans.length + 1,
+      })
+
+      if (error) throw error
+
+      setSelectedPlanId("")
+      setPlanDialogOpen(false)
+      fetchPageData() // Refresh data
+    } catch (error) {
+      console.error("Error linking plan:", error)
+      alert("Error linking plan. Please try again.")
+    }
+  }
+
+  const handleDeleteCard = async (cardId: string) => {
+    const supabase = getSupabaseBrowserClient()
+    try {
+      const { error } = await supabase.from("subscription_page_cards").delete().eq("id", cardId)
+
+      if (error) throw error
+      fetchPageData() // Refresh data
+    } catch (error) {
+      console.error("Error deleting card:", error)
+    }
+  }
+
+  const handleDeleteSection = async (sectionId: string) => {
+    const supabase = getSupabaseBrowserClient()
+    try {
+      const { error } = await supabase.from("subscription_page_sections").delete().eq("id", sectionId)
+
+      if (error) throw error
+      fetchPageData() // Refresh data
+    } catch (error) {
+      console.error("Error deleting section:", error)
+    }
+  }
+
+  const handleUnlinkPlan = async (linkId: string) => {
+    const supabase = getSupabaseBrowserClient()
+    try {
+      const { error } = await supabase.from("subscription_page_plans").delete().eq("id", linkId)
+
+      if (error) throw error
+      fetchPageData() // Refresh data
+    } catch (error) {
+      console.error("Error unlinking plan:", error)
+    }
+  }
+
+  // Get list of subscription IDs that are already linked
+  const alreadyLinkedIds = linkedPlans.map((plan) => plan.subscription_id)
+
+  // Filter available subscriptions to only show ones that aren't already linked
+  const unlinkedSubscriptions = availableSubscriptions.filter((sub) => !alreadyLinkedIds.includes(sub.id))
 
   if (loading) {
     return (
@@ -219,12 +370,14 @@ export default function EditSubscriptionPage({ params }: { params: { id: string 
             </div>
           </div>
           <div className="flex gap-2">
-            <Link href={`/user/subscription-categories/${page.slug}`} target="_blank">
-              <Button variant="outline">
-                <ExternalLink className="mr-2 h-4 w-4" />
-                Preview
-              </Button>
-            </Link>
+            {page.status === "published" && (
+              <Link href={`/user/subscription-categories/${page.slug}`} target="_blank">
+                <Button variant="outline">
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  View Live Page
+                </Button>
+              </Link>
+            )}
             <Button onClick={handleSavePage} disabled={saving}>
               <Save className="mr-2 h-4 w-4" />
               {saving ? "Saving..." : "Save Changes"}
@@ -251,13 +404,17 @@ export default function EditSubscriptionPage({ params }: { params: { id: string 
                     <Label htmlFor="title">Page Title</Label>
                     <Input
                       id="title"
-                      value={page.title}
+                      value={page.title || ""}
                       onChange={(e) => setPage({ ...page, title: e.target.value })}
                     />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="slug">URL Slug</Label>
-                    <Input id="slug" value={page.slug} onChange={(e) => setPage({ ...page, slug: e.target.value })} />
+                    <Input
+                      id="slug"
+                      value={page.slug || ""}
+                      onChange={(e) => setPage({ ...page, slug: e.target.value })}
+                    />
                   </div>
                 </div>
 
@@ -265,7 +422,7 @@ export default function EditSubscriptionPage({ params }: { params: { id: string 
                   <Label htmlFor="subtitle">Subtitle</Label>
                   <Input
                     id="subtitle"
-                    value={page.subtitle}
+                    value={page.subtitle || ""}
                     onChange={(e) => setPage({ ...page, subtitle: e.target.value })}
                   />
                 </div>
@@ -274,7 +431,7 @@ export default function EditSubscriptionPage({ params }: { params: { id: string 
                   <Label htmlFor="hero_image_url">Hero Image URL</Label>
                   <Input
                     id="hero_image_url"
-                    value={page.hero_image_url}
+                    value={page.hero_image_url || ""}
                     onChange={(e) => setPage({ ...page, hero_image_url: e.target.value })}
                   />
                 </div>
@@ -299,7 +456,7 @@ export default function EditSubscriptionPage({ params }: { params: { id: string 
                   <Label htmlFor="introduction_title">Introduction Title</Label>
                   <Input
                     id="introduction_title"
-                    value={page.introduction_title}
+                    value={page.introduction_title || ""}
                     onChange={(e) => setPage({ ...page, introduction_title: e.target.value })}
                   />
                 </div>
@@ -308,7 +465,7 @@ export default function EditSubscriptionPage({ params }: { params: { id: string 
                   <Label htmlFor="introduction_content">Introduction Content</Label>
                   <Textarea
                     id="introduction_content"
-                    value={page.introduction_content}
+                    value={page.introduction_content || ""}
                     onChange={(e) => setPage({ ...page, introduction_content: e.target.value })}
                     rows={4}
                   />
@@ -325,10 +482,65 @@ export default function EditSubscriptionPage({ params }: { params: { id: string 
                     <CardTitle>Info Cards</CardTitle>
                     <CardDescription>Small information cards displayed below the hero section</CardDescription>
                   </div>
-                  <Button size="sm">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Card
-                  </Button>
+                  <Dialog open={cardDialogOpen} onOpenChange={setCardDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button size="sm">
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add Card
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Add Info Card</DialogTitle>
+                        <DialogDescription>Create a new information card for this page</DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="card-title">Title</Label>
+                          <Input
+                            id="card-title"
+                            value={newCard.title}
+                            onChange={(e) => setNewCard({ ...newCard, title: e.target.value })}
+                            placeholder="e.g., Students Enrolled"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="card-value">Value</Label>
+                          <Input
+                            id="card-value"
+                            value={newCard.value}
+                            onChange={(e) => setNewCard({ ...newCard, value: e.target.value })}
+                            placeholder="e.g., 1000+"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="card-icon">Icon</Label>
+                          <Select
+                            value={newCard.icon}
+                            onValueChange={(value) => setNewCard({ ...newCard, icon: value })}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="users">Users</SelectItem>
+                              <SelectItem value="star">Star</SelectItem>
+                              <SelectItem value="clock">Clock</SelectItem>
+                              <SelectItem value="check">Check</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setCardDialogOpen(false)}>
+                          Cancel
+                        </Button>
+                        <Button onClick={handleAddCard} disabled={!newCard.title || !newCard.value}>
+                          Add Card
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
                 </div>
               </CardHeader>
               <CardContent>
@@ -347,14 +559,9 @@ export default function EditSubscriptionPage({ params }: { params: { id: string 
                             <div className="text-sm text-gray-600">{card.value}</div>
                           </div>
                         </div>
-                        <div className="flex gap-2">
-                          <Button variant="outline" size="sm">
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button variant="outline" size="sm">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                        <Button variant="outline" size="sm" onClick={() => handleDeleteCard(card.id)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     ))}
                   </div>
@@ -371,10 +578,49 @@ export default function EditSubscriptionPage({ params }: { params: { id: string 
                     <CardTitle>Content Sections</CardTitle>
                     <CardDescription>Expandable content sections with detailed information</CardDescription>
                   </div>
-                  <Button size="sm">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Section
-                  </Button>
+                  <Dialog open={sectionDialogOpen} onOpenChange={setSectionDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button size="sm">
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add Section
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-2xl">
+                      <DialogHeader>
+                        <DialogTitle>Add Content Section</DialogTitle>
+                        <DialogDescription>Create a new expandable content section</DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="section-title">Title</Label>
+                          <Input
+                            id="section-title"
+                            value={newSection.title}
+                            onChange={(e) => setNewSection({ ...newSection, title: e.target.value })}
+                            placeholder="e.g., What You'll Learn"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="section-content">Content</Label>
+                          <Textarea
+                            id="section-content"
+                            value={newSection.content}
+                            onChange={(e) => setNewSection({ ...newSection, content: e.target.value })}
+                            placeholder="Detailed content for this section..."
+                            rows={6}
+                          />
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setSectionDialogOpen(false)}>
+                          Cancel
+                        </Button>
+                        <Button onClick={handleAddSection} disabled={!newSection.title || !newSection.content}>
+                          Add Section
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
                 </div>
               </CardHeader>
               <CardContent>
@@ -388,14 +634,9 @@ export default function EditSubscriptionPage({ params }: { params: { id: string 
                       <div key={section.id} className="p-4 border rounded-lg">
                         <div className="flex items-center justify-between mb-2">
                           <h4 className="font-medium">{section.title}</h4>
-                          <div className="flex gap-2">
-                            <Button variant="outline" size="sm">
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button variant="outline" size="sm">
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
+                          <Button variant="outline" size="sm" onClick={() => handleDeleteSection(section.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
                         <div className="text-sm text-gray-600 line-clamp-2">{section.content}</div>
                       </div>
@@ -414,10 +655,88 @@ export default function EditSubscriptionPage({ params }: { params: { id: string 
                     <CardTitle>Linked Subscription Plans</CardTitle>
                     <CardDescription>Subscription plans that will be displayed on this page</CardDescription>
                   </div>
-                  <Button size="sm">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Link Plan
-                  </Button>
+                  <Dialog open={planDialogOpen} onOpenChange={setPlanDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button size="sm">
+                        <Plus className="mr-2 h-4 w-4" />
+                        Link Plan
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Link Subscription Plan</DialogTitle>
+                        <DialogDescription>Choose a subscription plan to display on this page</DialogDescription>
+                      </DialogHeader>
+
+                      {subscriptionError && (
+                        <Alert variant="destructive" className="mb-4">
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertDescription>{subscriptionError}</AlertDescription>
+                        </Alert>
+                      )}
+
+                      {loadingSubscriptions ? (
+                        <div className="py-4 text-center">Loading subscriptions...</div>
+                      ) : (
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="plan-select">Select Plan</Label>
+                            <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Choose a subscription plan" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {unlinkedSubscriptions.length === 0 ? (
+                                  <SelectItem value="no-plans" disabled>
+                                    No available plans to link
+                                  </SelectItem>
+                                ) : (
+                                  unlinkedSubscriptions.map((subscription) => (
+                                    <SelectItem key={subscription.id} value={subscription.id}>
+                                      {subscription.name} - ₹{subscription.price}
+                                    </SelectItem>
+                                  ))
+                                )}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          {unlinkedSubscriptions.length === 0 && availableSubscriptions.length > 0 && (
+                            <div className="text-amber-600 text-sm flex items-center gap-2">
+                              <AlertCircle className="h-4 w-4" />
+                              All available subscriptions are already linked to this page.
+                            </div>
+                          )}
+
+                          {availableSubscriptions.length === 0 && !subscriptionError && (
+                            <div className="text-amber-600 text-sm flex items-center gap-2">
+                              <AlertCircle className="h-4 w-4" />
+                              No subscriptions found. Please create subscriptions first.
+                            </div>
+                          )}
+
+                          <div className="text-sm text-gray-500">
+                            <Link
+                              href="/admin/subscriptions/create"
+                              target="_blank"
+                              className="text-blue-600 hover:underline"
+                            >
+                              Create new subscription
+                            </Link>
+                          </div>
+                        </div>
+                      )}
+
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setPlanDialogOpen(false)}>
+                          Cancel
+                        </Button>
+                        <Button onClick={handleLinkPlan} disabled={!selectedPlanId || selectedPlanId === "no-plans"}>
+                          Link Plan
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
                 </div>
               </CardHeader>
               <CardContent>
@@ -436,14 +755,9 @@ export default function EditSubscriptionPage({ params }: { params: { id: string 
                             ₹{linkedPlan.subscriptions.price} • {linkedPlan.subscriptions.duration_days} days
                           </div>
                         </div>
-                        <div className="flex gap-2">
-                          <Button variant="outline" size="sm">
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button variant="outline" size="sm">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                        <Button variant="outline" size="sm" onClick={() => handleUnlinkPlan(linkedPlan.id)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     ))}
                   </div>

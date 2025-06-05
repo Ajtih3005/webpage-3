@@ -24,6 +24,10 @@ import {
   Wind,
   Sparkles,
   BookOpen,
+  Package,
+  ExternalLink,
+  Star,
+  Zap,
 } from "lucide-react"
 import { useState, useEffect } from "react"
 import ReviewCarousel from "@/components/review-carousel"
@@ -46,16 +50,18 @@ export default function Home() {
       {/* Header with responsive menu */}
       <header
         className={`w-full py-3 px-4 sticky top-0 z-50 transition-all duration-300 ${
-          scrolled ? "bg-white/95 backdrop-blur-md shadow-md" : "bg-white/90 border-b border-green-100"
+          scrolled
+            ? "bg-white/95 backdrop-blur-md shadow-lg border-b border-green-100/50"
+            : "bg-white/90 border-b border-green-100"
         }`}
       >
         <div className="container mx-auto flex items-center justify-between">
           <div className="flex items-center">
-            <div className="relative h-10 w-10 mr-2 sm:h-12 sm:w-12 sm:mr-3 overflow-hidden rounded-full border-2 border-green-100 shadow-sm">
+            <div className="relative h-10 w-10 mr-2 sm:h-12 sm:w-12 sm:mr-3 overflow-hidden rounded-full border-2 border-green-100 shadow-md hover:shadow-lg transition-shadow">
               <Image src="/images/logo.png" alt="Sthavishtah Logo" fill className="object-contain" priority />
             </div>
             <div className="flex flex-col">
-              <span className="text-lg sm:text-xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-green-800 to-green-600">
+              <span className="text-lg sm:text-xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-green-800 via-emerald-700 to-green-600">
                 STHAVISHTAH
               </span>
               <span className="text-xs tracking-widest text-green-700/70 hidden sm:block">YOGA AND WELLNESS</span>
@@ -66,19 +72,19 @@ export default function Home() {
           <div className="hidden md:flex gap-3">
             <Link
               href="/user/login"
-              className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-white hover:bg-green-50 text-green-700 border border-green-200 h-9 px-4 py-2 font-medium transition-all duration-300 hover:shadow-sm"
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-white hover:bg-green-50 text-green-700 border border-green-200 h-9 px-4 py-2 font-medium transition-all duration-300 hover:shadow-md hover:border-green-300"
             >
               Login
             </Link>
             <Link
               href="/updates"
-              className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-white hover:bg-green-50 text-green-700 border border-green-200 h-9 px-4 py-2 font-medium transition-all duration-300 hover:shadow-sm"
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-white hover:bg-green-50 text-green-700 border border-green-200 h-9 px-4 py-2 font-medium transition-all duration-300 hover:shadow-md hover:border-green-300"
             >
               Updates
             </Link>
             <Link
               href="/user/register"
-              className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-9 px-4 py-2 forest-button"
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-9 px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white shadow-md hover:shadow-lg transition-all duration-300"
             >
               Register
             </Link>
@@ -100,7 +106,7 @@ export default function Home() {
 
         {/* Mobile Menu */}
         {mobileMenuOpen && (
-          <div className="md:hidden absolute top-full left-0 right-0 bg-white/95 backdrop-blur-md shadow-lg z-50 border-b border-green-100 animate-in slide-in-from-top-5 duration-300">
+          <div className="md:hidden absolute top-full left-0 right-0 bg-white/95 backdrop-blur-md shadow-xl z-50 border-b border-green-100 animate-in slide-in-from-top-5 duration-300">
             <div className="flex flex-col p-4 space-y-3">
               <Link
                 href="/user/login"
@@ -119,7 +125,7 @@ export default function Home() {
               <Link
                 href="/user/register"
                 onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center justify-center w-full px-4 py-3 forest-button rounded-md"
+                className="flex items-center justify-center w-full px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-md hover:from-green-700 hover:to-emerald-700 transition-all duration-300"
               >
                 Register
               </Link>
@@ -140,11 +146,11 @@ export default function Home() {
             priority
             sizes="100vw"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-green-900/70 to-green-800/60 backdrop-blur-[2px]"></div>
+          <div className="absolute inset-0 bg-gradient-to-br from-green-900/75 via-emerald-800/70 to-green-800/75 backdrop-blur-[1px]"></div>
         </div>
 
         {/* Enhanced Decorative Pattern Overlay */}
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgdmlld0JveD0iMCAwIDYwIDYwIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48cGF0aCBkPSJNMzYgMzR2LTRoLTJ2NGgtNHYyaDR2NHgydi00aDR2LTJoLTR6bTAtMzBWMGgtMnY0aC00djJoNHY0aDJWNmg0VjRoLTR6TTYgMzR2LTRINHY0SDB2Mmg0djRoMnYtNGg0di0ySDZ6TTYgNFYwSDR2NEgwdjJoNHY0aDJWNmg0VjRINnoiLz48L2c+PC9nPjwvc3ZnPg==')] opacity-20 -z-10"></div>
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgdmlld0JveD0iMCAwIDYwIDYwIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48cGF0aCBkPSJNMzYgMzR2LTRoLTJ2NGgtNHYyaDR2NGgydi00aDR2LTJoLTR6bTAtMzBWMGgtMnY0aC00djJoNHY0aDJWNmg0VjRoLTR6TTYgMzR2LTRINHY0SDB2Mmg0djRoMnYtNGg0di0ySDZ6TTYgNFYwSDR2NEgwdjJoNHY0aDJWNmg0VjRINnoiLz48L2c+PC9nPjwvc3ZnPg==')] opacity-20 -z-10"></div>
 
         {/* Floating particles effect */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -164,35 +170,52 @@ export default function Home() {
           ))}
         </div>
 
+        {/* Subtle geometric decorations */}
+        <div className="absolute top-20 left-10 w-32 h-32 border border-white/10 rounded-full animate-pulse"></div>
+        <div className="absolute bottom-20 right-10 w-24 h-24 border border-white/10 rounded-full animate-pulse delay-1000"></div>
+        <div className="absolute top-1/3 right-20 w-16 h-16 border border-white/10 rotate-45 animate-pulse delay-500"></div>
+
         <div className="container mx-auto px-4 text-center relative z-10 flex flex-col items-center justify-center">
           <div className="flex justify-center mb-8 md:mb-10">
-            <div className="relative h-20 w-20 sm:h-24 sm:w-24 md:h-28 md:w-28 rounded-full p-2 shadow-xl gentle-sway bg-white/10 backdrop-blur-md border border-white/20">
+            <div className="relative h-20 w-20 sm:h-24 sm:w-24 md:h-28 md:w-28 rounded-full p-2 shadow-2xl gentle-sway bg-white/15 backdrop-blur-md border border-white/30 ring-2 ring-white/10">
               <Image src="/images/logo.png" alt="Sthavishtah Logo" fill className="object-contain" priority />
+              <div className="absolute -inset-1 bg-gradient-to-r from-green-400/20 to-emerald-400/20 rounded-full blur-lg animate-pulse"></div>
             </div>
           </div>
 
           <div className="staggered-fade-in">
-            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-6 md:mb-8 text-white drop-shadow-md">
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-white to-green-100">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-6 md:mb-8 text-white drop-shadow-2xl">
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-white via-green-100 to-emerald-100">
                 STHAVISHTAH
               </span>
               <br className="hidden md:block" />
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-white to-green-100">
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-emerald-100 via-green-100 to-white">
                 YOGA AND WELLNESS
               </span>
             </h1>
 
-            <p className="text-lg sm:text-xl md:text-2xl mb-5 md:mb-7 max-w-3xl mx-auto text-white/90 font-light">
+            <p className="text-lg sm:text-xl md:text-2xl mb-5 md:mb-7 max-w-3xl mx-auto text-white/95 font-light drop-shadow-lg">
               Find your inner peace through mindful practice
             </p>
 
-            <p className="text-base md:text-lg mb-10 md:mb-12 max-w-2xl mx-auto text-white/80">
+            <p className="text-base md:text-lg mb-10 md:mb-12 max-w-2xl mx-auto text-white/85 drop-shadow-md">
               Join our serene community and embark on a journey of self-discovery and natural wellness.
             </p>
           </div>
 
-          {/* Repositioned Explore indicator to bottom right corner */}
-          <div className="absolute bottom-6 right-6 sm:bottom-8 sm:right-8 flex items-center gap-2 bg-white/10 backdrop-blur-sm px-3 py-2 rounded-full animate-pulse hover:bg-white/20 transition-colors cursor-pointer">
+          {/* Floating elements */}
+          <div className="absolute top-1/4 left-1/4 animate-float-slow">
+            <Star className="h-6 w-6 text-white/30" />
+          </div>
+          <div className="absolute top-1/3 right-1/3 animate-float-slow delay-1000">
+            <Sparkles className="h-8 w-8 text-white/25" />
+          </div>
+          <div className="absolute bottom-1/4 left-1/3 animate-float-slow delay-2000">
+            <Leaf className="h-7 w-7 text-white/30" />
+          </div>
+
+          {/* Explore indicator */}
+          <div className="absolute bottom-6 right-6 sm:bottom-8 sm:right-8 flex items-center gap-2 bg-white/15 backdrop-blur-sm px-3 py-2 rounded-full animate-pulse hover:bg-white/25 transition-colors cursor-pointer border border-white/20">
             <span className="text-white/80 text-sm">Explore</span>
             <ChevronRight className="h-5 w-5 text-white/80 transform rotate-90" />
           </div>
@@ -201,29 +224,35 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Buttons Section - Enhanced with better spacing and animations */}
-      <section className="py-10 bg-gradient-to-r from-green-100 to-green-50">
-        <div className="container mx-auto px-4">
+      {/* Buttons Section - Enhanced with better gradients */}
+      <section className="py-10 bg-gradient-to-br from-green-50 via-emerald-50/50 to-green-100 relative overflow-hidden">
+        {/* Background decorations */}
+        <div className="absolute top-0 left-0 w-96 h-96 bg-gradient-to-br from-green-200/20 to-emerald-200/20 rounded-full -translate-x-1/2 -translate-y-1/2 blur-3xl"></div>
+        <div className="absolute bottom-0 right-0 w-96 h-96 bg-gradient-to-tl from-green-200/20 to-emerald-200/20 rounded-full translate-x-1/2 translate-y-1/2 blur-3xl"></div>
+
+        <div className="container mx-auto px-4 relative">
           <div className="flex flex-col sm:flex-row justify-center gap-4 sm:gap-5">
             <Link
               href="/user/register"
-              className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-base font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-12 px-8 bg-green-600 text-white hover:bg-green-700 font-semibold shadow-lg transition-all duration-300 hover:shadow-xl hover:translate-y-[-2px] w-full sm:w-auto group"
+              className="group inline-flex items-center justify-center whitespace-nowrap rounded-md text-base font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-12 px-8 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold shadow-lg transition-all duration-300 hover:shadow-xl hover:translate-y-[-2px] w-full sm:w-auto relative overflow-hidden"
             >
-              <span>Join Our Journey</span>
-              <Leaf className="ml-2 h-4 w-4 group-hover:animate-bounce" />
+              <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
+              <span className="relative z-10">Join Our Journey</span>
+              <Leaf className="ml-2 h-4 w-4 group-hover:animate-bounce relative z-10" />
             </Link>
             <Link
               href="/user/login"
-              className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-base font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-12 px-8 bg-white text-green-700 border border-green-200 hover:bg-green-50 transition-all w-full sm:w-auto hover:shadow-md"
+              className="group inline-flex items-center justify-center whitespace-nowrap rounded-md text-base font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-12 px-8 bg-white/90 backdrop-blur-sm text-green-700 border border-green-200 hover:bg-white hover:border-green-300 transition-all duration-300 w-full sm:w-auto hover:shadow-md relative overflow-hidden"
             >
-              Login
+              <div className="absolute inset-0 bg-gradient-to-r from-green-50/0 via-green-50/50 to-green-50/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
+              <span className="relative z-10">Login</span>
             </Link>
           </div>
         </div>
       </section>
 
       {/* Tagline Section - Enhanced with subtle animations */}
-      <section className="py-10 md:py-14 bg-gradient-to-r from-green-50 to-green-100/50 relative overflow-hidden">
+      <section className="py-10 md:py-14 bg-gradient-to-br from-green-50 via-white to-emerald-50/30 relative overflow-hidden">
         <div className="absolute inset-0 opacity-5 -z-10">
           <Image
             src="/images/forest-pattern-bg.jpg"
@@ -233,32 +262,40 @@ export default function Home() {
             sizes="100vw"
           />
         </div>
-        <div className="container mx-auto px-4 text-center">
-          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-green-800 to-green-600 animate-pulse">
+
+        {/* Floating geometric shapes */}
+        <div className="absolute top-10 left-10 w-20 h-20 border-2 border-green-200/30 rounded-full animate-spin-slow"></div>
+        <div className="absolute bottom-10 right-10 w-16 h-16 border-2 border-emerald-200/30 rotate-45 animate-pulse"></div>
+
+        <div className="container mx-auto px-4 text-center relative">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-green-800 via-emerald-700 to-green-600 animate-pulse">
             BREATHE, BALANCE, BECOME
           </h2>
           <div className="flex items-center justify-center">
-            <div className="h-px w-12 sm:w-20 bg-gradient-to-r from-transparent to-green-300"></div>
-            <p className="text-base sm:text-lg md:text-xl text-green-700 font-semibold px-3 sm:px-5">
-              Sessions starting from June 1, 2025
-            </p>
-            <div className="h-px w-12 sm:w-20 bg-gradient-to-r from-green-300 to-transparent"></div>
+            <div className="h-px w-12 sm:w-20 bg-gradient-to-r from-transparent via-green-400 to-emerald-400"></div>
+            <div className="mx-4 p-2 bg-white/80 backdrop-blur-sm rounded-full shadow-md">
+              <Sparkles className="h-5 w-5 text-green-600 animate-pulse" />
+            </div>
+            <div className="h-px w-12 sm:w-20 bg-gradient-to-r from-emerald-400 via-green-400 to-transparent"></div>
           </div>
+          <p className="text-base sm:text-lg md:text-xl text-green-700 font-semibold px-3 sm:px-5 mt-3">
+            Sessions starting from June 1, 2025
+          </p>
         </div>
       </section>
 
       {/* Batch Schedule Section - Enhanced with better cards and animations */}
       <section className="py-14 md:py-20 bg-white relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-green-200 via-green-300 to-green-200"></div>
-        <div className="absolute top-0 right-0 w-64 h-64 bg-green-100 rounded-full -translate-y-1/2 translate-x-1/2 opacity-30 blur-3xl"></div>
-        <div className="absolute bottom-0 left-0 w-96 h-96 bg-green-100 rounded-full translate-y-1/2 -translate-x-1/2 opacity-30 blur-3xl"></div>
+        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-green-200 via-yellow-300 to-indigo-300"></div>
+        <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-yellow-100/30 to-orange-100/30 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
+        <div className="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-tr from-indigo-100/30 to-purple-100/30 rounded-full translate-y-1/2 -translate-x-1/2 blur-3xl"></div>
 
         {/* Floating leaves decoration */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           {[...Array(8)].map((_, i) => (
             <div
               key={i}
-              className="absolute text-green-500/20 animate-float-slow"
+              className="absolute text-green-500/15 animate-float-slow"
               style={{
                 top: `${Math.random() * 100}%`,
                 left: `${Math.random() * 100}%`,
@@ -274,10 +311,13 @@ export default function Home() {
 
         <div className="container mx-auto px-4 relative">
           <div className="text-center mb-10 md:mb-14">
-            <span className="inline-block px-4 py-1 rounded-full bg-green-100 text-green-800 text-sm font-medium mb-4">
+            <span className="inline-block px-4 py-1 rounded-full bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 text-sm font-medium mb-4 shadow-md">
+              <Calendar className="inline-block mr-1 h-4 w-4" />
               Our Schedule
             </span>
-            <h2 className="text-2xl sm:text-3xl font-bold mb-3 md:mb-4 text-green-800">Flexible Batches</h2>
+            <h2 className="text-2xl sm:text-3xl font-bold mb-3 md:mb-4 bg-clip-text text-transparent bg-gradient-to-r from-green-800 to-emerald-700">
+              Flexible Batches
+            </h2>
             <p className="text-center text-gray-600 max-w-2xl mx-auto">
               Choose from our flexible schedule designed to harmonize with your natural rhythms.
             </p>
@@ -285,14 +325,14 @@ export default function Home() {
 
           <div className="grid sm:grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 max-w-4xl mx-auto">
             {/* Morning Batches */}
-            <Card className="nature-card overflow-hidden group">
+            <Card className="nature-card overflow-hidden group shadow-lg hover:shadow-xl transition-all duration-500 border-0">
               <div className="h-2 bg-gradient-to-r from-yellow-400 to-yellow-600 transition-all duration-500 group-hover:h-3"></div>
               <CardContent className="pt-6">
                 <div className="flex items-center justify-center mb-5">
-                  <div className="p-3 rounded-full bg-yellow-100 mr-3 group-hover:bg-yellow-200 transition-colors">
+                  <div className="p-3 rounded-full bg-gradient-to-br from-yellow-100 to-orange-100 mr-3 group-hover:from-yellow-200 group-hover:to-orange-200 transition-colors shadow-md">
                     <Sun className="h-6 w-6 sm:h-7 sm:w-7 text-yellow-500" />
                   </div>
-                  <h3 className="text-xl sm:text-2xl font-bold text-center text-green-700 transition-colors">
+                  <h3 className="text-xl sm:text-2xl font-bold text-center bg-clip-text text-transparent bg-gradient-to-r from-green-700 to-emerald-700 transition-colors">
                     Morning Batch
                   </h3>
                 </div>
@@ -305,14 +345,14 @@ export default function Home() {
             </Card>
 
             {/* Evening Batches */}
-            <Card className="nature-card overflow-hidden group">
+            <Card className="nature-card overflow-hidden group shadow-lg hover:shadow-xl transition-all duration-500 border-0">
               <div className="h-2 bg-gradient-to-r from-indigo-400 to-purple-500 transition-all duration-500 group-hover:h-3"></div>
               <CardContent className="pt-6">
                 <div className="flex items-center justify-center mb-5">
-                  <div className="p-3 rounded-full bg-indigo-100 mr-3 group-hover:bg-indigo-200 transition-colors">
+                  <div className="p-3 rounded-full bg-gradient-to-br from-indigo-100 to-purple-100 mr-3 group-hover:from-indigo-200 group-hover:to-purple-200 transition-colors shadow-md">
                     <Moon className="h-6 w-6 sm:h-7 sm:w-7 text-indigo-500" />
                   </div>
-                  <h3 className="text-xl sm:text-2xl font-bold text-center text-green-700 transition-colors">
+                  <h3 className="text-xl sm:text-2xl font-bold text-center bg-clip-text text-transparent bg-gradient-to-r from-green-700 to-emerald-700 transition-colors">
                     Evening Batch
                   </h3>
                 </div>
@@ -342,17 +382,20 @@ export default function Home() {
         </div>
 
         {/* Light Pattern Overlay */}
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgdmlld0JveD0iMCAwIDYwIDYwIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiMwNDdBMzgiIGZpbGwtb3BhY2l0eT0iMC4wMyI+PHBhdGggZD0iTTM2IDM0di00aC0ydjRoLTR2Mmg0djRoMnYtNGg0di0yaC00em0wLTMwVjBoLTJ2NGgtNHYyaDR2NGgyVjZoNFY0aC00ek02IDM0di00SDR2NEgwdjJoNHY0aDJ2LTRoNHYtMkg2ek02IDRWMEg0djRIMHYyaDR2NGgyVjZoNFY0SDZ6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-50 -z-10"></div>
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgdmlld0JveD0iMCAwIDYwIDYwIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiMwNDdBMzgiIGZpbGwtb3BhY2l0eT0iMC4wMyI+PHBhdGggZD0iTTM2IDM0di00aC0ydjRoLTR2Mmg0djRoMnYtNGg0di0yaC00em0wLTMwVjBoLTJ2NGgtNHYyaDR2NGgyVjZoNFY0aC00ek02IDM0di00SDR2NEgwdjJoNHY0aDJ2LTRoNHYtMkg2ek02IDRWMEg0djRIMHYyaDR2NGgyVjZoNFY0SDZ6Ii8+PC9nPjwvc3ZnPg==')] opacity-50 -z-10"></div>
 
         <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-green-200 to-transparent"></div>
 
         <div className="container mx-auto px-4 relative">
           <div className="text-center mb-12">
-            <div className="inline-block bg-white/80 backdrop-blur-sm py-6 px-8 rounded-xl shadow-sm">
-              <span className="inline-block px-4 py-1 rounded-full bg-green-100 text-green-800 text-sm font-medium mb-4">
+            <div className="inline-block bg-white/90 backdrop-blur-sm py-6 px-8 rounded-xl shadow-lg">
+              <span className="inline-block px-4 py-1 rounded-full bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 text-sm font-medium mb-4 shadow-md">
+                <Heart className="inline-block mr-1 h-4 w-4" />
                 Our Services
               </span>
-              <h2 className="text-2xl sm:text-3xl font-bold mb-3 md:mb-4 text-green-800">Our Offerings</h2>
+              <h2 className="text-2xl sm:text-3xl font-bold mb-3 md:mb-4 bg-clip-text text-transparent bg-gradient-to-r from-green-800 to-emerald-700">
+                Our Offerings
+              </h2>
               <p className="text-gray-600 max-w-2xl mx-auto">
                 Holistic wellness practices inspired by nature's wisdom.
               </p>
@@ -396,6 +439,176 @@ export default function Home() {
         </div>
       </section>
 
+      {/* MOVED: Explore Our Subscription Programs Section - Now after Offerings */}
+      <section className="py-16 md:py-24 bg-gradient-to-br from-white via-purple-50/20 to-emerald-50/20 relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-green-200 via-purple-300 to-green-200"></div>
+
+        {/* Background decorations */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-purple-100/30 rounded-full -translate-y-1/2 translate-x-1/2 opacity-30 blur-3xl"></div>
+        <div className="absolute bottom-0 left-0 w-96 h-96 bg-green-100/30 rounded-full translate-y-1/2 -translate-x-1/2 opacity-30 blur-3xl"></div>
+
+        {/* Floating elements */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          {[...Array(10)].map((_, i) => (
+            <div
+              key={i}
+              className="absolute animate-float-slow"
+              style={{
+                top: `${Math.random() * 100}%`,
+                left: `${Math.random() * 100}%`,
+                animationDuration: `${Math.random() * 20 + 15}s`,
+                animationDelay: `${Math.random() * 5}s`,
+              }}
+            >
+              {i % 3 === 0 && <Star className="h-4 w-4 text-purple-300/30" />}
+              {i % 3 === 1 && <Sparkles className="h-5 w-5 text-green-300/30" />}
+              {i % 3 === 2 && <Zap className="h-4 w-4 text-yellow-300/30" />}
+            </div>
+          ))}
+        </div>
+
+        <div className="container mx-auto px-4 relative">
+          <div className="text-center mb-12 md:mb-16">
+            <div className="inline-block px-4 py-1 rounded-full bg-gradient-to-r from-purple-100 to-pink-100 text-purple-800 text-sm font-medium mb-4 shadow-md">
+              <Package className="inline-block mr-1 h-4 w-4" />
+              Wellness Programs
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-gray-900 via-purple-800 to-emerald-800">
+              Discover Our Transformative Programs
+            </h2>
+            <p className="text-center text-gray-600 max-w-2xl mx-auto">
+              Explore our carefully crafted subscription programs designed to nurture your mind, body, and spirit on
+              your wellness journey.
+            </p>
+          </div>
+
+          {/* Program Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+            {/* Program 1 */}
+            <Card className="overflow-hidden group hover:shadow-xl transition-all duration-300 border-0 shadow-md bg-white/90 backdrop-blur-sm">
+              <div
+                className="h-48 bg-cover bg-center relative"
+                style={{ backgroundImage: "url('/images/serene-forest-meditation.jpg')" }}
+              >
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent group-hover:from-black/70 transition-all duration-300"></div>
+                <div className="absolute inset-0 bg-gradient-to-br from-green-500/20 to-emerald-500/20 group-hover:from-green-500/30 group-hover:to-emerald-500/30 transition-all duration-300"></div>
+                <div className="absolute bottom-4 left-4 text-white">
+                  <Badge className="bg-green-500/90 backdrop-blur-sm mb-2 text-white border-0 shadow-md">
+                    Beginner Friendly
+                  </Badge>
+                  <h3 className="text-xl font-bold drop-shadow-lg">Yoga Basics</h3>
+                </div>
+              </div>
+              <CardContent className="p-6">
+                <p className="text-gray-600 mb-4">
+                  Perfect for beginners starting their yoga journey with gentle poses and breathing techniques.
+                </p>
+                <div className="flex justify-between items-center">
+                  <span className="text-purple-600 font-semibold">From ₹1,999</span>
+                  <Link href="/user/subscription-categories/yoga-basics">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="group-hover:bg-purple-50 transition-all duration-300"
+                    >
+                      View Details{" "}
+                      <ArrowRight className="ml-1 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                    </Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Program 2 */}
+            <Card className="overflow-hidden group hover:shadow-xl transition-all duration-300 border-0 shadow-md bg-white/90 backdrop-blur-sm">
+              <div
+                className="h-48 bg-cover bg-center relative"
+                style={{ backgroundImage: "url('/images/traditional-yoga-mudras.jpg')" }}
+              >
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent group-hover:from-black/70 transition-all duration-300"></div>
+                <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/20 to-orange-500/20 group-hover:from-yellow-500/30 group-hover:to-orange-500/30 transition-all duration-300"></div>
+                <div className="absolute bottom-4 left-4 text-white">
+                  <Badge className="bg-yellow-500/90 backdrop-blur-sm mb-2 text-white border-0 shadow-md">
+                    Intermediate
+                  </Badge>
+                  <h3 className="text-xl font-bold drop-shadow-lg">Mindful Meditation</h3>
+                </div>
+              </div>
+              <CardContent className="p-6">
+                <p className="text-gray-600 mb-4">
+                  Deepen your practice with guided meditation sessions for mental clarity and inner peace.
+                </p>
+                <div className="flex justify-between items-center">
+                  <span className="text-purple-600 font-semibold">From ₹2,499</span>
+                  <Link href="/user/subscription-categories/mindful-meditation">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="group-hover:bg-purple-50 transition-all duration-300"
+                    >
+                      View Details{" "}
+                      <ArrowRight className="ml-1 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                    </Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Program 3 */}
+            <Card className="overflow-hidden group hover:shadow-xl transition-all duration-300 border-0 shadow-md bg-white/90 backdrop-blur-sm">
+              <div
+                className="h-48 bg-cover bg-center relative"
+                style={{ backgroundImage: "url('/images/riverside-yoga.jpg')" }}
+              >
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent group-hover:from-black/70 transition-all duration-300"></div>
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20 group-hover:from-purple-500/30 group-hover:to-pink-500/30 transition-all duration-300"></div>
+                <div className="absolute bottom-4 left-4 text-white">
+                  <Badge className="bg-purple-500/90 backdrop-blur-sm mb-2 text-white border-0 shadow-md">
+                    Holistic
+                  </Badge>
+                  <h3 className="text-xl font-bold drop-shadow-lg">Complete Wellness</h3>
+                </div>
+              </div>
+              <CardContent className="p-6">
+                <p className="text-gray-600 mb-4">
+                  A comprehensive program combining yoga, meditation, and nutrition for total well-being.
+                </p>
+                <div className="flex justify-between items-center">
+                  <span className="text-purple-600 font-semibold">From ₹3,999</span>
+                  <Link href="/user/subscription-categories/complete-wellness">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="group-hover:bg-purple-50 transition-all duration-300"
+                    >
+                      View Details{" "}
+                      <ArrowRight className="ml-1 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                    </Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* CTA Button */}
+          <div className="text-center">
+            <Link href="/user/plans">
+              <Button
+                size="lg"
+                className="group bg-gradient-to-r from-green-600 to-purple-600 hover:from-green-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-8 relative overflow-hidden"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
+                <span className="relative z-10">Explore All Programs</span>
+                <ExternalLink className="ml-2 h-5 w-5 relative z-10" />
+              </Button>
+            </Link>
+            <p className="text-sm text-gray-500 mt-4">
+              Browse all programs without signing up. Login or register when you're ready to subscribe.
+            </p>
+          </div>
+        </div>
+      </section>
+
       {/* Testimonials Section - Enhanced with better styling */}
       <section className="py-14 md:py-20 bg-gradient-to-r from-green-50 to-green-100/50 relative overflow-hidden">
         <div className="absolute inset-0 opacity-5 -z-10">
@@ -412,10 +625,13 @@ export default function Home() {
 
         <div className="container mx-auto px-4 relative">
           <div className="text-center mb-12">
-            <span className="inline-block px-4 py-1 rounded-full bg-green-100 text-green-800 text-sm font-medium mb-4">
+            <span className="inline-block px-4 py-1 rounded-full bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 text-sm font-medium mb-4 shadow-md">
+              <Star className="inline-block mr-1 h-4 w-4" />
               Testimonials
             </span>
-            <h2 className="text-2xl sm:text-3xl font-bold mb-3 md:mb-4 text-green-800">What Our Students Say</h2>
+            <h2 className="text-2xl sm:text-3xl font-bold mb-3 md:mb-4 bg-clip-text text-transparent bg-gradient-to-r from-green-800 to-emerald-700">
+              What Our Students Say
+            </h2>
             <p className="text-gray-600 max-w-2xl mx-auto">
               Discover how our practices have transformed the lives of our community members.
             </p>
@@ -463,7 +679,7 @@ export default function Home() {
         </div>
 
         <div className="container mx-auto px-4 text-center">
-          <div className="inline-block mb-6 md:mb-8 px-5 py-2 sm:px-6 sm:py-2 bg-white/10 backdrop-blur-sm rounded-full text-white font-medium">
+          <div className="inline-block mb-6 md:mb-8 px-5 py-2 sm:px-6 sm:py-2 bg-white/15 backdrop-blur-sm rounded-full text-white font-medium border border-white/20 shadow-lg">
             <Sparkles className="inline-block h-4 w-4 sm:h-5 sm:w-5 mr-2 animate-pulse" />
             Limited Time Offer
           </div>
@@ -477,7 +693,7 @@ export default function Home() {
           </p>
 
           <div className="flex justify-center mb-8 md:mb-10">
-            <div className="bg-white/90 backdrop-blur-sm p-5 sm:p-6 rounded-xl shadow-2xl flex flex-col items-center transform transition-transform hover:scale-105 duration-300">
+            <div className="bg-white/95 backdrop-blur-sm p-5 sm:p-6 rounded-xl shadow-2xl flex flex-col items-center transform transition-transform hover:scale-105 duration-300 border border-white/20">
               <div className="text-green-800 font-bold mb-3 sm:mb-4 text-center text-sm sm:text-base">
                 SCAN FOR WHATSAPP CHANNEL
               </div>
@@ -501,10 +717,13 @@ export default function Home() {
 
         <div className="container mx-auto px-4 relative">
           <div className="text-center mb-12">
-            <span className="inline-block px-4 py-1 rounded-full bg-green-100 text-green-800 text-sm font-medium mb-4">
+            <span className="inline-block px-4 py-1 rounded-full bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 text-sm font-medium mb-4 shadow-md">
+              <Heart className="inline-block mr-1 h-4 w-4" />
               Our Approach
             </span>
-            <h2 className="text-2xl sm:text-3xl font-bold mb-3 md:mb-4 text-green-800">PHYSICAL AND MENTAL WELLNESS</h2>
+            <h2 className="text-2xl sm:text-3xl font-bold mb-3 md:mb-4 bg-clip-text text-transparent bg-gradient-to-r from-green-800 to-emerald-700">
+              PHYSICAL AND MENTAL WELLNESS
+            </h2>
             <p className="text-center text-gray-600 mb-8 md:mb-12 max-w-2xl mx-auto">
               Our holistic approach nurtures both body and mind in harmony with nature.
             </p>
@@ -538,7 +757,7 @@ export default function Home() {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8 md:gap-12">
             <div>
               <div className="flex items-center mb-5 md:mb-6">
-                <div className="relative h-10 w-10 sm:h-12 sm:w-12 mr-3 sm:mr-4 rounded-full overflow-hidden border border-white/20">
+                <div className="relative h-10 w-10 sm:h-12 sm:w-12 mr-3 sm:mr-4 rounded-full overflow-hidden border border-white/20 shadow-lg">
                   <Image src="/images/logo.png" alt="Sthavishtah Logo" fill className="object-contain" />
                 </div>
                 <h3 className="text-lg sm:text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-green-200">
@@ -619,16 +838,18 @@ export default function Home() {
 
 function BatchTime({ number, time, isNew = false }: { number: string; time: string; isNew?: boolean }) {
   return (
-    <div className="flex items-center p-3 sm:p-4 border rounded-lg bg-green-50/50 hover:bg-green-50 transition-colors shadow-sm group">
+    <div className="flex items-center p-3 sm:p-4 border rounded-lg bg-gradient-to-r from-green-50/80 to-emerald-50/80 hover:from-green-100/80 hover:to-emerald-100/80 transition-colors shadow-sm group border-green-100 hover:border-green-200">
       <Badge
         variant="outline"
-        className="mr-3 sm:mr-4 px-2 py-1 sm:px-3 sm:py-1 text-xs sm:text-sm font-bold forest-badge group-hover:bg-green-100/50 transition-colors"
+        className="mr-3 sm:mr-4 px-2 py-1 sm:px-3 sm:py-1 text-xs sm:text-sm font-bold bg-gradient-to-r from-green-600 to-emerald-600 text-white border-0 shadow-sm group-hover:from-green-700 group-hover:to-emerald-700 transition-colors"
       >
         BATCH {number}
       </Badge>
       <span className="font-medium text-green-800 text-sm sm:text-base">{time}</span>
       {isNew && (
-        <span className="ml-auto bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full animate-pulse">New</span>
+        <span className="ml-auto bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 text-xs px-2 py-1 rounded-full animate-pulse shadow-sm">
+          New
+        </span>
       )}
     </div>
   )
@@ -636,14 +857,14 @@ function BatchTime({ number, time, isNew = false }: { number: string; time: stri
 
 function OfferingCard({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) {
   return (
-    <Card className="nature-card h-full bg-white/90 backdrop-blur-sm group overflow-hidden">
+    <Card className="nature-card h-full bg-white/95 backdrop-blur-sm group overflow-hidden shadow-lg hover:shadow-xl transition-all duration-500 border-0">
       <div className="h-1 bg-gradient-to-r from-green-400 to-green-600 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-500"></div>
       <CardContent className="pt-6 pb-6">
         <div className="flex flex-col items-center text-center">
-          <div className="mb-4 sm:mb-5 p-3 sm:p-4 bg-green-50 rounded-full group-hover:bg-green-100 transition-colors transform group-hover:scale-110 duration-500">
+          <div className="mb-4 sm:mb-5 p-3 sm:p-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-full group-hover:from-green-100 group-hover:to-emerald-100 transition-colors transform group-hover:scale-110 duration-500 shadow-md">
             {icon}
           </div>
-          <h3 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4 text-green-700 group-hover:text-green-800 transition-colors">
+          <h3 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4 bg-clip-text text-transparent bg-gradient-to-r from-green-700 to-emerald-700 group-hover:from-green-800 group-hover:to-emerald-800 transition-colors">
             {title}
           </h3>
           <p className="text-gray-600 text-sm sm:text-base">{description}</p>
@@ -655,14 +876,14 @@ function OfferingCard({ icon, title, description }: { icon: React.ReactNode; tit
 
 function WellnessCard({ icon, title, content }: { icon: React.ReactNode; title: string; content: string }) {
   return (
-    <Card className="nature-card h-full group overflow-hidden">
+    <Card className="nature-card h-full group overflow-hidden shadow-lg hover:shadow-xl transition-all duration-500 border-0 bg-white/95 backdrop-blur-sm">
       <div className="h-1 bg-gradient-to-r from-green-400 to-green-600 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-500"></div>
       <CardContent className="pt-6 pb-6">
         <div className="flex flex-col items-center text-center">
-          <div className="mb-4 sm:mb-5 p-3 sm:p-4 bg-green-50 rounded-full group-hover:bg-green-100 transition-colors">
+          <div className="mb-4 sm:mb-5 p-3 sm:p-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-full group-hover:from-green-100 group-hover:to-emerald-100 transition-colors shadow-md">
             {icon}
           </div>
-          <h3 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4 text-green-700 group-hover:text-green-800 transition-colors">
+          <h3 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4 bg-clip-text text-transparent bg-gradient-to-r from-green-700 to-emerald-700 group-hover:from-green-800 group-hover:to-emerald-800 transition-colors">
             {title}
           </h3>
           <p className="text-gray-700 text-sm sm:text-base">{content}</p>

@@ -1,19 +1,21 @@
 import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Bell, Info, Package } from "lucide-react"
+import { ArrowLeft, Bell, Info, Package, Calendar, ArrowRight } from "lucide-react"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
-import { formatCurrency } from "@/lib/utils"
 
-async function getSubscriptions() {
+async function getSubscriptionCategories() {
   const supabase = getSupabaseBrowserClient()
-  // Removed the is_active filter since that column doesn't exist
-  const { data, error } = await supabase.from("subscriptions").select("*").order("price", { ascending: true })
+  const { data, error } = await supabase
+    .from("subscription_pages")
+    .select("*")
+    .eq("status", "published")
+    .order("created_at", { ascending: false })
 
   if (error) {
-    console.error("Error fetching subscriptions:", error)
+    console.error("Error fetching subscription categories:", error)
     return []
   }
 
@@ -33,7 +35,7 @@ async function getUpdates() {
 }
 
 export default async function Updates() {
-  const subscriptions = await getSubscriptions()
+  const subscriptionCategories = await getSubscriptionCategories()
   const updates = await getUpdates()
 
   return (
@@ -73,75 +75,11 @@ export default async function Updates() {
               Back to Home
             </Link>
           </Button>
-          <h1 className="text-3xl font-bold">Subscriptions & Updates</h1>
+          <h1 className="text-3xl font-bold">Updates & Programs</h1>
         </div>
 
-        {/* Subscription Plans Section */}
-        <section className="mb-12">
-          <h2 className="text-2xl font-semibold mb-6 flex items-center">
-            <Package className="mr-2 h-5 w-5 text-purple-600" />
-            Available Subscription Plans
-          </h2>
-
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {subscriptions.length > 0 ? (
-              subscriptions.map((subscription) => (
-                <Card key={subscription.id} className="overflow-hidden border-t-4 border-t-purple-500">
-                  <CardHeader className="pb-3">
-                    <CardTitle>{subscription.name}</CardTitle>
-                    <CardDescription>{subscription.description}</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold mb-2">{formatCurrency(subscription.price)}</div>
-                    <p className="text-sm text-muted-foreground mb-4">{subscription.duration_days} days</p>
-
-                    <ul className="space-y-2 text-sm">
-                      {/* Fix: Check if features is an array first, otherwise handle as string or fallback */}
-                      {Array.isArray(subscription.features) ? (
-                        subscription.features.map((feature, index) => (
-                          <li key={index} className="flex items-start">
-                            <span className="text-green-500 mr-2">✓</span>
-                            {feature.trim()}
-                          </li>
-                        ))
-                      ) : typeof subscription.features === "string" ? (
-                        subscription.features.split(",").map((feature, index) => (
-                          <li key={index} className="flex items-start">
-                            <span className="text-green-500 mr-2">✓</span>
-                            {feature.trim()}
-                          </li>
-                        ))
-                      ) : (
-                        <li className="flex items-start">
-                          <span className="text-green-500 mr-2">✓</span>
-                          Access to subscription content
-                        </li>
-                      )}
-                    </ul>
-                  </CardContent>
-                  <CardFooter>
-                    <Button asChild className="w-full">
-                      <Link href="/user/login?redirect=subscriptions">Subscribe Now</Link>
-                    </Button>
-                  </CardFooter>
-                </Card>
-              ))
-            ) : (
-              <div className="col-span-full text-center p-8 bg-gray-100 rounded-lg">
-                <p>No subscription plans available at the moment. Please check back later.</p>
-              </div>
-            )}
-          </div>
-
-          <div className="mt-6 text-center">
-            <p className="text-sm text-muted-foreground">
-              To purchase a subscription, you need to register or login to your account.
-            </p>
-          </div>
-        </section>
-
         {/* Latest Updates Section */}
-        <section>
+        <section className="mb-12">
           <h2 className="text-2xl font-semibold mb-6 flex items-center">
             <Info className="mr-2 h-5 w-5 text-purple-600" />
             Latest Updates
@@ -150,7 +88,7 @@ export default async function Updates() {
           <div className="space-y-4">
             {updates.length > 0 ? (
               updates.map((update) => (
-                <Card key={update.id} className="overflow-hidden">
+                <Card key={update.id} className="overflow-hidden hover:shadow-md transition-all">
                   <CardHeader className="pb-3">
                     <div className="flex justify-between items-start">
                       <CardTitle>{update.title}</CardTitle>
@@ -178,6 +116,53 @@ export default async function Updates() {
               </div>
             )}
           </div>
+        </section>
+
+        {/* Subscription Categories Section ONLY */}
+        <section className="mb-12">
+          <h2 className="text-2xl font-semibold mb-6 flex items-center">
+            <Package className="mr-2 h-5 w-5 text-purple-600" />
+            Wellness Programs
+          </h2>
+
+          {subscriptionCategories.length > 0 ? (
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {subscriptionCategories.map((category) => (
+                <Card key={category.id} className="overflow-hidden hover:shadow-lg transition-all duration-300 group">
+                  <div
+                    className="h-48 bg-cover bg-center relative"
+                    style={{
+                      backgroundImage: `url(${category.hero_image_url || `/placeholder.svg?height=400&width=600&query=${encodeURIComponent(category.title)}`})`,
+                    }}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+                    <div className="absolute bottom-4 left-4 text-white">
+                      <h3 className="text-xl font-bold">{category.title}</h3>
+                    </div>
+                  </div>
+                  <CardContent className="pt-4">
+                    <p className="text-gray-600 mb-4 line-clamp-2">{category.subtitle}</p>
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center text-sm text-gray-500">
+                        <Calendar className="h-4 w-4 mr-1" />
+                        {new Date(category.created_at).toLocaleDateString()}
+                      </div>
+                      <Link href={`/user/subscription-categories/${category.slug}?from=updates`}>
+                        <Button variant="outline" size="sm" className="group-hover:bg-purple-50">
+                          View Details{" "}
+                          <ArrowRight className="ml-1 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                        </Button>
+                      </Link>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center p-8 bg-gray-100 rounded-lg">
+              <p>No program categories available at the moment. Please check back later.</p>
+            </div>
+          )}
         </section>
 
         <div className="mt-12 text-center">

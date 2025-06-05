@@ -134,7 +134,7 @@ export function UserLayout({ children }: UserLayoutProps) {
             {/* Logo and Mobile Menu */}
             <div className="flex items-center space-x-4">
               <MobileNav />
-              <Link href="/user/dashboard" className="flex items-center space-x-2">
+              <Link href="/user/dashboard">
                 <Logo />
               </Link>
             </div>

@@ -1,18 +1,13 @@
 import Image from "next/image"
-import Link from "next/link"
 
 export function Logo() {
   return (
-    <Link href="/" className="flex items-center">
-      <div className="bg-white p-1 rounded-md flex items-center">
-        <div className="relative h-10 w-10 mr-2">
-          <Image src="/images/logo.png" alt="Sthavishtah Logo" fill className="object-contain" priority />
-        </div>
-        <div className="flex flex-col">
-          <span className="text-xl font-bold tracking-tight">STHAVISHTAH</span>
-          <span className="text-xs tracking-widest text-muted-foreground">YOGA AND WELLNESS</span>
-        </div>
+    <div className="flex items-center space-x-2">
+      <Image src="/images/logo.png" alt="Sthavishtah Yoga & Wellness" width={40} height={40} className="rounded-full" />
+      <div className="hidden sm:block">
+        <h1 className="text-xl font-bold text-green-700">Sthavishtah</h1>
+        <p className="text-xs text-gray-600">Yoga & Wellness</p>
       </div>
-    </Link>
+    </div>
   )
 }
