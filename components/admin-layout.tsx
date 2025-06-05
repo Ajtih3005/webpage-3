@@ -43,6 +43,7 @@ function AdminLayout({ children }: AdminLayoutProps) {
     { href: "/admin/users", label: "Users", icon: "users" },
     { href: "/admin/instructors", label: "Instructors", icon: "user" },
     { href: "/admin/subscriptions", label: "Subscriptions", icon: "credit-card" },
+    { href: "/admin/subscription-pages", label: "Subscription Pages", icon: "layout-template" },
     { href: "/admin/link-generator", label: "Link Generator", icon: "link" },
     { href: "/admin/payment-recovery", label: "Payment Recovery", icon: "refresh-cw" },
     { href: "/admin/notifications", label: "Notifications", icon: "bell" },
@@ -169,6 +170,13 @@ function AdminLayout({ children }: AdminLayoutProps) {
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
                                 d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"
+                              />
+                            )}
+                            {item.icon === "layout-template" && (
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"
                               />
                             )}
                           </svg>
