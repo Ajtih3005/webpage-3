@@ -31,10 +31,21 @@ import {
 } from "lucide-react"
 import { useState, useEffect } from "react"
 import ReviewCarousel from "@/components/review-carousel"
+import { getSupabaseBrowserClient } from "@/lib/supabase"
+
+interface SubscriptionPage {
+  id: string
+  slug: string
+  title: string
+  subtitle: string
+  hero_image_url: string
+  status: string
+}
 
 export default function Home() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
+  const [subscriptionPages, setSubscriptionPages] = useState<SubscriptionPage[]>([])
 
   // Add scroll effect for header
   useEffect(() => {
@@ -44,6 +55,28 @@ export default function Home() {
     window.addEventListener("scroll", handleScroll)
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
+
+  // Fetch subscription pages
+  useEffect(() => {
+    fetchSubscriptionPages()
+  }, [])
+
+  const fetchSubscriptionPages = async () => {
+    const supabase = getSupabaseBrowserClient()
+    try {
+      const { data, error } = await supabase
+        .from("subscription_pages")
+        .select("id, slug, title, subtitle, hero_image_url, status")
+        .eq("status", "published")
+        .order("created_at")
+
+      if (!error && data) {
+        setSubscriptionPages(data)
+      }
+    } catch (error) {
+      console.error("Error fetching subscription pages:", error)
+    }
+  }
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -150,7 +183,7 @@ export default function Home() {
         </div>
 
         {/* Enhanced Decorative Pattern Overlay */}
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgdmlld0JveD0iMCAwIDYwIDYwIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48cGF0aCBkPSJNMzYgMzR2LTRoLTJ2NGgtNHYyaDR2NGgydi00aDR2LTJoLTR6bTAtMzBWMGgtMnY0aC00djJoNHY0aDJWNmg0VjRoLTR6TTYgMzR2LTRINHY0SDB2Mmg0djRoMnYtNGg0di0ySDZ6TTYgNFYwSDR2NEgwdjJoNHY0aDJWNmg0VjRINnoiLz48L2c+PC9nPjwvc3ZnPg==')] opacity-20 -z-10"></div>
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgdmlld0JveD0iMCAwIDYwIDYwIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48cGF0aCBkPSJNMzYgMzR2LTRoLTJ2NGgtNHYyaDR2NHgydi00aDR2LTJoLTR6bTAtMzBWMGgtMnY0aC00djJoNHY0aDJWNmg0VjRoLTR6TTYgMzR2LTRINHY0SDB2Mmg0djRoMnYtNGg0di0ySDZ6TTYgNFYwSDR2NEgwdjJoNHY0aDJWNmg0VjRINnoiLz48L2c+PC9nPjwvc3ZnPg==')] opacity-20 -z-10"></div>
 
         {/* Floating particles effect */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -482,117 +515,140 @@ export default function Home() {
             </p>
           </div>
 
-          {/* Program Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
-            {/* Program 1 */}
-            <Card className="overflow-hidden group hover:shadow-xl transition-all duration-300 border-0 shadow-md bg-white/90 backdrop-blur-sm">
-              <div
-                className="h-48 bg-cover bg-center relative"
-                style={{ backgroundImage: "url('/images/serene-forest-meditation.jpg')" }}
-              >
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent group-hover:from-black/70 transition-all duration-300"></div>
-                <div className="absolute inset-0 bg-gradient-to-br from-green-500/20 to-emerald-500/20 group-hover:from-green-500/30 group-hover:to-emerald-500/30 transition-all duration-300"></div>
-                <div className="absolute bottom-4 left-4 text-white">
-                  <Badge className="bg-green-500/90 backdrop-blur-sm mb-2 text-white border-0 shadow-md">
-                    Beginner Friendly
-                  </Badge>
-                  <h3 className="text-xl font-bold drop-shadow-lg">Yoga Basics</h3>
+          {/* Dynamic Program Cards - ONLY SHOW AVAILABLE ONES */}
+          {subscriptionPages.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+              {subscriptionPages.map((page, index) => (
+                <Card
+                  key={page.id}
+                  className="overflow-hidden group hover:shadow-xl transition-all duration-300 border-0 shadow-md bg-white/90 backdrop-blur-sm"
+                >
+                  <div
+                    className="h-48 bg-cover bg-center relative"
+                    style={{
+                      backgroundImage: page.hero_image_url
+                        ? `url('${page.hero_image_url}')`
+                        : `url('/placeholder.svg?height=200&width=400')`,
+                    }}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent group-hover:from-black/70 transition-all duration-300"></div>
+                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20 group-hover:from-purple-500/30 group-hover:to-pink-500/30 transition-all duration-300"></div>
+                    <div className="absolute bottom-4 left-4 text-white">
+                      <Badge className="bg-gradient-to-r from-purple-500/90 to-pink-500/90 backdrop-blur-sm mb-2 text-white border-0 shadow-md">
+                        Available Now
+                      </Badge>
+                      <h3 className="text-xl font-bold drop-shadow-lg">{page.title}</h3>
+                    </div>
+                  </div>
+                  <CardContent className="p-6">
+                    <p className="text-gray-600 mb-6 line-clamp-2">{page.subtitle}</p>
+                    <div className="flex justify-center">
+                      <Link href={`/user/subscription-categories/${page.slug}`}>
+                        <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold px-6 py-2 shadow-md hover:shadow-lg transition-all duration-300">
+                          Explore Program
+                          <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                        </Button>
+                      </Link>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            // Fallback static cards if no dynamic data
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+              <Card className="overflow-hidden group hover:shadow-xl transition-all duration-300 border-0 shadow-md bg-white/90 backdrop-blur-sm">
+                <div
+                  className="h-48 bg-cover bg-center relative"
+                  style={{ backgroundImage: "url('/images/serene-forest-meditation.jpg')" }}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent group-hover:from-black/70 transition-all duration-300"></div>
+                  <div className="absolute inset-0 bg-gradient-to-br from-green-500/20 to-emerald-500/20 group-hover:from-green-500/30 group-hover:to-emerald-500/30 transition-all duration-300"></div>
+                  <div className="absolute bottom-4 left-4 text-white">
+                    <Badge className="bg-green-500/90 backdrop-blur-sm mb-2 text-white border-0 shadow-md">
+                      Beginner Friendly
+                    </Badge>
+                    <h3 className="text-xl font-bold drop-shadow-lg">Yoga Basics</h3>
+                  </div>
                 </div>
-              </div>
-              <CardContent className="p-6">
-                <p className="text-gray-600 mb-4">
-                  Perfect for beginners starting their yoga journey with gentle poses and breathing techniques.
-                </p>
-                <div className="flex justify-between items-center">
-                  <span className="text-purple-600 font-semibold">From ₹1,999</span>
-                  <Link href="/user/subscription-categories/yoga-basics">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="group-hover:bg-purple-50 transition-all duration-300"
-                    >
-                      View Details{" "}
-                      <ArrowRight className="ml-1 h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                    </Button>
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
+                <CardContent className="p-6">
+                  <p className="text-gray-600 mb-6">
+                    Perfect for beginners starting their yoga journey with gentle poses and breathing techniques.
+                  </p>
+                  <div className="flex justify-center">
+                    <Link href="/user/subscription-categories/yoga-basics">
+                      <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold px-6 py-2 shadow-md hover:shadow-lg transition-all duration-300">
+                        Explore Program
+                        <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                      </Button>
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
 
-            {/* Program 2 */}
-            <Card className="overflow-hidden group hover:shadow-xl transition-all duration-300 border-0 shadow-md bg-white/90 backdrop-blur-sm">
-              <div
-                className="h-48 bg-cover bg-center relative"
-                style={{ backgroundImage: "url('/images/traditional-yoga-mudras.jpg')" }}
-              >
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent group-hover:from-black/70 transition-all duration-300"></div>
-                <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/20 to-orange-500/20 group-hover:from-yellow-500/30 group-hover:to-orange-500/30 transition-all duration-300"></div>
-                <div className="absolute bottom-4 left-4 text-white">
-                  <Badge className="bg-yellow-500/90 backdrop-blur-sm mb-2 text-white border-0 shadow-md">
-                    Intermediate
-                  </Badge>
-                  <h3 className="text-xl font-bold drop-shadow-lg">Mindful Meditation</h3>
+              <Card className="overflow-hidden group hover:shadow-xl transition-all duration-300 border-0 shadow-md bg-white/90 backdrop-blur-sm">
+                <div
+                  className="h-48 bg-cover bg-center relative"
+                  style={{ backgroundImage: "url('/images/traditional-yoga-mudras.jpg')" }}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent group-hover:from-black/70 transition-all duration-300"></div>
+                  <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/20 to-orange-500/20 group-hover:from-yellow-500/30 group-hover:to-orange-500/30 transition-all duration-300"></div>
+                  <div className="absolute bottom-4 left-4 text-white">
+                    <Badge className="bg-yellow-500/90 backdrop-blur-sm mb-2 text-white border-0 shadow-md">
+                      Intermediate
+                    </Badge>
+                    <h3 className="text-xl font-bold drop-shadow-lg">Mindful Meditation</h3>
+                  </div>
                 </div>
-              </div>
-              <CardContent className="p-6">
-                <p className="text-gray-600 mb-4">
-                  Deepen your practice with guided meditation sessions for mental clarity and inner peace.
-                </p>
-                <div className="flex justify-between items-center">
-                  <span className="text-purple-600 font-semibold">From ₹2,499</span>
-                  <Link href="/user/subscription-categories/mindful-meditation">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="group-hover:bg-purple-50 transition-all duration-300"
-                    >
-                      View Details{" "}
-                      <ArrowRight className="ml-1 h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                    </Button>
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
+                <CardContent className="p-6">
+                  <p className="text-gray-600 mb-6">
+                    Deepen your practice with guided meditation sessions for mental clarity and inner peace.
+                  </p>
+                  <div className="flex justify-center">
+                    <Link href="/user/subscription-categories/mindful-meditation">
+                      <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold px-6 py-2 shadow-md hover:shadow-lg transition-all duration-300">
+                        Explore Program
+                        <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                      </Button>
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
 
-            {/* Program 3 */}
-            <Card className="overflow-hidden group hover:shadow-xl transition-all duration-300 border-0 shadow-md bg-white/90 backdrop-blur-sm">
-              <div
-                className="h-48 bg-cover bg-center relative"
-                style={{ backgroundImage: "url('/images/riverside-yoga.jpg')" }}
-              >
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent group-hover:from-black/70 transition-all duration-300"></div>
-                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20 group-hover:from-purple-500/30 group-hover:to-pink-500/30 transition-all duration-300"></div>
-                <div className="absolute bottom-4 left-4 text-white">
-                  <Badge className="bg-purple-500/90 backdrop-blur-sm mb-2 text-white border-0 shadow-md">
-                    Holistic
-                  </Badge>
-                  <h3 className="text-xl font-bold drop-shadow-lg">Complete Wellness</h3>
+              <Card className="overflow-hidden group hover:shadow-xl transition-all duration-300 border-0 shadow-md bg-white/90 backdrop-blur-sm">
+                <div
+                  className="h-48 bg-cover bg-center relative"
+                  style={{ backgroundImage: "url('/images/riverside-yoga.jpg')" }}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent group-hover:from-black/70 transition-all duration-300"></div>
+                  <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20 group-hover:from-purple-500/30 group-hover:to-pink-500/30 transition-all duration-300"></div>
+                  <div className="absolute bottom-4 left-4 text-white">
+                    <Badge className="bg-purple-500/90 backdrop-blur-sm mb-2 text-white border-0 shadow-md">
+                      Holistic
+                    </Badge>
+                    <h3 className="text-xl font-bold drop-shadow-lg">Complete Wellness</h3>
+                  </div>
                 </div>
-              </div>
-              <CardContent className="p-6">
-                <p className="text-gray-600 mb-4">
-                  A comprehensive program combining yoga, meditation, and nutrition for total well-being.
-                </p>
-                <div className="flex justify-between items-center">
-                  <span className="text-purple-600 font-semibold">From ₹3,999</span>
-                  <Link href="/user/subscription-categories/complete-wellness">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="group-hover:bg-purple-50 transition-all duration-300"
-                    >
-                      View Details{" "}
-                      <ArrowRight className="ml-1 h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                    </Button>
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+                <CardContent className="p-6">
+                  <p className="text-gray-600 mb-6">
+                    A comprehensive program combining yoga, meditation, and nutrition for total well-being.
+                  </p>
+                  <div className="flex justify-center">
+                    <Link href="/user/subscription-categories/complete-wellness">
+                      <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold px-6 py-2 shadow-md hover:shadow-lg transition-all duration-300">
+                        Explore Program
+                        <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                      </Button>
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
 
           {/* CTA Button */}
           <div className="text-center">
-            <Link href="/user/plans">
+            <Link href="/plans">
               <Button
                 size="lg"
                 className="group bg-gradient-to-r from-green-600 to-purple-600 hover:from-green-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-8 relative overflow-hidden"

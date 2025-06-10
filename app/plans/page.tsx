@@ -22,6 +22,8 @@ import {
   Crown,
   Flame,
   ArrowLeft,
+  UserPlus,
+  LogIn,
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Logo } from "@/components/logo"
@@ -194,10 +196,10 @@ export default function PlansPage() {
                 <div className="text-xs text-gray-500">Yoga & Wellness</div>
               </div>
             </div>
-            <Link href="/user/subscriptions">
+            <Link href="/">
               <Button variant="outline" size="sm" className="border-red-300 text-red-600 hover:bg-red-50">
                 <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Subscriptions
+                Back to Home
               </Button>
             </Link>
           </div>
@@ -230,10 +232,10 @@ export default function PlansPage() {
           <div className="flex items-center">
             <Logo className="h-8 w-auto" />
           </div>
-          <Link href="/user/subscriptions">
+          <Link href="/">
             <Button variant="outline" size="sm" className="border-emerald-300 text-emerald-600 hover:bg-emerald-50">
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Subscriptions
+              Back to Home
             </Button>
           </Link>
         </div>
@@ -537,8 +539,29 @@ export default function PlansPage() {
                   </p>
                 </div>
 
-                {/* Conditional Buttons */}
-                {/* No buttons for logged-in users */}
+                {/* Always show buttons for this page since it's for non-logged-in users */}
+                <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+                  <Link href="/user/register">
+                    <Button
+                      size="lg"
+                      variant="secondary"
+                      className="text-emerald-600 bg-white hover:bg-gray-50 text-lg font-bold px-8 py-4 h-auto shadow-lg"
+                    >
+                      <UserPlus className="mr-2 h-5 w-5" />
+                      Start Your Journey
+                    </Button>
+                  </Link>
+                  <Link href="/user/login">
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      className="border-2 border-white text-white bg-white/10 backdrop-blur-sm hover:bg-white hover:text-emerald-600 text-lg font-bold px-8 py-4 h-auto"
+                    >
+                      <LogIn className="mr-2 h-5 w-5" />
+                      Continue Your Practice
+                    </Button>
+                  </Link>
+                </div>
               </CardContent>
             </Card>
           </div>

@@ -35,9 +35,31 @@ export default function LoginPage() {
         body: JSON.stringify({ phone, password }),
       })
 
+      // Check if response is ok and has JSON content
+      if (!response.ok) {
+        // Try to get error message from response
+        let errorMessage = "Login failed"
+        try {
+          const contentType = response.headers.get("content-type")
+          if (contentType && contentType.includes("application/json")) {
+            const errorData = await response.json()
+            errorMessage = errorData.error || errorMessage
+          } else {
+            // If not JSON, get text response
+            const errorText = await response.text()
+            errorMessage = errorText.includes("Internal") ? "Server error. Please try again." : errorMessage
+          }
+        } catch (parseError) {
+          console.error("Error parsing error response:", parseError)
+        }
+        setError(errorMessage)
+        return
+      }
+
+      // Parse successful response
       const data = await response.json()
 
-      if (response.ok && data.success) {
+      if (data.success) {
         // Set localStorage values that the dashboard expects
         localStorage.setItem("userId", data.user.id.toString())
         localStorage.setItem("userAuthenticated", "true")
@@ -48,26 +70,20 @@ export default function LoginPage() {
         // Also set user cookie for additional compatibility
         document.cookie = `userId=${data.user.id}; path=/; max-age=86400`
 
-        console.log("Login successful, localStorage set:", {
-          userId: localStorage.getItem("userId"),
-          userAuthenticated: localStorage.getItem("userAuthenticated"),
-          userName: localStorage.getItem("userName"),
-        })
+        console.log("Login successful, redirecting...")
 
-        // Small delay to ensure localStorage is set
-        setTimeout(() => {
-          if (redirectUrl) {
-            router.push(redirectUrl)
-          } else {
-            router.push("/user/dashboard")
-          }
-        }, 100)
+        // Immediate redirect without delay
+        if (redirectUrl) {
+          window.location.href = redirectUrl
+        } else {
+          window.location.href = "/user/dashboard"
+        }
       } else {
         setError(data.error || "Login failed")
       }
     } catch (err) {
       console.error("Login error:", err)
-      setError("An error occurred during login")
+      setError("Network error. Please check your connection and try again.")
     } finally {
       setLoading(false)
     }
