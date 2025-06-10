@@ -31,7 +31,7 @@
     "@supabase/auth-helpers-nextjs": "latest",
     "@supabase/supabase-js": "latest",
     "@types/bcryptjs": "^2.4.6",
-    "@types/nodemailer": "^6.4.19",
+    "@types/nodemailer": "^6.4.18",
     "bcryptjs": "latest",
     "child_process": "latest",
     "class-variance-authority": "^0.7.1",
