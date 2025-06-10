@@ -27,7 +27,6 @@
     "@radix-ui/react-slot": "^1.1.0",
     "@radix-ui/react-switch": "latest",
     "@radix-ui/react-tabs": "latest",
-    "@radix-ui/react-textarea": "^1.1.0",
     "@radix-ui/react-toast": "^1.2.2",
     "@supabase/auth-helpers-nextjs": "latest",
     "@supabase/supabase-js": "latest",
