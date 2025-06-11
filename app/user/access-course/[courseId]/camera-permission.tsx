@@ -1,100 +1,176 @@
 "use client"
 
-import { useState } from "react"
-import { Camera, CameraOff, Play } from "lucide-react"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
+import { Mic, MicOff, Camera } from "lucide-react"
 
-interface CameraPermissionProps {
-  onPermissionGranted: () => void
-  onSkip: () => void
-}
+export default function CameraPermission() {
+  const [hasPermission, setHasPermission] = useState<boolean | null>(null)
+  const [isMuted, setIsMuted] = useState(true)
+  const [isLoading, setIsLoading] = useState(true)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const streamRef = useRef<MediaStream | null>(null)
 
-export default function CameraPermission({ onPermissionGranted, onSkip }: CameraPermissionProps) {
-  const [checking, setChecking] = useState(false)
-  const [permissionStatus, setPermissionStatus] = useState<"unknown" | "granted" | "denied">("unknown")
+  useEffect(() => {
+    let mounted = true
 
-  const checkCameraPermission = async () => {
-    setChecking(true)
-    try {
-      // Request camera permission
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 320, height: 240 },
-        audio: false,
+    async function setupCamera() {
+      try {
+        setIsLoading(true)
+        setErrorMessage(null)
+
+        console.log("Requesting camera permission...")
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: true,
+        })
+
+        if (!mounted) {
+          stream.getTracks().forEach((track) => track.stop())
+          return
+        }
+
+        streamRef.current = stream
+
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream
+          videoRef.current.muted = true // Start muted to allow autoplay
+
+          // Log video element properties
+          console.log("Video element:", {
+            width: videoRef.current.width,
+            height: videoRef.current.height,
+            videoWidth: videoRef.current.videoWidth,
+            videoHeight: videoRef.current.videoHeight,
+            readyState: videoRef.current.readyState,
+            paused: videoRef.current.paused,
+            muted: videoRef.current.muted,
+          })
+
+          // Force play the video
+          try {
+            const playPromise = videoRef.current.play()
+            if (playPromise !== undefined) {
+              playPromise
+                .then(() => {
+                  console.log("Video playing successfully")
+                  setHasPermission(true)
+                })
+                .catch((err) => {
+                  console.error("Error playing video:", err)
+                  setErrorMessage(`Play error: ${err.message}`)
+                })
+                .finally(() => {
+                  setIsLoading(false)
+                })
+            }
+          } catch (playError) {
+            console.error("Exception during play():", playError)
+            setErrorMessage(`Play exception: ${playError}`)
+            setIsLoading(false)
+          }
+        } else {
+          console.error("Video element not found")
+          setErrorMessage("Video element not found")
+          setIsLoading(false)
+        }
+      } catch (err: any) {
+        if (!mounted) return
+
+        console.error("Camera permission error:", err)
+        setHasPermission(false)
+        setErrorMessage(`Camera error: ${err.message || "Unknown error"}`)
+        setIsLoading(false)
+      }
+    }
+
+    setupCamera()
+
+    return () => {
+      mounted = false
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop())
+      }
+    }
+  }, [])
+
+  const toggleMute = () => {
+    if (!streamRef.current || !videoRef.current) return
+
+    const audioTracks = streamRef.current.getAudioTracks()
+    if (audioTracks.length > 0) {
+      const newMuteState = !isMuted
+      audioTracks.forEach((track) => {
+        track.enabled = !newMuteState
       })
-
-      // Stop the stream immediately - we just needed permission
-      stream.getTracks().forEach((track) => track.stop())
-
-      setPermissionStatus("granted")
-      setTimeout(() => {
-        onPermissionGranted()
-      }, 1000)
-    } catch (error) {
-      console.error("Camera permission denied:", error)
-      setPermissionStatus("denied")
-    } finally {
-      setChecking(false)
+      videoRef.current.muted = newMuteState
+      setIsMuted(newMuteState)
     }
   }
 
   return (
-    <div className="fixed inset-0 bg-black flex items-center justify-center z-50">
-      <div className="bg-gray-900 p-8 rounded-lg max-w-md text-center">
-        <div className="mb-6">
-          <Camera className="h-16 w-16 text-blue-500 mx-auto mb-4" />
-          <h2 className="text-white text-2xl font-bold mb-2">Camera Access</h2>
-          <p className="text-gray-300">Would you like to enable your camera for a better live session experience?</p>
-          <p className="text-gray-400 text-sm mt-2">
-            Your camera feed will only be visible to you - not recorded or shared.
-          </p>
-        </div>
+    <div className="flex flex-col items-center p-4 bg-white rounded-lg shadow-md">
+      <h2 className="text-xl font-semibold mb-4">Camera Preview</h2>
 
-        {permissionStatus === "unknown" && (
-          <div className="space-y-4">
-            <Button
-              onClick={checkCameraPermission}
-              disabled={checking}
-              className="w-full bg-blue-600 hover:bg-blue-700"
-            >
-              {checking ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Requesting Permission...
-                </>
-              ) : (
-                <>
-                  <Camera className="mr-2 h-4 w-4" />
-                  Enable Camera
-                </>
-              )}
-            </Button>
-            <Button onClick={onSkip} variant="outline" className="w-full">
-              <Play className="mr-2 h-4 w-4" />
-              Skip & Continue
-            </Button>
+      <div className="relative w-full max-w-md aspect-video bg-gray-100 rounded-lg overflow-hidden mb-4">
+        {isLoading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500"></div>
           </div>
         )}
 
-        {permissionStatus === "granted" && (
-          <div className="text-green-400">
-            <Camera className="h-8 w-8 mx-auto mb-2" />
-            <p>Camera access granted! Starting session...</p>
-          </div>
-        )}
-
-        {permissionStatus === "denied" && (
-          <div className="space-y-4">
-            <div className="text-red-400">
-              <CameraOff className="h-8 w-8 mx-auto mb-2" />
-              <p>Camera access denied. You can still join the session.</p>
+        {errorMessage && (
+          <div className="absolute inset-0 flex items-center justify-center bg-red-50 p-4">
+            <div className="text-red-600 text-center">
+              <p className="font-semibold">Error:</p>
+              <p>{errorMessage}</p>
             </div>
-            <Button onClick={onSkip} className="w-full">
-              <Play className="mr-2 h-4 w-4" />
-              Continue Without Camera
-            </Button>
           </div>
         )}
+
+        <video
+          ref={videoRef}
+          className="w-full h-full object-cover"
+          playsInline
+          autoPlay
+          style={{ display: hasPermission ? "block" : "none" }}
+        />
       </div>
+
+      <div className="flex space-x-4 mb-4">
+        <Button onClick={toggleMute} variant="outline" disabled={!hasPermission} className="flex items-center">
+          {isMuted ? (
+            <>
+              <MicOff className="w-4 h-4 mr-2" />
+              Unmute
+            </>
+          ) : (
+            <>
+              <Mic className="w-4 h-4 mr-2" />
+              Mute
+            </>
+          )}
+        </Button>
+      </div>
+
+      {!hasPermission && !isLoading && (
+        <div className="text-center p-4 bg-yellow-50 rounded-lg">
+          <Camera className="w-6 h-6 mx-auto text-yellow-500 mb-2" />
+          <p className="font-medium">Camera access is required</p>
+          <p className="text-sm text-gray-600 mt-1">Please allow camera access in your browser settings to continue.</p>
+          <Button className="mt-3" onClick={() => window.location.reload()}>
+            Try Again
+          </Button>
+        </div>
+      )}
+
+      {hasPermission && (
+        <div className="text-sm text-gray-600 text-center">
+          <p>Camera is active. You can now join the session.</p>
+          <p className="mt-1">Click the unmute button above if you want to enable audio.</p>
+        </div>
+      )}
     </div>
   )
 }
