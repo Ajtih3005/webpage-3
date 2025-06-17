@@ -65,32 +65,7 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
   const fullscreenOverlayRef = useRef<HTMLDivElement | null>(null)
   const cameraVideoRef = useRef<HTMLVideoElement | null>(null)
 
-  // FORCE STOP ALL CAMERA TRACKS - UTILITY FUNCTION
-  const forceStopCamera = () => {
-    console.log("🛑 FORCE STOPPING CAMERA...")
-
-    if (cameraStream) {
-      cameraStream.getTracks().forEach((track) => {
-        console.log(`🛑 Stopping ${track.kind} track:`, track.label)
-        track.stop()
-      })
-      setCameraStream(null)
-    }
-
-    if (cameraVideoRef.current) {
-      cameraVideoRef.current.srcObject = null
-      cameraVideoRef.current.pause()
-      cameraVideoRef.current.load() // Reset video element
-    }
-
-    setCameraOn(false)
-    setShowCameraPreview(false)
-    setCameraError(null)
-
-    console.log("✅ Camera completely stopped")
-  }
-
-  // SIMPLE CAMERA START FUNCTION
+  // Camera functions
   const startCamera = async () => {
     if (!cameraPermissionGranted) {
       toast({
@@ -103,85 +78,29 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
 
     try {
       console.log("🎥 Starting camera...")
-
-      // Stop any existing camera first
-      forceStopCamera()
-
-      // Get new camera stream
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          width: { ideal: 320, max: 640 },
-          height: { ideal: 240, max: 480 },
+          width: { ideal: 320 },
+          height: { ideal: 240 },
           facingMode: "user",
-          frameRate: { ideal: 15, max: 30 },
         },
         audio: false,
       })
 
-      console.log("🎥 Got camera stream:", stream)
-      console.log("🎥 Stream tracks:", stream.getTracks())
-
-      // Set state
+      console.log("🎥 Camera stream obtained:", stream)
       setCameraStream(stream)
       setCameraOn(true)
       setCameraError(null)
 
-      // Show preview immediately
-      setShowCameraPreview(true)
-
-      // Connect to video element with retry logic
+      // Set video stream
       if (cameraVideoRef.current) {
-        console.log("🎥 Connecting to video element...")
+        console.log("🎥 Setting video source...")
+        cameraVideoRef.current.srcObject = stream
 
-        const video = cameraVideoRef.current
-
-        // Set properties
-        video.muted = true // REQUIRED FOR AUTOPLAY TO WORK IN BROWSERS
-        video.playsInline = true
-        video.autoplay = true
-
-        // Set stream
-        video.srcObject = stream
-
-        // Force play with multiple attempts
-        const playVideo = async () => {
-          try {
-            await video.play()
-            console.log("✅ Video playing successfully!")
-          } catch (error) {
-            console.error("❌ Play failed:", error)
-
-            // Try again after short delay
-            setTimeout(async () => {
-              try {
-                await video.play()
-                console.log("✅ Video playing on retry!")
-              } catch (retryError) {
-                console.error("❌ Retry failed:", retryError)
-                setCameraError("Failed to start video playback")
-              }
-            }, 500)
-          }
-        }
-
-        // Try to play immediately
-        playVideo()
-
-        // Also try when metadata loads
-        video.onloadedmetadata = () => {
-          console.log("🎥 Metadata loaded, trying to play...")
-          playVideo()
-        }
-
-        // Monitor video state
-        video.onplaying = () => {
-          console.log("✅ Video is now playing!")
-          setCameraError(null)
-        }
-
-        video.onerror = (error) => {
-          console.error("❌ Video error:", error)
-          setCameraError("Video playback error")
+        // Ensure video plays
+        cameraVideoRef.current.onloadedmetadata = () => {
+          console.log("🎥 Video metadata loaded, playing...")
+          cameraVideoRef.current?.play().catch(console.error)
         }
       }
 
@@ -190,19 +109,34 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
         description: "Your camera is now active.",
       })
     } catch (error) {
-      console.error("❌ Camera error:", error)
-      setCameraError(`Camera failed: ${error.message}`)
+      console.error("❌ Error accessing camera:", error)
+      setCameraError("Camera access failed")
       setCameraOn(false)
       toast({
         title: "Camera Error",
-        description: `Could not access camera: ${error.message}`,
+        description: "Could not access camera. Please check permissions.",
         variant: "destructive",
       })
     }
   }
 
   const stopCamera = () => {
-    forceStopCamera()
+    console.log("🎥 Stopping camera...")
+    if (cameraStream) {
+      cameraStream.getTracks().forEach((track) => {
+        console.log("🎥 Stopping track:", track.kind)
+        track.stop()
+      })
+      setCameraStream(null)
+    }
+
+    if (cameraVideoRef.current) {
+      cameraVideoRef.current.srcObject = null
+    }
+
+    setCameraOn(false)
+    setCameraError(null)
+
     toast({
       title: "Camera Stopped",
       description: "Your camera has been turned off.",
@@ -210,11 +144,7 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
   }
 
   const toggleCameraPreview = () => {
-    if (!cameraOn) {
-      startCamera()
-    } else {
-      setShowCameraPreview(!showCameraPreview)
-    }
+    setShowCameraPreview(!showCameraPreview)
   }
 
   const toggleCamera = () => {
@@ -291,9 +221,6 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
             variant: "destructive",
           })
 
-          // FORCE STOP CAMERA ON TERMINATION
-          forceStopCamera()
-
           // Redirect after a short delay
           setTimeout(() => {
             router.push("/user/access-course")
@@ -327,6 +254,19 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
 
     // Add class to body to prevent scrolling and selection
     document.body.classList.add("video-playing")
+
+    // Add animation class for emoji reactions
+    const style = document.createElement("style")
+    style.textContent = `
+      @keyframes floatUp {
+        0% { transform: translateY(0); opacity: 1; }
+        100% { transform: translateY(-100px); opacity: 0; }
+      }
+      .animate-emoji {
+        animation: floatUp 2s ease-out forwards;
+      }
+    `
+    document.head.appendChild(style)
 
     // Only proceed if camera permission check is done
     if (!showCameraPermission) {
@@ -459,12 +399,25 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
         setYtApiLoaded(true)
       }
 
-      // CLEANUP ON UNMOUNT - FORCE STOP CAMERA
+      // Cleanup on unmount
       return () => {
         isMounted.current = false
 
-        console.log("🧹 Component unmounting - force stopping camera...")
-        forceStopCamera()
+        // Force stop camera on cleanup
+        console.log("🧹 Cleanup - force stopping camera...")
+        if (cameraStream) {
+          cameraStream.getTracks().forEach((track) => {
+            console.log("🎥 Force stopping track on cleanup:", track.kind)
+            track.stop()
+          })
+        }
+
+        if (cameraVideoRef.current) {
+          cameraVideoRef.current.srcObject = null
+        }
+
+        // Stop camera
+        stopCamera()
 
         // Remove body class
         document.body.classList.remove("video-playing")
@@ -509,6 +462,12 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
           } catch (error) {
             console.error("Error destroying YouTube player:", error)
           }
+        }
+
+        // Remove the added style element
+        const addedStyle = document.head.querySelector("style:last-child")
+        if (addedStyle) {
+          addedStyle.remove()
         }
       }
     }
@@ -580,22 +539,22 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
       const batchNum = Number.parseInt(courseDetails.batch_number)
       if (batchNum === 1) {
         startHour = 5
-        startMinute = 30
+        startMinute = 30 // Morning Batch 1 (5:30 to 6:30)
       } else if (batchNum === 2) {
         startHour = 6
-        startMinute = 40
+        startMinute = 40 // Morning Batch 2 (6:40 to 7:40)
       } else if (batchNum === 3) {
         startHour = 7
-        startMinute = 50
+        startMinute = 50 // Morning Batch 3 (7:50 to 8:50)
       } else if (batchNum === 4) {
         startHour = 17
-        startMinute = 30
+        startMinute = 30 // Evening Batch 4 (5:30 to 6:30)
       } else if (batchNum === 5) {
         startHour = 18
-        startMinute = 40
+        startMinute = 40 // Evening Batch 5 (6:40 to 7:40)
       } else if (batchNum === 6) {
         startHour = 19
-        startMinute = 50
+        startMinute = 50 // Evening Batch 6 (7:50 to 8:50)
       }
     } else if (courseDetails.custom_batch_time) {
       // Parse custom batch time
@@ -639,9 +598,6 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
         description: "This session is no longer active. Returning to course list.",
         variant: "destructive",
       })
-
-      // FORCE STOP CAMERA ON SESSION END
-      forceStopCamera()
 
       // Redirect after a short delay
       setTimeout(() => {
@@ -1060,8 +1016,21 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
     // Mark video as completed
     await markVideoCompleted()
 
-    // FORCE STOP CAMERA ON VIDEO END
-    forceStopCamera()
+    // Force stop camera
+    if (cameraStream) {
+      cameraStream.getTracks().forEach((track) => {
+        console.log("🎥 Force stopping track on video end:", track.kind)
+        track.stop()
+      })
+      setCameraStream(null)
+    }
+
+    if (cameraVideoRef.current) {
+      cameraVideoRef.current.srcObject = null
+    }
+
+    setCameraOn(false)
+    setShowCameraPreview(false)
 
     // Exit fullscreen
     if (document.fullscreenElement) {
@@ -1187,16 +1156,27 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
   const handleExitClick = () => {
     console.log("🚪 Exiting session - stopping camera...")
 
-    // FORCE STOP CAMERA ON EXIT
-    forceStopCamera()
+    // Force stop camera
+    if (cameraStream) {
+      cameraStream.getTracks().forEach((track) => {
+        console.log("🎥 Force stopping track:", track.kind)
+        track.stop()
+      })
+      setCameraStream(null)
+    }
+
+    if (cameraVideoRef.current) {
+      cameraVideoRef.current.srcObject = null
+    }
+
+    setCameraOn(false)
+    setShowCameraPreview(false)
 
     // Exit fullscreen
     if (document.fullscreenElement) {
       document.exitFullscreen().catch((err) => console.error("Error exiting fullscreen:", err))
     } else if ((document as any).webkitExitFullscreen) {
       ;(document as any).webkitExitFullscreen()
-    } else if ((document as any).mozCancelFullScreen) {
-      ;(document as any).mozCancelFullScreen()
     } else if ((document as any).msExitFullscreen) {
       ;(document as any).msExitFullscreen()
     }
@@ -1260,105 +1240,22 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
         ref={playerContainerRef}
       ></div>
 
-      {/* Camera Preview Window - ULTRA SIMPLE WITH DIRECT DOM MANIPULATION */}
-      {showCameraPreview && (
-        <div
-          className="absolute top-4 right-4 z-50 bg-black rounded-lg border-2 border-white overflow-hidden shadow-2xl"
-          style={{ width: "320px", height: "240px" }}
-        >
-          <div className="relative w-full h-full bg-gray-900">
-            {/* Video element with forced styles */}
-            <video
-              ref={(el) => {
-                // Direct DOM manipulation for maximum compatibility
-                if (el && !el.srcObject && cameraStream) {
-                  console.log("🎥 Direct DOM manipulation of video element")
-                  el.srcObject = cameraStream
-                  el.muted = true // REQUIRED FOR AUTOPLAY
-                  el.autoplay = true
-                  el.playsInline = true
-
-                  // Force play with retry
-                  const playVideo = async () => {
-                    try {
-                      await el.play()
-                      console.log("✅ Video playing via direct DOM manipulation!")
-                    } catch (error) {
-                      console.error("❌ Play failed:", error)
-                      setTimeout(() => playVideo(), 500)
-                    }
-                  }
-
-                  playVideo()
-                }
-                cameraVideoRef.current = el
-              }}
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                backgroundColor: "#000",
-                display: "block",
-                position: "absolute",
-                top: 0,
-                left: 0,
-                zIndex: 1,
-              }}
-            />
-
-            {/* Close button */}
+      {/* Camera Preview Window */}
+      {showCameraPreview && cameraOn && (
+        <div className="absolute top-4 right-4 z-50 bg-black rounded-lg border-2 border-white overflow-hidden shadow-2xl">
+          <div className="relative">
+            <video ref={cameraVideoRef} autoPlay muted playsInline className="w-64 h-48 object-cover bg-gray-800" />
             <button
               onClick={() => setShowCameraPreview(false)}
               className="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white rounded-full p-1 transition-colors"
-              style={{ zIndex: 10 }}
             >
               <X className="h-4 w-4" />
             </button>
-
-            {/* Live indicator */}
-            <div
-              className="absolute top-2 left-2 bg-green-600 text-white text-xs px-2 py-1 rounded flex items-center"
-              style={{ zIndex: 10 }}
-            >
+            {/* Removed "Local Preview Only" text */}
+            <div className="absolute top-2 left-2 bg-green-600 text-white text-xs px-2 py-1 rounded flex items-center">
               <div className="w-2 h-2 bg-white rounded-full mr-1 animate-pulse"></div>
               LIVE
             </div>
-
-            {/* Debug info */}
-            <div className="absolute bottom-2 left-2 bg-black/70 text-white text-xs p-1 rounded" style={{ zIndex: 10 }}>
-              Cam: {cameraOn ? "ON" : "OFF"} | Stream: {cameraStream ? "YES" : "NO"}
-            </div>
-
-            {/* Note about muted */}
-            <div
-              className="absolute bottom-8 left-2 right-2 bg-blue-600/80 text-white text-xs p-1 rounded text-center"
-              style={{ zIndex: 10 }}
-            >
-              Camera is muted (browser requirement for autoplay)
-            </div>
-
-            {/* Error display */}
-            {cameraError && (
-              <div
-                className="absolute bottom-16 left-2 right-2 bg-red-600/80 text-white text-xs p-1 rounded"
-                style={{ zIndex: 10 }}
-              >
-                {cameraError}
-              </div>
-            )}
-
-            {/* No camera overlay */}
-            {!cameraOn && (
-              <div className="absolute inset-0 flex items-center justify-center bg-gray-800" style={{ zIndex: 5 }}>
-                <div className="text-center text-white">
-                  <VideoOff className="h-12 w-12 mx-auto mb-2" />
-                  <p className="text-sm">Camera is off</p>
-                  <Button size="sm" onClick={startCamera} className="mt-2">
-                    Turn On Camera
-                  </Button>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       )}
@@ -1400,7 +1297,7 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
         </div>
       )}
 
-      {/* Controls Bar */}
+      {/* NEW SIMPLIFIED CONTROLS BAR */}
       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 text-white z-10">
         <div className="flex justify-between items-center mb-2">
           {courseDetails?.title && <h1 className="text-xl font-bold">{courseDetails.title}</h1>}
@@ -1412,7 +1309,7 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
           <div className="text-green-400 text-sm mt-2">Video completed! Returning to course list...</div>
         )}
 
-        {/* Control Bar */}
+        {/* NEW CONTROL BAR WITH CAMERA TOGGLE */}
         <div className="flex items-center justify-between mt-4 bg-black/50 rounded-lg p-3">
           {/* Camera Controls */}
           <div className="flex items-center gap-2">
@@ -1493,50 +1390,43 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
               onClick={() => {
                 const btn = document.createElement("div")
                 btn.className = "absolute animate-emoji text-2xl"
-                btn.textContent = "🙏"
+                btn.textContent = "😊"
                 btn.style.bottom = "20%"
                 btn.style.left = `${Math.random() * 80 + 10}%`
                 if (videoWrapperRef.current) videoWrapperRef.current.appendChild(btn)
                 setTimeout(() => btn.remove(), 2000)
               }}
             >
-              <span className="text-xl">🙏</span>
+              <span className="text-xl">😊</span>
+            </button>
+            <button
+              className="emoji-btn p-2 rounded-full hover:bg-white/20 transition-colors"
+              onClick={() => {
+                const btn = document.createElement("div")
+                btn.className = "absolute animate-emoji text-2xl"
+                btn.textContent = "👏"
+                btn.style.bottom = "20%"
+                btn.style.left = `${Math.random() * 80 + 10}%`
+                if (videoWrapperRef.current) videoWrapperRef.current.appendChild(btn)
+                setTimeout(() => btn.remove(), 2000)
+              }}
+            >
+              <span className="text-xl">👏</span>
             </button>
           </div>
 
           {/* Exit Button */}
-          <Button variant="destructive" size="sm" onClick={handleExitClick} className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleExitClick}
+            className="text-white hover:bg-red-600/20 flex items-center gap-2"
+          >
             <ArrowLeft className="h-4 w-4" />
-            Exit Session
+            Exit
           </Button>
         </div>
       </div>
-
-      {/* Global styles */}
-      <style jsx global>{`
-        .inactive-cursor {
-          cursor: none !important;
-        }
-        .inactive-cursor * {
-          cursor: none !important;
-        }
-        .video-playing {
-          overflow: hidden;
-          user-select: none;
-          -webkit-user-select: none;
-          -moz-user-select: none;
-          -ms-user-select: none;
-        }
-        @keyframes floatUp {
-          0% { transform: translateY(0); opacity: 1; }
-          100% { transform: translateY(-100px); opacity: 0; }
-        }
-        .animate-emoji {
-          animation: floatUp 2s ease-out forwards;
-          position: absolute;
-          z-index: 20;
-        }
-      `}</style>
     </div>
   )
 }
