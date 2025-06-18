@@ -61,10 +61,29 @@ export const countries = [
   { code: "AT", name: "Austria" },
 ]
 
-// YouTube URL validation
+// YouTube URL validation - More flexible version
 export function isValidYoutubeUrl(url: string): boolean {
-  const youtubeRegex = /^(https?:\/\/)?(www\.)?(youtube\.com\/(watch\?v=|embed\/|v\/)|youtu\.be\/)[\w-]+(&[\w=]*)?$/
-  return youtubeRegex.test(url)
+  if (!url || typeof url !== "string") return false
+
+  // More comprehensive YouTube URL patterns
+  const youtubePatterns = [
+    // Standard watch URLs
+    /^https?:\/\/(www\.)?youtube\.com\/watch\?v=[\w-]+/,
+    // Short URLs
+    /^https?:\/\/youtu\.be\/[\w-]+/,
+    // Embed URLs
+    /^https?:\/\/(www\.)?youtube\.com\/embed\/[\w-]+/,
+    // Mobile URLs
+    /^https?:\/\/m\.youtube\.com\/watch\?v=[\w-]+/,
+    // Gaming URLs
+    /^https?:\/\/(www\.)?youtube\.com\/gaming\/watch\?v=[\w-]+/,
+    // Live URLs
+    /^https?:\/\/(www\.)?youtube\.com\/live\/[\w-]+/,
+    // Shorts URLs
+    /^https?:\/\/(www\.)?youtube\.com\/shorts\/[\w-]+/,
+  ]
+
+  return youtubePatterns.some((pattern) => pattern.test(url.trim()))
 }
 
 // YouTube video ID extraction

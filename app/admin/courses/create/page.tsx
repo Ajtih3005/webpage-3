@@ -21,162 +21,36 @@ import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
-// Update the component to include multiple batches functionality
 export default function CreateCourse() {
   const router = useRouter()
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
   const [youtubeLink, setYoutubeLink] = useState("")
-  const [date, setDate] = useState<Date | undefined>(new Date())
   const [isPredefinedBatch, setIsPredefinedBatch] = useState(true)
-  const [isScheduledSession, setIsScheduledSession] = useState(false)
   const [selectedBatches, setSelectedBatches] = useState<string[]>([])
-  const [customBatches, setCustomBatches] = useState<{ id: string; time: string }[]>([])
+  const [customBatches, setCustomBatches] = useState<{ id: string; time: string; subscriptionId?: string }[]>([])
   const [selectedSubscriptions, setSelectedSubscriptions] = useState<string[]>([])
-  const [selectedLanguages, setSelectedLanguages] = useState<string[]>(["English"])
+  const [language, setLanguage] = useState("English")
   const [subscriptions, setSubscriptions] = useState<{ id: number; name: string }[]>([])
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const [dbConnectionStatus, setDbConnectionStatus] = useState<"unknown" | "success" | "error">("unknown")
-  const [dbErrorMessage, setDbErrorMessage] = useState<string | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [schedulingType, setSchedulingType] = useState<"date" | "day" | "week">("date")
   const [subscriptionDay, setSubscriptionDay] = useState<number>(1)
   const [subscriptionWeek, setSubscriptionWeek] = useState<number>(1)
   const [scheduledDate, setScheduledDate] = useState<Date | undefined>(new Date())
-  const handleDateSelect = (date: Date | undefined) => {
-    setScheduledDate(date)
-  }
 
-  // Available languages
-  const availableLanguages = ["English", "Hindi", "Kannada"]
-
-  // Generate a unique ID for custom batches
   const generateId = () => `batch_${Date.now()}_${Math.floor(Math.random() * 1000)}`
 
   useEffect(() => {
     fetchSubscriptions()
-
-    // Check for subscription ID in URL query params
-    const params = new URLSearchParams(window.location.search)
-    const subscriptionParam = params.get("subscription")
-    if (subscriptionParam) {
-      // setSubscriptionId(subscriptionParam)
-      // console.log(`Pre-selected subscription ID: ${subscriptionParam}`)
-    }
-
-    testDatabaseConnection()
   }, [])
 
-  // Handle scheduled session toggle
-  useEffect(() => {
-    if (isScheduledSession) {
-      // Select all predefined batches when scheduled session is enabled
-      setSelectedBatches(["1", "2", "3", "4", "5", "6"])
-      setIsPredefinedBatch(true)
-    } else if (isPredefinedBatch) {
-      // Reset to empty selection when turning off scheduled session
-      setSelectedBatches([])
-    }
-  }, [isScheduledSession])
-
-  // Test database connection
-  async function testDatabaseConnection() {
-    try {
-      console.log("Testing database connection...")
-      const supabase = getSupabaseBrowserClient()
-
-      const { data, error } = await supabase.from("courses").select("id").limit(1)
-
-      if (error) {
-        console.error("Database connection error:", error)
-        setDbConnectionStatus("error")
-        setDbErrorMessage(error.message)
-        return false
-      }
-
-      console.log("Database connection successful, found courses:", data)
-      setDbConnectionStatus("success")
-      setDbErrorMessage(null)
-      return true
-    } catch (e) {
-      console.error("Exception testing database:", e)
-      setDbConnectionStatus("error")
-      setDbErrorMessage(e instanceof Error ? e.message : String(e))
-      return false
-    }
-  }
-
-  async function fetchSubscriptions() {
-    try {
-      console.log("Fetching subscriptions...")
-      const supabase = getSupabaseBrowserClient()
-
-      const { data, error } = await supabase.from("subscriptions").select("id, name")
-
-      if (error) {
-        console.error("Error fetching subscriptions:", error)
-        throw error
-      }
-
-      console.log("Fetched subscriptions:", data)
-      setSubscriptions(data || [])
-    } catch (error) {
-      console.error("Exception fetching subscriptions:", error)
-    }
-  }
-
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {}
-
-    // Log all form values for debugging
-    console.log("Validating form with values:", {
-      title,
-      youtubeLink,
-      date,
-      selectedLanguages,
-      isPredefinedBatch,
-      selectedBatches,
-      customBatches,
-    })
-
-    if (!title.trim()) newErrors.title = "Title is required"
-
-    // More detailed YouTube validation
-    if (!youtubeLink.trim()) {
-      newErrors.youtubeLink = "YouTube link is required"
-    } else if (!isValidYoutubeUrl(youtubeLink)) {
-      console.error("Invalid YouTube URL:", youtubeLink)
-      newErrors.youtubeLink = "Please enter a valid YouTube URL (e.g., https://www.youtube.com/watch?v=XXXX)"
-    }
-
-    if (!date) newErrors.date = "Date is required"
-    if (selectedLanguages.length === 0) newErrors.languages = "Please select at least one language"
-
-    if (isPredefinedBatch) {
-      if (selectedBatches.length === 0) {
-        newErrors.batches = "Please select at least one batch"
-      }
-    } else {
-      if (customBatches.length === 0) {
-        newErrors.customBatches = "Please add at least one custom batch time"
-      } else {
-        // Validate each custom batch
-        const invalidBatches = customBatches.filter((batch) => !batch.time.trim())
-        if (invalidBatches.length > 0) {
-          newErrors.customBatches = "All custom batch times must be filled"
-        }
-      }
-    }
-
-    setErrors(newErrors)
-    console.log("Validation errors:", newErrors)
-    return Object.keys(newErrors).length === 0
+  const handleDateSelect = (date: Date | undefined) => {
+    setScheduledDate(date)
   }
 
   const addCustomBatch = () => {
-    setCustomBatches([...customBatches, { id: generateId(), time: "" }])
+    setCustomBatches([...customBatches, { id: generateId(), time: "", subscriptionId: undefined }])
   }
 
   const removeCustomBatch = (id: string) => {
@@ -187,6 +61,14 @@ export default function CreateCourse() {
     setCustomBatches(customBatches.map((batch) => (batch.id === id ? { ...batch, time } : batch)))
   }
 
+  const updateCustomBatchSubscription = (id: string, subscriptionId: string) => {
+    setCustomBatches(
+      customBatches.map((batch) =>
+        batch.id === id ? { ...batch, subscriptionId: subscriptionId === "none" ? undefined : subscriptionId } : batch,
+      ),
+    )
+  }
+
   const handleBatchToggle = (batchNumber: string) => {
     if (selectedBatches.includes(batchNumber)) {
       setSelectedBatches(selectedBatches.filter((b) => b !== batchNumber))
@@ -195,58 +77,71 @@ export default function CreateCourse() {
     }
   }
 
-  const handleLanguageToggle = (language: string) => {
-    if (selectedLanguages.includes(language)) {
-      // Only remove if it's not the last language
-      if (selectedLanguages.length > 1) {
-        setSelectedLanguages(selectedLanguages.filter((l) => l !== language))
+  async function fetchSubscriptions() {
+    try {
+      const supabase = getSupabaseBrowserClient()
+      const { data, error } = await supabase.from("subscriptions").select("id, name").order("name")
+
+      if (error) throw error
+      setSubscriptions(data || [])
+    } catch (error) {
+      console.error("Error fetching subscriptions:", error)
+    }
+  }
+
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {}
+
+    if (!title.trim()) newErrors.title = "Title is required"
+    if (!youtubeLink.trim()) {
+      newErrors.youtubeLink = "YouTube link is required"
+    } else if (!isValidYoutubeUrl(youtubeLink)) {
+      newErrors.youtubeLink = "Please enter a valid YouTube URL"
+    }
+
+    if (schedulingType === "date" && !scheduledDate) {
+      newErrors.date = "Date is required"
+    }
+
+    if (isPredefinedBatch) {
+      if (selectedBatches.length === 0) {
+        newErrors.batches = "Please select at least one batch"
       }
     } else {
-      setSelectedLanguages([...selectedLanguages, language])
+      if (customBatches.length === 0) {
+        newErrors.customBatches = "Please add at least one custom batch time"
+      } else {
+        const invalidBatches = customBatches.filter((batch) => !batch.time.trim())
+        if (invalidBatches.length > 0) {
+          newErrors.customBatches = "All custom batch times must be filled"
+        }
+      }
     }
+
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    setIsSubmitting(true)
-    setError("")
+    if (!validateForm()) return
 
     try {
-      // Validate form
-      if (!title) {
-        throw new Error("Title is required")
-      }
+      setLoading(true)
+      const supabase = getSupabaseBrowserClient()
 
-      if (!youtubeLink) {
-        throw new Error("YouTube link is required")
-      }
-
-      if (schedulingType === "date" && !scheduledDate) {
-        throw new Error("Scheduled date is required")
-      }
-
-      if (schedulingType === "day" && (!subscriptionDay || subscriptionDay < 1)) {
-        throw new Error("Valid subscription day is required")
-      }
-
-      if (schedulingType === "week" && (!subscriptionWeek || subscriptionWeek < 1)) {
-        throw new Error("Valid subscription week is required")
-      }
-
-      // Prepare course data
+      // Step 1: Create the main course record
       const courseData: any = {
         title,
         description,
         youtube_link: youtubeLink,
-        language: selectedLanguages[0], // Assuming only one language is selected
+        language,
         scheduling_type: schedulingType,
-        is_predefined_batch: isPredefinedBatch, // Set the is_predefined_batch flag
       }
 
-      // Add the appropriate scheduling field based on type
+      // Add scheduling fields
       if (schedulingType === "date") {
-        // Ensure we're using the full date with time
         courseData.scheduled_date = scheduledDate ? scheduledDate.toISOString().split("T")[0] : null
         courseData.subscription_day = null
         courseData.subscription_week = null
@@ -260,130 +155,72 @@ export default function CreateCourse() {
         courseData.subscription_week = subscriptionWeek
       }
 
-      // Add subscription IDs if selected
-      if (selectedSubscriptions.length > 0 && !selectedSubscriptions.includes("none")) {
-        // Create course entries for each selected subscription
-        const courseEntries = []
+      // Insert the course
+      const { data: courseResult, error: courseError } = await supabase
+        .from("courses")
+        .insert([courseData])
+        .select()
+        .single()
 
-        for (const subscriptionId of selectedSubscriptions) {
-          if (isPredefinedBatch) {
-            // Create entries for each batch and each subscription
-            for (const batchNumber of selectedBatches) {
-              const batchCourseData = {
-                ...courseData,
+      if (courseError) throw courseError
+
+      const courseId = courseResult.id
+
+      // Step 2: Create batch records
+      const batchEntries = []
+
+      if (isPredefinedBatch) {
+        // Handle predefined batches with subscription assignments
+        for (const batchNumber of selectedBatches) {
+          if (selectedSubscriptions.length > 0 && !selectedSubscriptions.includes("none")) {
+            // Create batch for each selected subscription
+            for (const subscriptionId of selectedSubscriptions) {
+              batchEntries.push({
+                course_id: courseId,
                 batch_number: batchNumber,
                 custom_batch_time: null,
+                is_predefined_batch: true,
                 subscription_id: Number.parseInt(subscriptionId),
-              }
-              courseEntries.push(batchCourseData)
+              })
             }
           } else {
-            // Create entries for each custom batch and each subscription
-            for (const batch of customBatches) {
-              if (batch.time.trim()) {
-                const customBatchCourseData = {
-                  ...courseData,
-                  batch_number: null,
-                  custom_batch_time: batch.time,
-                  subscription_id: Number.parseInt(subscriptionId),
-                }
-                courseEntries.push(customBatchCourseData)
-              }
-            }
-          }
-        }
-
-        console.log(`Creating ${courseEntries.length} course entries for multiple subscriptions:`, courseEntries)
-
-        const { data, error } = await getSupabaseBrowserClient().from("courses").insert(courseEntries).select()
-
-        if (error) throw error
-
-        console.log("Courses created successfully:", data)
-        router.push("/admin/courses")
-        return
-      }
-
-      // Add subscription ID if selected
-      // if (subscriptionId && subscriptionId !== "none") {
-      //   courseData.subscription_id = Number.parseInt(subscriptionId)
-      // }
-
-      // Handle batch information based on whether it's predefined or custom
-      if (isPredefinedBatch) {
-        // For predefined batches, we need to create a course entry for each selected batch
-        if (selectedBatches && selectedBatches.length > 0) {
-          // Create an array to hold all course entries
-          const courseEntries = []
-
-          // Create a separate course entry for each selected batch
-          for (const batchNumber of selectedBatches) {
-            const batchCourseData = {
-              ...courseData,
+            // Create batch without subscription (free)
+            batchEntries.push({
+              course_id: courseId,
               batch_number: batchNumber,
               custom_batch_time: null,
-            }
-            courseEntries.push(batchCourseData)
+              is_predefined_batch: true,
+              subscription_id: null,
+            })
           }
-
-          console.log(`Creating ${courseEntries.length} course entries for selected batches:`, courseEntries)
-
-          // Insert all course entries
-          const { data, error } = await getSupabaseBrowserClient().from("courses").insert(courseEntries).select()
-
-          if (error) throw error
-
-          console.log("Courses created successfully:", data)
-          router.push("/admin/courses")
-          return // Exit early since we've handled the insert
         }
       } else {
-        // For custom batches, create a course entry for each custom batch time
-        if (customBatches && customBatches.length > 0) {
-          // Create an array to hold all course entries
-          const courseEntries = []
-
-          // Create a separate course entry for each custom batch time
-          for (const batch of customBatches) {
-            if (batch.time.trim()) {
-              // Only include batches with non-empty times
-              const customBatchCourseData = {
-                ...courseData,
-                batch_number: null,
-                custom_batch_time: batch.time,
-              }
-              courseEntries.push(customBatchCourseData)
-            }
+        // Handle custom batches
+        for (const batch of customBatches) {
+          if (batch.time.trim()) {
+            batchEntries.push({
+              course_id: courseId,
+              batch_number: null,
+              custom_batch_time: batch.time,
+              is_predefined_batch: false,
+              subscription_id: batch.subscriptionId ? Number.parseInt(batch.subscriptionId) : null,
+            })
           }
-
-          console.log(`Creating ${courseEntries.length} course entries for custom batches:`, courseEntries)
-
-          // Insert all course entries
-          const { data, error } = await getSupabaseBrowserClient().from("courses").insert(courseEntries).select()
-
-          if (error) throw error
-
-          console.log("Courses created successfully:", data)
-          router.push("/admin/courses")
-          return // Exit early since we've handled the insert
         }
       }
 
-      // This code will only run if no batches were selected (which shouldn't happen due to validation)
-      console.log("No batches selected, submitting single course data:", courseData)
+      // Insert all batch records
+      if (batchEntries.length > 0) {
+        const { error: batchError } = await supabase.from("course_batches").insert(batchEntries)
+        if (batchError) throw batchError
+      }
 
-      // Insert course
-      const { data, error } = await getSupabaseBrowserClient().from("courses").insert([courseData]).select()
-
-      if (error) throw error
-
-      console.log("Course created successfully:", data)
       router.push("/admin/courses")
     } catch (error) {
       console.error("Error creating course:", error)
-      setError(error instanceof Error ? error.message : "An unknown error occurred")
+      setErrors({ submit: "Failed to create course. Please try again." })
     } finally {
-      setIsSubmitting(false)
+      setLoading(false)
     }
   }
 
@@ -392,29 +229,20 @@ export default function CreateCourse() {
       <div className="space-y-6">
         <h1 className="text-3xl font-bold">Create Course</h1>
 
-        {dbConnectionStatus === "error" && (
-          <Alert variant="destructive">
-            <AlertTitle>Database Connection Error</AlertTitle>
-            <AlertDescription>
-              {dbErrorMessage || "Could not connect to the database. Please check your connection."}
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {dbConnectionStatus === "success" && (
-          <Alert variant="default" className="bg-green-50 border-green-200">
-            <AlertTitle>Database Connected</AlertTitle>
-            <AlertDescription>Successfully connected to the database.</AlertDescription>
-          </Alert>
-        )}
-
         <Card>
           <form onSubmit={handleSubmit}>
             <CardHeader>
               <CardTitle>Course Details</CardTitle>
-              <CardDescription>Create a new course for your users</CardDescription>
+              <CardDescription>Create a new course with multiple batch timeslots</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              {errors.submit && (
+                <Alert variant="destructive">
+                  <AlertTitle>Error</AlertTitle>
+                  <AlertDescription>{errors.submit}</AlertDescription>
+                </Alert>
+              )}
+
               {/* Course Title */}
               <div className="space-y-2">
                 <Label htmlFor="title">Course Title</Label>
@@ -451,26 +279,22 @@ export default function CreateCourse() {
                 {errors.youtubeLink && <p className="text-sm text-red-500">{errors.youtubeLink}</p>}
               </div>
 
-              {/* Language Selection - Updated to allow multiple languages */}
+              {/* Language Selection */}
               <div className="space-y-2">
-                <Label>Languages</Label>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                  {availableLanguages.map((language) => (
-                    <div key={language} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`language-${language}`}
-                        checked={selectedLanguages.includes(language)}
-                        onCheckedChange={() => handleLanguageToggle(language)}
-                        disabled={selectedLanguages.length === 1 && selectedLanguages.includes(language)}
-                      />
-                      <Label htmlFor={`language-${language}`}>{language}</Label>
-                    </div>
-                  ))}
-                </div>
-                {errors.languages && <p className="text-sm text-red-500">{errors.languages}</p>}
+                <Label htmlFor="language">Language</Label>
+                <Select value={language} onValueChange={setLanguage}>
+                  <SelectTrigger id="language">
+                    <SelectValue placeholder="Select language" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="English">English</SelectItem>
+                    <SelectItem value="Hindi">Hindi</SelectItem>
+                    <SelectItem value="Kannada">Kannada</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
-              {/* Add this new section right before the scheduled date field in the form */}
+              {/* Scheduling Type */}
               <div className="space-y-2">
                 <Label htmlFor="scheduling-type">Scheduling Type</Label>
                 <Select
@@ -486,66 +310,31 @@ export default function CreateCourse() {
                     <SelectItem value="week">Subscription Week</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-sm text-muted-foreground">Choose how this course should be scheduled for users</p>
               </div>
 
+              {/* Date/Day/Week Fields */}
               {schedulingType === "date" && (
                 <div className="space-y-2">
                   <Label htmlFor="scheduled-date">Scheduled Date</Label>
-                  <div className="grid gap-2">
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          id="scheduled-date"
-                          variant={"outline"}
-                          className={cn(
-                            "w-full justify-start text-left font-normal",
-                            !scheduledDate && "text-muted-foreground",
-                          )}
-                          type="button"
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {scheduledDate ? format(scheduledDate, "PPP") : <span>Pick a date</span>}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
-                        <Calendar mode="single" selected={scheduledDate} onSelect={handleDateSelect} initialFocus />
-                      </PopoverContent>
-                    </Popover>
-
-                    {/* Manual date input */}
-                    <div className="flex flex-col space-y-2">
-                      <Label htmlFor="manual-date">Or enter date manually (YYYY-MM-DD)</Label>
-                      <Input
-                        id="manual-date"
-                        type="date"
-                        value={scheduledDate ? format(scheduledDate, "yyyy-MM-dd") : ""}
-                        onChange={(e) => {
-                          const dateValue = e.target.value
-                          if (dateValue) {
-                            setScheduledDate(new Date(dateValue))
-                          }
-                        }}
-                      />
-                    </div>
-                    {/* Add this right after the manual date input */}
-                    <div className="flex flex-col space-y-2">
-                      <Label htmlFor="manual-time">Time (optional)</Label>
-                      <Input
-                        id="manual-time"
-                        type="time"
-                        onChange={(e) => {
-                          const timeValue = e.target.value
-                          if (timeValue && scheduledDate) {
-                            const [hours, minutes] = timeValue.split(":").map(Number)
-                            const newDate = new Date(scheduledDate)
-                            newDate.setHours(hours, minutes)
-                            setScheduledDate(newDate)
-                          }
-                        }}
-                      />
-                    </div>
-                  </div>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !scheduledDate && "text-muted-foreground",
+                        )}
+                        type="button"
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {scheduledDate ? format(scheduledDate, "PPP") : <span>Pick a date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar mode="single" selected={scheduledDate} onSelect={handleDateSelect} initialFocus />
+                    </PopoverContent>
+                  </Popover>
+                  {errors.date && <p className="text-sm text-red-500">{errors.date}</p>}
                 </div>
               )}
 
@@ -560,9 +349,6 @@ export default function CreateCourse() {
                     onChange={(e) => setSubscriptionDay(Number.parseInt(e.target.value) || 1)}
                     placeholder="Day number (e.g., 1, 2, 3...)"
                   />
-                  <p className="text-sm text-muted-foreground">
-                    Day number from when user starts subscription (Day 1, Day 2, etc.)
-                  </p>
                 </div>
               )}
 
@@ -577,115 +363,89 @@ export default function CreateCourse() {
                     onChange={(e) => setSubscriptionWeek(Number.parseInt(e.target.value) || 1)}
                     placeholder="Week number (e.g., 1, 2, 3...)"
                   />
-                  <p className="text-sm text-muted-foreground">
-                    Week number from when user starts subscription (Week 1, Week 2, etc.)
-                  </p>
                 </div>
               )}
 
               {/* Batch Selection */}
               <div className="space-y-4">
                 <div className="flex items-center space-x-2">
-                  <Switch
-                    id="predefined-batch"
-                    checked={isPredefinedBatch}
-                    onCheckedChange={(checked) => {
-                      setIsPredefinedBatch(checked)
-                      if (checked) {
-                        setIsScheduledSession(false)
-                      }
-                    }}
-                  />
+                  <Switch id="predefined-batch" checked={isPredefinedBatch} onCheckedChange={setIsPredefinedBatch} />
                   <Label htmlFor="predefined-batch">Use predefined batch times</Label>
                 </div>
 
-                {isPredefinedBatch && (
+                {isPredefinedBatch ? (
                   <div className="space-y-4">
-                    <div className="flex items-center space-x-2">
-                      <Switch
-                        id="scheduled-session"
-                        checked={isScheduledSession}
-                        onCheckedChange={setIsScheduledSession}
-                      />
-                      <Label htmlFor="scheduled-session">This is a scheduled session (all batches)</Label>
-                    </div>
-
                     <div className="space-y-2">
                       <Label>Select Batches</Label>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id="batch-1"
-                            checked={selectedBatches.includes("1")}
-                            onCheckedChange={() => handleBatchToggle("1")}
-                            disabled={isScheduledSession}
-                          />
-                          <Label htmlFor="batch-1">Morning Batch 1 (5:30 to 6:30)</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id="batch-2"
-                            checked={selectedBatches.includes("2")}
-                            onCheckedChange={() => handleBatchToggle("2")}
-                            disabled={isScheduledSession}
-                          />
-                          <Label htmlFor="batch-2">Morning Batch 2 (6:40 to 7:40)</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id="batch-3"
-                            checked={selectedBatches.includes("3")}
-                            onCheckedChange={() => handleBatchToggle("3")}
-                            disabled={isScheduledSession}
-                          />
-                          <Label htmlFor="batch-3">Morning Batch 3 (7:50 to 8:50)</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id="batch-4"
-                            checked={selectedBatches.includes("4")}
-                            onCheckedChange={() => handleBatchToggle("4")}
-                            disabled={isScheduledSession}
-                          />
-                          <Label htmlFor="batch-4">Evening Batch 4 (5:30 to 6:30)</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id="batch-5"
-                            checked={selectedBatches.includes("5")}
-                            onCheckedChange={() => handleBatchToggle("5")}
-                            disabled={isScheduledSession}
-                          />
-                          <Label htmlFor="batch-5">Evening Batch 5 (6:40 to 7:40)</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id="batch-6"
-                            checked={selectedBatches.includes("6")}
-                            onCheckedChange={() => handleBatchToggle("6")}
-                            disabled={isScheduledSession}
-                          />
-                          <Label htmlFor="batch-6">Evening Batch 6 (7:50 to 8:50)</Label>
-                        </div>
+                        {[
+                          { id: "1", label: "Morning Batch 1 (5:30 to 6:30)" },
+                          { id: "2", label: "Morning Batch 2 (6:40 to 7:40)" },
+                          { id: "3", label: "Morning Batch 3 (7:50 to 8:50)" },
+                          { id: "4", label: "Evening Batch 4 (5:30 to 6:30)" },
+                          { id: "5", label: "Evening Batch 5 (6:40 to 7:40)" },
+                          { id: "6", label: "Evening Batch 6 (7:50 to 8:50)" },
+                        ].map((batch) => (
+                          <div key={batch.id} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`batch-${batch.id}`}
+                              checked={selectedBatches.includes(batch.id)}
+                              onCheckedChange={() => handleBatchToggle(batch.id)}
+                            />
+                            <Label htmlFor={`batch-${batch.id}`}>{batch.label}</Label>
+                          </div>
+                        ))}
                       </div>
                       {errors.batches && <p className="text-sm text-red-500">{errors.batches}</p>}
                     </div>
-                  </div>
-                )}
 
-                {!isPredefinedBatch && (
+                    {/* Global Subscription Selection for Predefined Batches */}
+                    <div className="space-y-2">
+                      <Label>Subscription Plans (applies to all selected batches)</Label>
+                      <div className="border rounded-md p-4 max-h-40 overflow-y-auto">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <Checkbox
+                            id="no-subscription"
+                            checked={selectedSubscriptions.includes("none")}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setSelectedSubscriptions(["none"])
+                              } else {
+                                setSelectedSubscriptions([])
+                              }
+                            }}
+                          />
+                          <Label htmlFor="no-subscription">No subscription required (Free)</Label>
+                        </div>
+                        {subscriptions.map((subscription) => (
+                          <div key={subscription.id} className="flex items-center space-x-2 mb-2">
+                            <Checkbox
+                              id={`subscription-${subscription.id}`}
+                              checked={selectedSubscriptions.includes(subscription.id.toString())}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setSelectedSubscriptions((prev) =>
+                                    prev.filter((id) => id !== "none").concat(subscription.id.toString()),
+                                  )
+                                } else {
+                                  setSelectedSubscriptions((prev) =>
+                                    prev.filter((id) => id !== subscription.id.toString()),
+                                  )
+                                }
+                              }}
+                              disabled={selectedSubscriptions.includes("none")}
+                            />
+                            <Label htmlFor={`subscription-${subscription.id}`}>{subscription.name}</Label>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
                   <div className="space-y-4">
                     <div className="flex justify-between items-center">
                       <Label>Custom Batch Times</Label>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={(e) => {
-                          e.preventDefault()
-                          addCustomBatch()
-                        }}
-                      >
+                      <Button type="button" variant="outline" size="sm" onClick={addCustomBatch}>
                         <Plus className="h-4 w-4 mr-2" /> Add Batch
                       </Button>
                     </div>
@@ -697,24 +457,42 @@ export default function CreateCourse() {
                     ) : (
                       <div className="space-y-3">
                         {customBatches.map((batch) => (
-                          <div key={batch.id} className="flex items-center gap-2">
-                            <Input
-                              value={batch.time}
-                              onChange={(e) => updateCustomBatchTime(batch.id, e.target.value)}
-                              placeholder="e.g., 9:00 AM to 10:00 AM"
-                              className="flex-1"
-                            />
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              onClick={(e) => {
-                                e.preventDefault()
-                                removeCustomBatch(batch.id)
-                              }}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                          <div key={batch.id} className="border rounded-md p-4 space-y-3">
+                            <div className="flex items-center gap-2">
+                              <Input
+                                value={batch.time}
+                                onChange={(e) => updateCustomBatchTime(batch.id, e.target.value)}
+                                placeholder="e.g., 9:00 AM to 10:00 AM"
+                                className="flex-1"
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                onClick={() => removeCustomBatch(batch.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Subscription for this batch</Label>
+                              <Select
+                                value={batch.subscriptionId || "none"}
+                                onValueChange={(value) => updateCustomBatchSubscription(batch.id, value)}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="No subscription required" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="none">No subscription required (Free)</SelectItem>
+                                  {subscriptions.map((subscription) => (
+                                    <SelectItem key={subscription.id} value={subscription.id.toString()}>
+                                      {subscription.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -723,65 +501,13 @@ export default function CreateCourse() {
                   </div>
                 )}
               </div>
-
-              {/* Multiple Subscription Selection */}
-              <div className="space-y-2">
-                <Label htmlFor="subscriptions">Subscriptions (Optional)</Label>
-                <div className="border rounded-md p-4 max-h-40 overflow-y-auto">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <Checkbox
-                      id="no-subscription"
-                      checked={selectedSubscriptions.includes("none")}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setSelectedSubscriptions(["none"])
-                        } else {
-                          setSelectedSubscriptions([])
-                        }
-                      }}
-                    />
-                    <Label htmlFor="no-subscription">No subscription required</Label>
-                  </div>
-                  {subscriptions.map((subscription) => (
-                    <div key={subscription.id} className="flex items-center space-x-2 mb-2">
-                      <Checkbox
-                        id={`subscription-${subscription.id}`}
-                        checked={selectedSubscriptions.includes(subscription.id.toString())}
-                        onCheckedChange={(checked) => {
-                          if (checked) {
-                            setSelectedSubscriptions((prev) =>
-                              prev.filter((id) => id !== "none").concat(subscription.id.toString()),
-                            )
-                          } else {
-                            setSelectedSubscriptions((prev) => prev.filter((id) => id !== subscription.id.toString()))
-                          }
-                        }}
-                        disabled={selectedSubscriptions.includes("none")}
-                      />
-                      <Label htmlFor={`subscription-${subscription.id}`}>{subscription.name}</Label>
-                    </div>
-                  ))}
-                </div>
-                {selectedSubscriptions.length > 0 && !selectedSubscriptions.includes("none") && (
-                  <p className="text-sm text-blue-600 mt-1">
-                    This course will be created for {selectedSubscriptions.length} selected subscription plan(s).
-                  </p>
-                )}
-              </div>
             </CardContent>
             <CardFooter className="flex justify-between">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={(e) => {
-                  e.preventDefault()
-                  router.push("/admin/courses")
-                }}
-              >
+              <Button type="button" variant="outline" onClick={() => router.push("/admin/courses")}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={loading || dbConnectionStatus === "error" || isSubmitting}>
-                {isSubmitting ? "Creating..." : "Create Course"}
+              <Button type="submit" disabled={loading}>
+                {loading ? "Creating..." : "Create Course"}
               </Button>
             </CardFooter>
           </form>

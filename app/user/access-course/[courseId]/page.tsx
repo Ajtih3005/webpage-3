@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { extractYoutubeVideoId } from "@/lib/utils"
-import { Loader2, ArrowLeft, Lock, Camera, X, Video, VideoOff } from "lucide-react"
+import { Loader2, ArrowLeft, Lock } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
 import CameraPermission from "./camera-permission"
@@ -47,11 +47,8 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
   const [fullscreenAttempts, setFullscreenAttempts] = useState(0)
   const [showFullscreenWarning, setShowFullscreenWarning] = useState(false)
 
-  // Camera states
-  const [showCameraPreview, setShowCameraPreview] = useState(false)
-  const [cameraOn, setCameraOn] = useState(false)
+  // Simple camera state - just for permission and cleanup
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null)
-  const [cameraError, setCameraError] = useState<string | null>(null)
 
   const youtubePlayer = useRef<any>(null)
   const playerContainerRef = useRef<HTMLDivElement | null>(null)
@@ -63,99 +60,8 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
   const isMounted = useRef(true)
   const videoWrapperRef = useRef<HTMLDivElement | null>(null)
   const fullscreenOverlayRef = useRef<HTMLDivElement | null>(null)
-  const cameraVideoRef = useRef<HTMLVideoElement | null>(null)
 
-  // Camera functions
-  const startCamera = async () => {
-    if (!cameraPermissionGranted) {
-      toast({
-        title: "Camera Permission Required",
-        description: "Please refresh and allow camera access first.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    try {
-      console.log("🎥 Starting camera...")
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          width: { ideal: 320 },
-          height: { ideal: 240 },
-          facingMode: "user",
-        },
-        audio: false,
-      })
-
-      console.log("🎥 Camera stream obtained:", stream)
-      setCameraStream(stream)
-      setCameraOn(true)
-      setCameraError(null)
-
-      // Set video stream
-      if (cameraVideoRef.current) {
-        console.log("🎥 Setting video source...")
-        cameraVideoRef.current.srcObject = stream
-
-        // Ensure video plays
-        cameraVideoRef.current.onloadedmetadata = () => {
-          console.log("🎥 Video metadata loaded, playing...")
-          cameraVideoRef.current?.play().catch(console.error)
-        }
-      }
-
-      toast({
-        title: "Camera Started",
-        description: "Your camera is now active.",
-      })
-    } catch (error) {
-      console.error("❌ Error accessing camera:", error)
-      setCameraError("Camera access failed")
-      setCameraOn(false)
-      toast({
-        title: "Camera Error",
-        description: "Could not access camera. Please check permissions.",
-        variant: "destructive",
-      })
-    }
-  }
-
-  const stopCamera = () => {
-    console.log("🎥 Stopping camera...")
-    if (cameraStream) {
-      cameraStream.getTracks().forEach((track) => {
-        console.log("🎥 Stopping track:", track.kind)
-        track.stop()
-      })
-      setCameraStream(null)
-    }
-
-    if (cameraVideoRef.current) {
-      cameraVideoRef.current.srcObject = null
-    }
-
-    setCameraOn(false)
-    setCameraError(null)
-
-    toast({
-      title: "Camera Stopped",
-      description: "Your camera has been turned off.",
-    })
-  }
-
-  const toggleCameraPreview = () => {
-    setShowCameraPreview(!showCameraPreview)
-  }
-
-  const toggleCamera = () => {
-    if (cameraOn) {
-      stopCamera()
-    } else {
-      startCamera()
-    }
-  }
-
-  // Handle camera permission
+  // Simple camera permission handler
   const handleCameraPermissionGranted = () => {
     setCameraPermissionGranted(true)
     setShowCameraPermission(false)
@@ -171,6 +77,18 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
   const handleSkipCamera = () => {
     setCameraPermissionGranted(false)
     setShowCameraPermission(false)
+  }
+
+  // Simple camera cleanup function
+  const cleanupCamera = () => {
+    console.log("🧹 Cleaning up camera...")
+    if (cameraStream) {
+      cameraStream.getTracks().forEach((track) => {
+        console.log("🎥 Stopping track:", track.kind)
+        track.stop()
+      })
+      setCameraStream(null)
+    }
   }
 
   // Function to request fullscreen with all possible methods
@@ -403,21 +321,8 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
       return () => {
         isMounted.current = false
 
-        // Force stop camera on cleanup
-        console.log("🧹 Cleanup - force stopping camera...")
-        if (cameraStream) {
-          cameraStream.getTracks().forEach((track) => {
-            console.log("🎥 Force stopping track on cleanup:", track.kind)
-            track.stop()
-          })
-        }
-
-        if (cameraVideoRef.current) {
-          cameraVideoRef.current.srcObject = null
-        }
-
-        // Stop camera
-        stopCamera()
+        // Clean up camera
+        cleanupCamera()
 
         // Remove body class
         document.body.classList.remove("video-playing")
@@ -1009,28 +914,15 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
 
   // Function to handle video end
   const handleVideoEnd = async () => {
-    console.log("📹 Video ended - stopping camera...")
+    console.log("📹 Video ended - cleaning up camera...")
     clearInterval(videoTimer.current!)
     setHasCompletedVideo(true)
 
     // Mark video as completed
     await markVideoCompleted()
 
-    // Force stop camera
-    if (cameraStream) {
-      cameraStream.getTracks().forEach((track) => {
-        console.log("🎥 Force stopping track on video end:", track.kind)
-        track.stop()
-      })
-      setCameraStream(null)
-    }
-
-    if (cameraVideoRef.current) {
-      cameraVideoRef.current.srcObject = null
-    }
-
-    setCameraOn(false)
-    setShowCameraPreview(false)
+    // Clean up camera
+    cleanupCamera()
 
     // Exit fullscreen
     if (document.fullscreenElement) {
@@ -1154,23 +1046,10 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
 
   // Handle back button click
   const handleExitClick = () => {
-    console.log("🚪 Exiting session - stopping camera...")
+    console.log("🚪 Exiting session - cleaning up camera...")
 
-    // Force stop camera
-    if (cameraStream) {
-      cameraStream.getTracks().forEach((track) => {
-        console.log("🎥 Force stopping track:", track.kind)
-        track.stop()
-      })
-      setCameraStream(null)
-    }
-
-    if (cameraVideoRef.current) {
-      cameraVideoRef.current.srcObject = null
-    }
-
-    setCameraOn(false)
-    setShowCameraPreview(false)
+    // Clean up camera
+    cleanupCamera()
 
     // Exit fullscreen
     if (document.fullscreenElement) {
@@ -1240,26 +1119,6 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
         ref={playerContainerRef}
       ></div>
 
-      {/* Camera Preview Window */}
-      {showCameraPreview && cameraOn && (
-        <div className="absolute top-4 right-4 z-50 bg-black rounded-lg border-2 border-white overflow-hidden shadow-2xl">
-          <div className="relative">
-            <video ref={cameraVideoRef} autoPlay muted playsInline className="w-64 h-48 object-cover bg-gray-800" />
-            <button
-              onClick={() => setShowCameraPreview(false)}
-              className="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white rounded-full p-1 transition-colors"
-            >
-              <X className="h-4 w-4" />
-            </button>
-            {/* Removed "Local Preview Only" text */}
-            <div className="absolute top-2 left-2 bg-green-600 text-white text-xs px-2 py-1 rounded flex items-center">
-              <div className="w-2 h-2 bg-white rounded-full mr-1 animate-pulse"></div>
-              LIVE
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* LIVE Indicator */}
       <div className="absolute top-2 left-2 z-50 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-md flex items-center">
         <span className="animate-pulse mr-1 h-2 w-2 rounded-full bg-white inline-block"></span>
@@ -1297,7 +1156,7 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
         </div>
       )}
 
-      {/* NEW SIMPLIFIED CONTROLS BAR */}
+      {/* SIMPLIFIED CONTROLS BAR */}
       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 text-white z-10">
         <div className="flex justify-between items-center mb-2">
           {courseDetails?.title && <h1 className="text-xl font-bold">{courseDetails.title}</h1>}
@@ -1309,38 +1168,8 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
           <div className="text-green-400 text-sm mt-2">Video completed! Returning to course list...</div>
         )}
 
-        {/* NEW CONTROL BAR WITH CAMERA TOGGLE */}
+        {/* SIMPLIFIED CONTROL BAR */}
         <div className="flex items-center justify-between mt-4 bg-black/50 rounded-lg p-3">
-          {/* Camera Controls */}
-          <div className="flex items-center gap-2">
-            {/* Video Preview Button */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={toggleCameraPreview}
-              disabled={!cameraPermissionGranted}
-              className="text-white hover:bg-white/20 flex items-center gap-2"
-            >
-              <Camera className="h-4 w-4" />
-              Video Preview
-            </Button>
-
-            {/* Camera Toggle */}
-            {cameraPermissionGranted && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={toggleCamera}
-                className={`text-white hover:bg-white/20 flex items-center gap-2 ${
-                  cameraOn ? "bg-green-600/20" : "bg-gray-600/20"
-                }`}
-              >
-                {cameraOn ? <Video className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}
-                {cameraOn ? "ON" : "OFF"}
-              </Button>
-            )}
-          </div>
-
           {/* Emoji Reaction Bar */}
           <div className="flex items-center space-x-3">
             <button
