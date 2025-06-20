@@ -58,80 +58,32 @@ export default function CreateCourse() {
 
   async function fetchInstructorSubscriptions(instructorId: number) {
     try {
-      console.log("Fetching subscriptions for instructor:", instructorId)
       const supabase = getSupabaseBrowserClient()
 
-      // First, try to get subscriptions that this instructor has access to
+      // Get subscriptions that this instructor has access to
       const { data: accessData, error: accessError } = await supabase
         .from("instructor_subscription_access")
         .select(`
-        subscription_id,
-        subscriptions (
-          id,
-          name,
-          is_active
-        )
-      `)
+          subscription_id,
+          subscriptions (
+            id,
+            name,
+            is_active
+          )
+        `)
         .eq("instructor_id", instructorId)
         .eq("is_active", true)
 
-      console.log("Access data:", accessData)
-      console.log("Access error:", accessError)
-
       if (accessError) {
-        console.warn("Error fetching instructor subscription access:", accessError)
-
-        // Fallback 1: Try to get all active subscriptions if access table doesn't exist
-        console.log("Trying fallback: fetching all active subscriptions")
+        console.error("Error fetching instructor subscription access:", accessError)
+        // Fallback: show all active subscriptions if access table doesn't exist or has issues
         const { data: allSubs, error: allSubsError } = await supabase
           .from("subscriptions")
           .select("id, name")
           .eq("is_active", true)
-          .order("name")
 
-        console.log("All subscriptions:", allSubs)
-        console.log("All subscriptions error:", allSubsError)
-
-        if (!allSubsError && allSubs) {
-          console.log("Using all subscriptions as fallback")
-          setAvailableSubscriptions(allSubs)
-          return
-        }
-
-        // Fallback 2: Try without is_active filter
-        console.log("Trying fallback 2: fetching all subscriptions without is_active filter")
-        const { data: allSubsNoFilter, error: allSubsNoFilterError } = await supabase
-          .from("subscriptions")
-          .select("id, name")
-          .order("name")
-
-        if (!allSubsNoFilterError && allSubsNoFilter) {
-          console.log("Using all subscriptions without filter as fallback")
-          setAvailableSubscriptions(allSubsNoFilter)
-          return
-        }
-
-        console.error("All fallback methods failed")
-        setAvailableSubscriptions([])
-        return
-      }
-
-      if (!accessData || accessData.length === 0) {
-        console.log("No subscription access found for instructor, trying fallback")
-
-        // If no access records found, show all active subscriptions
-        const { data: allSubs, error: allSubsError } = await supabase
-          .from("subscriptions")
-          .select("id, name")
-          .eq("is_active", true)
-          .order("name")
-
-        if (!allSubsError && allSubs) {
-          console.log("Using all active subscriptions as fallback")
-          setAvailableSubscriptions(allSubs)
-        } else {
-          console.log("No subscriptions found")
-          setAvailableSubscriptions([])
+        if (!allSubsError) {
+          setAvailableSubscriptions(allSubs || [])
         }
         return
       }
@@ -140,29 +92,21 @@ export default function CreateCourse() {
       const subscriptions =
         accessData
           ?.map((item) => item.subscriptions)
-          .filter((sub) => sub && sub.is_active !== false) // Allow null or true
+          .filter((sub) => sub && sub.is_active)
           .map((sub) => ({ id: sub.id, name: sub.name })) || []
 
-      console.log("Final subscriptions:", subscriptions)
       setAvailableSubscriptions(subscriptions)
     } catch (error) {
-      console.error("Error in fetchInstructorSubscriptions:", error)
-
-      // Final fallback: try to get any subscriptions
+      console.error("Error fetching instructor subscriptions:", error)
+      // Fallback: try to get all subscriptions
       try {
         const supabase = getSupabaseBrowserClient()
-        const { data, error } = await supabase.from("subscriptions").select("id, name").order("name").limit(50)
-
-        if (!error && data) {
-          console.log("Using final fallback subscriptions")
-          setAvailableSubscriptions(data)
-        } else {
-          console.error("Final fallback also failed:", error)
-          setAvailableSubscriptions([])
+        const { data, error } = await supabase.from("subscriptions").select("id, name").eq("is_active", true)
+        if (!error) {
+          setAvailableSubscriptions(data || [])
         }
       } catch (fallbackError) {
-        console.error("Final fallback error:", fallbackError)
-        setAvailableSubscriptions([])
+        console.error("Fallback subscription fetch failed:", fallbackError)
       }
     }
   }
@@ -198,8 +142,7 @@ export default function CreateCourse() {
     if (!youtubeLink.trim()) {
       newErrors.youtubeLink = "YouTube link is required"
     } else if (!isValidYoutubeUrl(youtubeLink)) {
-      newErrors.youtubeLink =
-        "Please enter a valid YouTube URL (e.g., https://www.youtube.com/watch?v=VIDEO_ID or https://youtu.be/VIDEO_ID)"
+      newErrors.youtubeLink = "Please enter a valid YouTube URL"
     }
 
     if (schedulingType === "date" && !scheduledDate) {

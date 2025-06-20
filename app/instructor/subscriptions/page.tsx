@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import Link from "next/link"
-import { ArrowRight, Info, BookOpen } from "lucide-react"
+import { Users, ArrowRight, Info, BookOpen } from "lucide-react"
 
 export default function InstructorSubscriptions() {
   const [subscriptions, setSubscriptions] = useState<any[]>([])
@@ -23,16 +23,53 @@ export default function InstructorSubscriptions() {
       setError(null)
       const supabase = getSupabaseBrowserClient()
 
-      // Fetch exactly like admin does - all subscriptions
-      const { data, error } = await supabase.from("subscriptions").select("*").order("created_at", { ascending: false })
+      // Fetch all active subscriptions (instructors can see all available plans)
+      const { data, error } = await supabase
+        .from("subscriptions")
+        .select(`
+        id,
+        name,
+        description,
+        price,
+        is_active,
+        features
+      `)
+        .eq("is_active", true)
+        .order("price", { ascending: true })
 
-      if (error) {
-        console.error("Supabase error:", error)
-        throw error
-      }
+      if (error) throw error
 
-      console.log("Fetched subscriptions:", data)
-      setSubscriptions(data || [])
+      // For each subscription, get the count of users and courses by this instructor
+      const instructorId = localStorage.getItem("instructorId")
+      const subscriptionsWithCounts = await Promise.all(
+        (data || []).map(async (subscription) => {
+          // Get user count for this subscription
+          const { count: userCount, error: userCountError } = await supabase
+            .from("user_subscriptions")
+            .select("*", { count: "exact", head: true })
+            .eq("subscription_id", subscription.id)
+            .eq("is_active", true)
+
+          // Get course count for this subscription by this instructor
+          const { count: courseCount, error: courseCountError } = await supabase
+            .from("courses")
+            .select("*", { count: "exact", head: true })
+            .eq("subscription_id", subscription.id)
+            .eq("instructor_id", instructorId)
+
+          if (userCountError || courseCountError) {
+            console.error("Error fetching counts:", userCountError || courseCountError)
+          }
+
+          return {
+            ...subscription,
+            userCount: userCount || 0,
+            myCourseCount: courseCount || 0,
+          }
+        }),
+      )
+
+      setSubscriptions(subscriptionsWithCounts)
     } catch (error: any) {
       console.error("Error fetching subscriptions:", error)
       setError(error.message || "Failed to load subscriptions")
@@ -43,7 +80,7 @@ export default function InstructorSubscriptions() {
 
   // Helper function to format price display
   const formatPrice = (price: number | string) => {
-    if (price === undefined || price === null || price === 0) return "Free"
+    if (price === undefined || price === null) return "Free"
     return `₹${price}`
   }
 
@@ -52,7 +89,7 @@ export default function InstructorSubscriptions() {
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold">Subscriptions</h1>
-          <p className="text-gray-500">View all subscription plans</p>
+          <p className="text-gray-500">View available subscription plans (managed by admin)</p>
         </div>
 
         {error && (
@@ -89,8 +126,8 @@ export default function InstructorSubscriptions() {
           </div>
         ) : subscriptions.length === 0 ? (
           <div className="text-center py-12 border rounded-lg bg-gray-50">
-            <h2 className="text-xl font-semibold text-gray-800">No subscriptions found</h2>
-            <p className="text-gray-600 mt-2">There are no subscription plans available at the moment.</p>
+            <h2 className="text-xl font-semibold text-gray-800">No active subscriptions found</h2>
+            <p className="text-gray-600 mt-2">There are no active subscription plans available at the moment.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -103,12 +140,9 @@ export default function InstructorSubscriptions() {
                 <CardContent className="flex-grow">
                   <div className="text-2xl font-bold mb-4">{formatPrice(subscription.price)}</div>
 
-                  {subscription.features && (
+                  {subscription.features && typeof subscription.features === "string" && (
                     <div className="space-y-2 mb-4">
-                      {(typeof subscription.features === "string"
-                        ? subscription.features.split(",")
-                        : subscription.features
-                      ).map((feature: string, index: number) => (
+                      {subscription.features.split(",").map((feature: string, index: number) => (
                         <div key={index} className="flex items-start">
                           <span className="text-green-500 mr-2">✓</span>
                           <span className="text-sm">{feature.trim()}</span>
@@ -119,17 +153,13 @@ export default function InstructorSubscriptions() {
 
                   <div className="space-y-1 text-sm text-gray-500">
                     <div className="flex items-center">
-                      <span
-                        className={`inline-block w-2 h-2 rounded-full mr-2 ${subscription.is_active ? "bg-green-500" : "bg-red-500"}`}
-                      ></span>
-                      <span>{subscription.is_active ? "Active" : "Inactive"}</span>
+                      <Users className="h-4 w-4 mr-1" />
+                      <span>{subscription.userCount} active users</span>
                     </div>
-                    {subscription.duration_days && (
-                      <div className="flex items-center">
-                        <BookOpen className="h-4 w-4 mr-1" />
-                        <span>{subscription.duration_days} days duration</span>
-                      </div>
-                    )}
+                    <div className="flex items-center">
+                      <BookOpen className="h-4 w-4 mr-1" />
+                      <span>{subscription.myCourseCount} courses by you</span>
+                    </div>
                   </div>
                 </CardContent>
                 <CardFooter>

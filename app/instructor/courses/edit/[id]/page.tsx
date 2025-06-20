@@ -97,24 +97,13 @@ export default function EditCourse({ params }: { params: { id: string } }) {
 
   const fetchSubscriptions = async () => {
     try {
-      console.log("Fetching subscriptions for edit page")
       const supabase = getSupabaseBrowserClient()
+      const { data, error } = await supabase.from("subscriptions").select("id, name").eq("is_active", true)
 
-      // Try to get all subscriptions first
-      const { data, error } = await supabase.from("subscriptions").select("id, name").order("name")
-
-      console.log("Subscriptions data:", data)
-      console.log("Subscriptions error:", error)
-
-      if (error) {
-        console.error("Error fetching subscriptions:", error)
-        setSubscriptions([])
-      } else {
-        setSubscriptions(data || [])
-      }
+      if (error) throw error
+      setSubscriptions(data || [])
     } catch (error) {
-      console.error("Error in fetchSubscriptions:", error)
-      setSubscriptions([])
+      console.error("Error fetching subscriptions:", error)
     }
   }
 
@@ -131,9 +120,7 @@ export default function EditCourse({ params }: { params: { id: string } }) {
     }
 
     if (!isValidYoutubeUrl(formData.youtube_link)) {
-      setError(
-        "Please enter a valid YouTube URL (e.g., https://www.youtube.com/watch?v=VIDEO_ID or https://youtu.be/VIDEO_ID)",
-      )
+      setError("Please enter a valid YouTube URL")
       return
     }
 
