@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { extractYoutubeVideoId } from "@/lib/utils"
-import { Loader2, ArrowLeft, Lock, Camera, X, Video, VideoOff } from "lucide-react"
+import { Loader2, ArrowLeft, Lock, Camera, X, Video, VideoOff, CameraOff } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
 import CameraPermission from "./camera-permission"
@@ -92,16 +92,49 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
       setCameraOn(true)
       setCameraError(null)
 
-      // Set video stream
+      // FIXED: Ensure video element exists and set stream properly
       if (cameraVideoRef.current) {
         console.log("🎥 Setting video source...")
+
+        // Clear any existing source first
+        cameraVideoRef.current.srcObject = null
+
+        // Set the new stream
         cameraVideoRef.current.srcObject = stream
 
-        // Ensure video plays
-        cameraVideoRef.current.onloadedmetadata = () => {
-          console.log("🎥 Video metadata loaded, playing...")
-          cameraVideoRef.current?.play().catch(console.error)
-        }
+        // Ensure the video element properties are set correctly
+        cameraVideoRef.current.autoplay = true
+        cameraVideoRef.current.muted = true
+        cameraVideoRef.current.playsInline = true
+
+        // Force load and play
+        cameraVideoRef.current.load()
+
+        cameraVideoRef.current.addEventListener("loadedmetadata", () => {
+          console.log("🎥 Video metadata loaded, forcing play...")
+          if (cameraVideoRef.current) {
+            cameraVideoRef.current
+              .play()
+              .then(() => console.log("🎥 Video playing successfully!"))
+              .catch((error) => console.error("🎥 Play failed:", error))
+          }
+        })
+
+        // Also try immediate play
+        cameraVideoRef.current
+          .play()
+          .then(() => console.log("🎥 Immediate play successful!"))
+          .catch((error) => {
+            console.error("🎥 Immediate play failed:", error)
+            // Try again after a delay
+            setTimeout(() => {
+              if (cameraVideoRef.current) {
+                cameraVideoRef.current.play().catch(console.error)
+              }
+            }, 500)
+          })
+      } else {
+        console.error("🎥 Camera video ref not available!")
       }
 
       toast({
@@ -913,8 +946,10 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
 
             event.target.playVideo()
 
-            // Set volume to 50%
-            event.target.setVolume(50)
+            // Set volume to 100% (full sound)
+            event.target.setVolume(100)
+            // Ensure video is unmuted
+            event.target.unMute()
           },
           onStateChange: (event) => {
             // YT.PlayerState.ENDED = 0
@@ -964,7 +999,7 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
         // Add start parameter to start from current position if joining late
         const startParam = currentTimePosition > 0 ? `&start=${currentTimePosition}` : ""
 
-        iframe.src = `https://www.youtube.com/embed/${youtubeVideoId}?autoplay=1&controls=0&disablekb=1&fs=0&rel=0&showinfo=0&iv_load_policy=3&modestbranding=1&cc_load_policy=0&playsinline=1${startParam}&origin=${window.location.origin}`
+        iframe.src = `https://www.youtube.com/embed/${youtubeVideoId}?autoplay=1&controls=0&disablekb=1&fs=0&rel=0&showinfo=0&iv_load_policy=3&modestbranding=1&cc_load_policy=0&playsinlinecontrols=0&disablekb=1&fs=0&rel=0&showinfo=0&iv_load_policy=3&modestbranding=1&cc_load_policy=0&playsinline=1${startParam}&origin=${window.location.origin}`
         iframe.title = "YouTube video player"
         iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
         iframe.allowFullscreen = true
@@ -1238,27 +1273,43 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
       <div
         className="absolute inset-0 w-screen h-screen flex items-center justify-center overflow-hidden"
         ref={playerContainerRef}
-      ></div>
-
-      {/* Camera Preview Window */}
-      {showCameraPreview && cameraOn && (
-        <div className="absolute top-4 right-4 z-50 bg-black rounded-lg border-2 border-white overflow-hidden shadow-2xl">
-          <div className="relative">
-            <video ref={cameraVideoRef} autoPlay muted playsInline className="w-64 h-48 object-cover bg-gray-800" />
-            <button
-              onClick={() => setShowCameraPreview(false)}
-              className="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white rounded-full p-1 transition-colors"
-            >
-              <X className="h-4 w-4" />
-            </button>
-            {/* Removed "Local Preview Only" text */}
-            <div className="absolute top-2 left-2 bg-green-600 text-white text-xs px-2 py-1 rounded flex items-center">
-              <div className="w-2 h-2 bg-white rounded-full mr-1 animate-pulse"></div>
-              LIVE
+      >
+        {/* Camera Preview goes HERE - inside the video container */}
+        {showCameraPreview && (
+          <div className="absolute top-4 right-4 z-50 bg-black rounded-lg border-2 border-white overflow-hidden shadow-2xl">
+            <div className="relative">
+              <video
+                ref={cameraVideoRef}
+                autoPlay
+                muted
+                playsInline
+                className="w-48 h-36 object-cover bg-gray-800"
+                style={{ transform: "scaleX(-1)" }} // Mirror the video like a selfie
+              />
+              <button
+                onClick={() => setShowCameraPreview(false)}
+                className="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white rounded-full p-1 transition-colors"
+              >
+                <X className="h-3 w-3" />
+              </button>
+              {/* Camera Status Indicator */}
+              <div className="absolute top-2 left-2 bg-green-600 text-white text-xs px-2 py-1 rounded flex items-center">
+                <div className="w-2 h-2 bg-white rounded-full mr-1 animate-pulse"></div>
+                {cameraOn ? "LIVE" : "OFF"}
+              </div>
+              {/* Show message when camera is off */}
+              {!cameraOn && (
+                <div className="absolute inset-0 bg-gray-800 flex items-center justify-center">
+                  <div className="text-white text-center">
+                    <CameraOff className="h-8 w-8 mx-auto mb-2" />
+                    <p className="text-xs">Camera Off</p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* LIVE Indicator */}
       <div className="absolute top-2 left-2 z-50 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-md flex items-center">
@@ -1313,19 +1364,7 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
         <div className="flex items-center justify-between mt-4 bg-black/50 rounded-lg p-3">
           {/* Camera Controls */}
           <div className="flex items-center gap-2">
-            {/* Video Preview Button */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={toggleCameraPreview}
-              disabled={!cameraPermissionGranted}
-              className="text-white hover:bg-white/20 flex items-center gap-2"
-            >
-              <Camera className="h-4 w-4" />
-              Video Preview
-            </Button>
-
-            {/* Camera Toggle */}
+            {/* Camera ON/OFF Toggle */}
             {cameraPermissionGranted && (
               <Button
                 variant="ghost"
@@ -1336,9 +1375,23 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
                 }`}
               >
                 {cameraOn ? <Video className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}
-                {cameraOn ? "ON" : "OFF"}
+                {cameraOn ? "Camera ON" : "Camera OFF"}
               </Button>
             )}
+
+            {/* Video Preview Toggle */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleCameraPreview}
+              disabled={!cameraPermissionGranted}
+              className={`text-white hover:bg-white/20 flex items-center gap-2 ${
+                showCameraPreview ? "bg-blue-600/20" : "bg-gray-600/20"
+              }`}
+            >
+              <Camera className="h-4 w-4" />
+              {showCameraPreview ? "Hide Preview" : "Show Preview"}
+            </Button>
           </div>
 
           {/* Emoji Reaction Bar */}

@@ -138,9 +138,6 @@ export default function ViewPreviousSession({ params }: { params: { id: string }
     }
   }
 
-  // Update the getYoutubePreviousSessionUrl function to be more reliable:
-
-  // Generate a YouTube embed URL for previous sessions (with limited controls)
   const getYoutubePreviousSessionUrl = (youtubeLink: string) => {
     // Extract video ID from various YouTube URL formats
     const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/
@@ -152,10 +149,9 @@ export default function ViewPreviousSession({ params }: { params: { id: string }
     }
 
     const videoId = match[2]
-    const baseUrl = `https://www.youtube.com/embed/${videoId}`
 
-    // For previous sessions: allow only play/pause controls with strict parameters
-    return `${baseUrl}?controls=1&rel=0&showinfo=0&modestbranding=1&disablekb=1&fs=0&iv_load_policy=3&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}&widget_referrer=${encodeURIComponent(window.location.origin)}`
+    // For previous sessions: autoplay with basic controls (play/pause, seek, volume)
+    return `https://www.youtube.com/embed/${videoId}?autoplay=1&controls=1&rel=0&modestbranding=1&playsinline=1&mute=0`
   }
 
   useEffect(() => {
@@ -247,8 +243,9 @@ export default function ViewPreviousSession({ params }: { params: { id: string }
                     src={getYoutubePreviousSessionUrl(course.youtube_link)}
                     className={`w-full h-full ${isFullscreen ? "absolute inset-0" : ""}`}
                     title={course.title}
-                    allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen={false}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    frameBorder="0"
                   ></iframe>
                 </div>
               </div>

@@ -36,6 +36,40 @@ export function RazorpayPaymentButton({
   const [orderId, setOrderId] = useState<string | null>(null)
   const router = useRouter()
 
+  const [userData, setUserData] = useState<{
+    name: string
+    email: string
+    phone: string
+  } | null>(null)
+
+  useEffect(() => {
+    // Fetch user data for prefill
+    async function fetchUserData() {
+      try {
+        const supabase = getSupabaseBrowserClient()
+        const { data, error } = await supabase
+          .from("users")
+          .select("name, email, phone_number")
+          .eq("id", userId)
+          .single()
+
+        if (data && !error) {
+          setUserData({
+            name: data.name || "",
+            email: data.email || "",
+            phone: data.phone_number || "",
+          })
+        }
+      } catch (err) {
+        console.error("Error fetching user data:", err)
+      }
+    }
+
+    if (userId) {
+      fetchUserData()
+    }
+  }, [userId])
+
   useEffect(() => {
     // Fetch Razorpay key
     async function fetchRazorpayKey() {
@@ -190,9 +224,9 @@ export function RazorpayPaymentButton({
           }
         },
         prefill: {
-          name: "",
-          email: "",
-          contact: "",
+          name: userData?.name || "",
+          email: userData?.email || "",
+          contact: userData?.phone || "",
         },
         notes: {
           subscription_id: subscriptionId.toString(),

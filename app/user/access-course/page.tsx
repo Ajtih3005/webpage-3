@@ -453,7 +453,16 @@ export default function AccessCourse() {
 
       // Open the WhatsApp group link
       if (subscription.whatsapp_group_link) {
-        window.open(subscription.whatsapp_group_link, "_blank")
+        // For mobile devices, use location.href for better WhatsApp app integration
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+
+        if (isMobile) {
+          // On mobile, directly navigate to WhatsApp link
+          window.location.href = subscription.whatsapp_group_link
+        } else {
+          // On desktop, open in new tab
+          window.open(subscription.whatsapp_group_link, "_blank")
+        }
 
         // Record usage
         await fetch(`/api/links/use/${data.link.token}`, {
