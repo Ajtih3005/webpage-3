@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -21,7 +22,7 @@ import {
   Target,
   Crown,
   Flame,
-  ArrowLeft,
+  Users,
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Logo } from "@/components/logo"
@@ -56,6 +57,9 @@ export default function PlansPage() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [error, setError] = useState<string | null>(null)
+
+  const searchParams = useSearchParams()
+  const fromSubscriptions = searchParams.get("from") === "subscriptions"
 
   useEffect(() => {
     fetchData()
@@ -126,6 +130,21 @@ export default function PlansPage() {
   const hasPages = filteredPages.length > 0
   const hasSubscriptions = filteredSubscriptions.length > 0
 
+  // Determine back link and text based on where user came from
+  const getBackLink = () => {
+    if (fromSubscriptions) return "/user/subscriptions"
+    return "/user/subscriptions" // Default to subscriptions for logged-in users
+  }
+
+  const getBackText = () => {
+    if (fromSubscriptions) return "Back to Subscriptions"
+    return "Back to Subscriptions"
+  }
+
+  const getBackIcon = () => {
+    return <Users className="mr-2 h-4 w-4" />
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50">
@@ -194,10 +213,14 @@ export default function PlansPage() {
                 <div className="text-xs text-gray-500">Yoga & Wellness</div>
               </div>
             </div>
-            <Link href="/user/subscriptions">
-              <Button variant="outline" size="sm" className="border-red-300 text-red-600 hover:bg-red-50">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Subscriptions
+            <Link href={getBackLink()}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-red-300 text-red-600 hover:bg-red-50 bg-transparent"
+              >
+                {getBackIcon()}
+                {getBackText()}
               </Button>
             </Link>
           </div>
@@ -230,10 +253,14 @@ export default function PlansPage() {
           <div className="flex items-center">
             <Logo className="h-8 w-auto" />
           </div>
-          <Link href="/user/subscriptions">
-            <Button variant="outline" size="sm" className="border-emerald-300 text-emerald-600 hover:bg-emerald-50">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Subscriptions
+          <Link href={getBackLink()}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-emerald-300 text-emerald-600 hover:bg-emerald-50 bg-transparent"
+            >
+              {getBackIcon()}
+              {getBackText()}
             </Button>
           </Link>
         </div>
@@ -386,7 +413,7 @@ export default function PlansPage() {
                       </div>
                     </div>
 
-                    <Link href={`/user/subscription-categories/${page.slug}`}>
+                    <Link href={`/user/subscription-categories/${page.slug}?from=user-plans`}>
                       <Button className="w-full h-14 text-lg font-bold bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white shadow-lg hover:shadow-xl transition-all duration-300 group">
                         <span className="mr-2">Start Your Journey</span>
                         <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
@@ -537,8 +564,29 @@ export default function PlansPage() {
                   </p>
                 </div>
 
-                {/* Conditional Buttons */}
-                {/* No buttons for logged-in users */}
+                {/* Show different buttons for logged-in users */}
+                <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+                  <Link href="/user/dashboard">
+                    <Button
+                      size="lg"
+                      variant="secondary"
+                      className="text-emerald-600 bg-white hover:bg-gray-50 text-lg font-bold px-8 py-4 h-auto shadow-lg"
+                    >
+                      <Target className="mr-2 h-5 w-5" />
+                      Continue Your Journey
+                    </Button>
+                  </Link>
+                  <Link href="/user/subscriptions">
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      className="border-2 border-white text-white bg-white/10 backdrop-blur-sm hover:bg-white hover:text-emerald-600 text-lg font-bold px-8 py-4 h-auto"
+                    >
+                      <Users className="mr-2 h-5 w-5" />
+                      View My Subscriptions
+                    </Button>
+                  </Link>
+                </div>
               </CardContent>
             </Card>
           </div>

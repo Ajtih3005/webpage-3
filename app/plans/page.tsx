@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -24,6 +25,7 @@ import {
   ArrowLeft,
   UserPlus,
   LogIn,
+  Home,
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Logo } from "@/components/logo"
@@ -58,6 +60,9 @@ export default function PlansPage() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [error, setError] = useState<string | null>(null)
+
+  const searchParams = useSearchParams()
+  const fromHome = searchParams.get("from") === "home"
 
   useEffect(() => {
     fetchData()
@@ -128,6 +133,22 @@ export default function PlansPage() {
   const hasPages = filteredPages.length > 0
   const hasSubscriptions = filteredSubscriptions.length > 0
 
+  // Determine back link and text based on where user came from
+  const getBackLink = () => {
+    if (fromHome) return "/"
+    return "/"
+  }
+
+  const getBackText = () => {
+    if (fromHome) return "Back to Home"
+    return "Back to Home"
+  }
+
+  const getBackIcon = () => {
+    if (fromHome) return <Home className="mr-2 h-4 w-4" />
+    return <ArrowLeft className="mr-2 h-4 w-4" />
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50">
@@ -196,10 +217,14 @@ export default function PlansPage() {
                 <div className="text-xs text-gray-500">Yoga & Wellness</div>
               </div>
             </div>
-            <Link href="/">
-              <Button variant="outline" size="sm" className="border-red-300 text-red-600 hover:bg-red-50">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Home
+            <Link href={getBackLink()}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-red-300 text-red-600 hover:bg-red-50 bg-transparent"
+              >
+                {getBackIcon()}
+                {getBackText()}
               </Button>
             </Link>
           </div>
@@ -232,10 +257,14 @@ export default function PlansPage() {
           <div className="flex items-center">
             <Logo className="h-8 w-auto" />
           </div>
-          <Link href="/">
-            <Button variant="outline" size="sm" className="border-emerald-300 text-emerald-600 hover:bg-emerald-50">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Home
+          <Link href={getBackLink()}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-emerald-300 text-emerald-600 hover:bg-emerald-50 bg-transparent"
+            >
+              {getBackIcon()}
+              {getBackText()}
             </Button>
           </Link>
         </div>
@@ -388,7 +417,7 @@ export default function PlansPage() {
                       </div>
                     </div>
 
-                    <Link href={`/user/subscription-categories/${page.slug}`}>
+                    <Link href={`/user/subscription-categories/${page.slug}?from=home`}>
                       <Button className="w-full h-14 text-lg font-bold bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white shadow-lg hover:shadow-xl transition-all duration-300 group">
                         <span className="mr-2">Start Your Journey</span>
                         <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />

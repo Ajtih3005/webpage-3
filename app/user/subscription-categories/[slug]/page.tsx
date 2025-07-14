@@ -26,6 +26,8 @@ import {
   PlayCircle,
   BookOpen,
   TrendingUp,
+  Home,
+  FileText,
 } from "lucide-react"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { Logo } from "@/components/logo"
@@ -80,10 +82,14 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
   const [openSections, setOpenSections] = useState<string[]>([])
 
   const searchParams = useSearchParams()
+
+  // Get the 'from' parameter to determine where user came from
   const fromUpdates = searchParams.get("from") === "updates"
   const fromLogin = searchParams.get("from") === "login"
   const fromMain = searchParams.get("from") === "main"
   const fromHome = searchParams.get("from") === "home"
+  const fromPlans = searchParams.get("from") === "plans"
+  const fromUserPlans = searchParams.get("from") === "user-plans"
 
   useEffect(() => {
     // Scroll to top immediately when component mounts
@@ -184,18 +190,32 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
   // Determine back link based on where user came from
   const getBackLink = () => {
     if (fromUpdates) return "/updates"
-    if (fromLogin) return "/user/plans" // Main subscription page
+    if (fromLogin) return "/user/plans" // User subscription page
     if (fromMain) return "/" // Home page
     if (fromHome) return "/" // Home page
-    return "/user/plans" // Default
+    if (fromPlans) return "/plans" // Public plans page
+    if (fromUserPlans) return "/user/plans" // User plans page
+    return "/plans" // Default to public plans
   }
 
   const getBackText = () => {
     if (fromUpdates) return "Back to Updates"
-    if (fromLogin) return "Back to Subscription Plans"
+    if (fromLogin) return "Back to My Plans"
     if (fromMain) return "Back to Home"
     if (fromHome) return "Back to Home"
-    return "Back to Subscription Plans"
+    if (fromPlans) return "Back to Plans"
+    if (fromUserPlans) return "Back to My Plans"
+    return "Back to Plans"
+  }
+
+  const getBackIcon = () => {
+    if (fromUpdates) return <FileText className="mr-2 h-4 w-4" />
+    if (fromLogin) return <Users className="mr-2 h-4 w-4" />
+    if (fromMain) return <Home className="mr-2 h-4 w-4" />
+    if (fromHome) return <Home className="mr-2 h-4 w-4" />
+    if (fromPlans) return <ArrowLeft className="mr-2 h-4 w-4" />
+    if (fromUserPlans) return <Users className="mr-2 h-4 w-4" />
+    return <ArrowLeft className="mr-2 h-4 w-4" />
   }
 
   if (loading) {
@@ -249,8 +269,12 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
             <Logo className="h-8 w-auto" />
           </div>
           <Link href={getBackLink()}>
-            <Button variant="outline" size="sm" className="border-purple-300 text-purple-600 hover:bg-purple-50">
-              <ArrowLeft className="mr-2 h-4 w-4" />
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-purple-300 text-purple-600 hover:bg-purple-50 bg-transparent"
+            >
+              {getBackIcon()}
               {getBackText()}
             </Button>
           </Link>
