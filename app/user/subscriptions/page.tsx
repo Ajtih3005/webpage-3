@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { UserLayout } from "@/components/user-layout"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -10,7 +11,6 @@ import { formatDate } from "@/lib/utils"
 import {
   AlertCircle,
   Calendar,
-  Clock,
   XCircle,
   CreditCard,
   Info,
@@ -18,10 +18,10 @@ import {
   Check,
   PlayCircle,
   PauseCircle,
+  RefreshCw,
 } from "lucide-react"
 import Link from "next/link"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { useRouter } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
 
 interface Subscription {
@@ -57,6 +57,7 @@ export default function UserSubscriptionsPage() {
   const [currentSubscriptions, setCurrentSubscriptions] = useState<Subscription[]>([])
   const [expiredSubscriptions, setExpiredSubscriptions] = useState<Subscription[]>([])
   const [loading, setLoading] = useState(true)
+  const [updating, setUpdating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
 
@@ -68,97 +69,110 @@ export default function UserSubscriptionsPage() {
       return
     }
 
-    async function fetchUserSubscriptions() {
-      try {
-        setLoading(true)
-        console.log("Fetching subscriptions for user:", userId)
-
-        const supabase = getSupabaseBrowserClient()
-
-        // Fetch all user subscriptions with subscription details
-        const { data: userSubs, error: userSubsError } = await supabase
-          .from("user_subscriptions")
-          .select(`
-        *,
-        subscription:subscriptions (
-          id,
-          name,
-          description,
-          price,
-          duration_days,
-          features,
-          features_list,
-          has_discount,
-          discount_percentage,
-          original_price,
-          is_active
-        )
-      `)
-          .eq("user_id", userId)
-          .order("created_at", { ascending: false })
-
-        if (userSubsError) {
-          console.error("Error fetching user subscriptions:", userSubsError)
-          throw new Error(`Database error: ${userSubsError.message}`)
-        }
-
-        console.log("Raw subscription data:", userSubs)
-
-        if (!userSubs || userSubs.length === 0) {
-          console.log("No subscriptions found for user")
-          setSubscriptions([])
-          setCurrentSubscriptions([])
-          setExpiredSubscriptions([])
-          setLoading(false)
-          return
-        }
-
-        // Process subscriptions with proper status calculation
-        const subscriptionsWithStatus = userSubs.map((sub) => {
-          const totalActiveDaysUsed = sub.total_active_days_used || 0
-          const durationDays = sub.subscription?.duration_days || 30
-          const remainingDays = Math.max(0, durationDays - totalActiveDaysUsed)
-
-          // Check if subscription is expired based on days used
-          const isExpiredByDays = totalActiveDaysUsed >= durationDays
-
-          // A subscription is considered "current" if:
-          // 1. It still has remaining days (not expired by days used)
-          // Note: We don't require activation_date for "current" status anymore
-          const isCurrent = !isExpiredByDays
-
-          return {
-            ...sub,
-            remaining_days: remainingDays,
-            is_expired: isExpiredByDays,
-            is_current: isCurrent,
-            // Status based on is_active column from database
-            status: getSubscriptionStatus(sub, isExpiredByDays),
-          }
-        })
-
-        console.log("Subscriptions with status:", subscriptionsWithStatus)
-
-        // Separate current and expired subscriptions
-        const current = subscriptionsWithStatus.filter((sub) => sub.is_current)
-        const expired = subscriptionsWithStatus.filter((sub) => !sub.is_current)
-
-        console.log("Current subscriptions:", current)
-        console.log("Expired subscriptions:", expired)
-
-        setSubscriptions(subscriptionsWithStatus)
-        setCurrentSubscriptions(current)
-        setExpiredSubscriptions(expired)
-      } catch (err) {
-        console.error("Failed to load subscriptions:", err)
-        setError(`Failed to load your subscriptions: ${err.message}`)
-      } finally {
-        setLoading(false)
-      }
-    }
-
     fetchUserSubscriptions()
   }, [router])
+
+  const fetchUserSubscriptions = async () => {
+    try {
+      setLoading(true)
+      const userId = localStorage.getItem("userId")
+      if (!userId) return
+
+      const supabase = getSupabaseBrowserClient()
+
+      // First, trigger a subscription day update
+      try {
+        await fetch("/api/update-subscription-days", { method: "POST" })
+      } catch (updateError) {
+        console.log("Update API not available, continuing with current data")
+      }
+
+      // Fetch all user subscriptions with subscription details
+      const { data: userSubs, error: userSubsError } = await supabase
+        .from("user_subscriptions")
+        .select(`
+          *,
+          subscription:subscriptions (
+            id,
+            name,
+            description,
+            price,
+            duration_days,
+            features,
+            features_list,
+            has_discount,
+            discount_percentage,
+            original_price,
+            is_active
+          )
+        `)
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+
+      if (userSubsError) {
+        console.error("Error fetching user subscriptions:", userSubsError)
+        throw new Error(`Database error: ${userSubsError.message}`)
+      }
+
+      if (!userSubs || userSubs.length === 0) {
+        setSubscriptions([])
+        setCurrentSubscriptions([])
+        setExpiredSubscriptions([])
+        setLoading(false)
+        return
+      }
+
+      // Process subscriptions with proper status calculation
+      const subscriptionsWithStatus = userSubs.map((sub) => {
+        const totalActiveDaysUsed = sub.total_active_days_used || 0
+        const durationDays = sub.subscription?.duration_days || 30
+        const remainingDays = Math.max(0, durationDays - totalActiveDaysUsed)
+
+        // Check if subscription is expired based on days used
+        const isExpiredByDays = totalActiveDaysUsed >= durationDays
+
+        // A subscription is considered "current" if it still has remaining days
+        const isCurrent = !isExpiredByDays
+
+        // Calculate actual days since activation for display
+        let actualDaysSinceActivation = 0
+        if (sub.activation_date) {
+          const activationDate = new Date(sub.activation_date)
+          const today = new Date()
+          actualDaysSinceActivation =
+            Math.floor((today.getTime() - activationDate.getTime()) / (1000 * 60 * 60 * 24)) + 1
+        }
+
+        return {
+          ...sub,
+          remaining_days: remainingDays,
+          is_expired: isExpiredByDays,
+          is_current: isCurrent,
+          actual_days_since_activation: actualDaysSinceActivation,
+          status: getSubscriptionStatus(sub, isExpiredByDays),
+        }
+      })
+
+      // Separate current and expired subscriptions
+      const current = subscriptionsWithStatus.filter((sub) => sub.is_current)
+      const expired = subscriptionsWithStatus.filter((sub) => !sub.is_current)
+
+      setSubscriptions(subscriptionsWithStatus)
+      setCurrentSubscriptions(current)
+      setExpiredSubscriptions(expired)
+    } catch (err) {
+      console.error("Failed to load subscriptions:", err)
+      setError(`Failed to load your subscriptions: ${err instanceof Error ? err.message : "Unknown error"}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleRefreshSubscriptions = async () => {
+    setUpdating(true)
+    await fetchUserSubscriptions()
+    setUpdating(false)
+  }
 
   // Get subscription status based on database is_active column and expiry
   const getSubscriptionStatus = (subscription: any, isExpiredByDays: boolean) => {
@@ -188,7 +202,7 @@ export default function UserSubscriptionsPage() {
         color: "text-gray-600",
         bgColor: "bg-gray-100",
         icon: PauseCircle,
-        description: "Your subscription is not activated yet",
+        description: "Your subscription is not activated yet or has been paused",
       }
     }
   }
@@ -260,36 +274,41 @@ export default function UserSubscriptionsPage() {
       <div className="container mx-auto py-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
           <h1 className="text-2xl font-bold mb-4 md:mb-0">My Subscriptions</h1>
-          <Button asChild className="flex items-center gap-2">
-            <Link href="/user/plans">
-              <Package className="h-4 w-4" />
-              View Available Subscriptions
-            </Link>
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={handleRefreshSubscriptions}
+              disabled={updating}
+              className="flex items-center gap-2 bg-transparent"
+            >
+              <RefreshCw className={`h-4 w-4 ${updating ? "animate-spin" : ""}`} />
+              {updating ? "Updating..." : "Refresh"}
+            </Button>
+            <Button asChild className="flex items-center gap-2">
+              <Link href="/user/plans">
+                <Package className="h-4 w-4" />
+                View Available Plans
+              </Link>
+            </Button>
+          </div>
         </div>
 
         {/* Subscription Status Explanation */}
         <Alert className="mb-6 bg-blue-50 border-blue-200">
           <Info className="h-4 w-4 text-blue-600" />
-          <AlertTitle className="text-blue-800">How Subscription Status Works</AlertTitle>
+          <AlertTitle className="text-blue-800">How Subscription Day Counting Works</AlertTitle>
           <AlertDescription className="text-blue-700 space-y-2">
             <div className="grid gap-2 mt-2">
               <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-gray-500" />
-                <span>
-                  <strong>Pending:</strong> Subscription purchased but waiting for admin activation
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
                 <PlayCircle className="h-4 w-4 text-green-500" />
                 <span>
-                  <strong>Active:</strong> Subscription is running and days are being counted
+                  <strong>Active:</strong> Days are counted from activation date (1 day per 24 hours)
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <PauseCircle className="h-4 w-4 text-amber-500" />
+                <PauseCircle className="h-4 w-4 text-gray-500" />
                 <span>
-                  <strong>Paused:</strong> Subscription is temporarily stopped by admin - days are not counted
+                  <strong>Inactive:</strong> Day counting is paused, remaining days are preserved
                 </span>
               </div>
               <div className="flex items-center gap-2">
@@ -300,8 +319,8 @@ export default function UserSubscriptionsPage() {
               </div>
             </div>
             <p className="text-sm mt-3 p-3 bg-blue-100 rounded-md">
-              <strong>Important:</strong> When your subscription is paused, the countdown stops and you keep your
-              remaining days. When reactivated, you continue from where you left off.
+              <strong>Example:</strong> If activated 3 days ago, it shows 3 days used. When inactive, the count stops
+              and resumes when reactivated.
             </p>
           </AlertDescription>
         </Alert>
@@ -459,7 +478,7 @@ export default function UserSubscriptionsPage() {
                             )}
                             <div className="flex justify-between items-center">
                               <span className="text-sm font-medium">Days Used:</span>
-                              <span>
+                              <span className="font-medium">
                                 {subscription.total_active_days_used || 0} /{" "}
                                 {subscription.subscription?.duration_days || 0}
                               </span>
@@ -470,6 +489,37 @@ export default function UserSubscriptionsPage() {
                                 {subscription.remaining_days || 0} days
                               </span>
                             </div>
+                            {subscription.activation_date && subscription.actual_days_since_activation > 0 && (
+                              <div className="flex justify-between items-center text-xs text-gray-500">
+                                <span>Actual days since activation:</span>
+                                <span>{subscription.actual_days_since_activation} days</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Progress bar */}
+                          <div className="mt-4">
+                            <div className="flex justify-between text-xs text-gray-600 mb-1">
+                              <span>Progress</span>
+                              <span>
+                                {Math.round(
+                                  ((subscription.total_active_days_used || 0) /
+                                    (subscription.subscription?.duration_days || 1)) *
+                                    100,
+                                )}
+                                %
+                              </span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-2">
+                              <div
+                                className={`h-2 rounded-full transition-all duration-300 ${
+                                  canAccess ? "bg-green-500" : "bg-gray-400"
+                                }`}
+                                style={{
+                                  width: `${Math.min(((subscription.total_active_days_used || 0) / (subscription.subscription?.duration_days || 1)) * 100, 100)}%`,
+                                }}
+                              ></div>
+                            </div>
                           </div>
 
                           {/* Status explanation */}
@@ -477,6 +527,11 @@ export default function UserSubscriptionsPage() {
                             <p className={`text-sm ${status.color}`}>
                               <strong>{status.text}:</strong> {status.description}
                             </p>
+                            {subscription.activation_date && status.text === "Active" && (
+                              <p className={`text-xs mt-1 ${status.color}`}>
+                                Activated on {formatDate(subscription.activation_date)} • Days counting daily
+                              </p>
+                            )}
                           </div>
 
                           {/* Features section */}
@@ -541,14 +596,14 @@ export default function UserSubscriptionsPage() {
               ) : (
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                   {expiredSubscriptions.map((subscription) => (
-                    <Card key={subscription.id} className="overflow-hidden border-gray-200">
-                      <div className="h-3 bg-gray-300 w-full"></div>
+                    <Card key={subscription.id} className="overflow-hidden border-gray-200 opacity-75">
+                      <div className="h-3 bg-red-400 w-full"></div>
                       <CardHeader className="pb-2">
                         <div className="flex items-center justify-between mb-2">
                           <CardTitle className="text-lg text-gray-600">
                             {subscription.subscription?.name || "Subscription"}
                           </CardTitle>
-                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
                             <XCircle className="mr-1 h-3 w-3" />
                             Expired
                           </span>
@@ -562,7 +617,7 @@ export default function UserSubscriptionsPage() {
                           {subscription.subscription?.price !== undefined && (
                             <div className="flex justify-between items-center">
                               <span className="text-sm font-medium text-gray-500">Price:</span>
-                              <span>{formatWholePrice(subscription.subscription.price)}</span>
+                              <span className="text-gray-600">{formatWholePrice(subscription.subscription.price)}</span>
                             </div>
                           )}
                           <div className="flex justify-between items-center">
@@ -572,20 +627,40 @@ export default function UserSubscriptionsPage() {
                             </span>
                           </div>
                           <div className="flex justify-between items-center">
-                            <span className="text-sm font-medium text-gray-500">Start Date:</span>
-                            <span>{formatDate(subscription.activation_date || subscription.start_date)}</span>
+                            <span className="text-sm font-medium text-gray-500">Activated:</span>
+                            <span className="text-gray-600">
+                              {formatDate(subscription.activation_date || subscription.start_date)}
+                            </span>
                           </div>
                           <div className="flex justify-between items-center">
                             <span className="text-sm font-medium text-gray-500">Days Used:</span>
-                            <span>
+                            <span className="text-gray-600">
                               {subscription.total_active_days_used || 0} /{" "}
                               {subscription.subscription?.duration_days || 0}
                             </span>
                           </div>
                           <div className="flex justify-between items-center">
                             <span className="text-sm font-medium text-gray-500">Final Status:</span>
-                            <span className="text-red-500">All days used - Expired</span>
+                            <span className="text-red-600 font-medium">All days used - Expired</span>
                           </div>
+                        </div>
+
+                        {/* Full progress bar for expired */}
+                        <div className="mt-4">
+                          <div className="flex justify-between text-xs text-gray-600 mb-1">
+                            <span>Completed</span>
+                            <span>100%</span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div className="bg-red-500 h-2 rounded-full w-full"></div>
+                          </div>
+                        </div>
+
+                        <div className="mt-4 p-3 rounded-md bg-red-50">
+                          <p className="text-sm text-red-700">
+                            <strong>Expired:</strong> This subscription has used all{" "}
+                            {subscription.subscription?.duration_days} days
+                          </p>
                         </div>
                       </CardContent>
                       <CardFooter className="pt-2">

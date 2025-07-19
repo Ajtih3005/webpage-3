@@ -1,14 +1,15 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Loader2, ArrowLeft, Phone, Lock, Leaf } from "lucide-react"
+import { Loader2, ArrowLeft, Phone, Lock, Leaf, User } from "lucide-react"
 import Image from "next/image"
+import { isUserLoggedIn } from "@/lib/auth-client"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -19,9 +20,30 @@ export default function LoginPage() {
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [checkingAuth, setCheckingAuth] = useState(true)
 
   // Show redirect info if coming from a link
   const isFromLink = redirectUrl?.startsWith("/l/")
+
+  // 🔍 CHECK IF ALREADY LOGGED IN
+  useEffect(() => {
+    const checkExistingAuth = () => {
+      if (isUserLoggedIn()) {
+        console.log("✅ User already logged in, redirecting...")
+
+        // Auto-redirect if already authenticated
+        if (redirectUrl) {
+          window.location.href = redirectUrl
+        } else {
+          window.location.href = "/user/dashboard"
+        }
+        return
+      }
+      setCheckingAuth(false)
+    }
+
+    checkExistingAuth()
+  }, [redirectUrl])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -35,9 +57,7 @@ export default function LoginPage() {
         body: JSON.stringify({ phone, password }),
       })
 
-      // Check if response is ok and has JSON content
       if (!response.ok) {
-        // Try to get error message from response
         let errorMessage = "Login failed"
         try {
           const contentType = response.headers.get("content-type")
@@ -45,7 +65,6 @@ export default function LoginPage() {
             const errorData = await response.json()
             errorMessage = errorData.error || errorMessage
           } else {
-            // If not JSON, get text response
             const errorText = await response.text()
             errorMessage = errorText.includes("Internal") ? "Server error. Please try again." : errorMessage
           }
@@ -56,23 +75,26 @@ export default function LoginPage() {
         return
       }
 
-      // Parse successful response
       const data = await response.json()
 
       if (data.success) {
-        // Set localStorage values that the dashboard expects
+        // ✅ SECURE: Store only necessary data
         localStorage.setItem("userId", data.user.id.toString())
         localStorage.setItem("userAuthenticated", "true")
         localStorage.setItem("userName", data.user.name || "User")
         localStorage.setItem("userEmail", data.user.email || "")
         localStorage.setItem("userPhone", data.user.phone_number || "")
 
-        // Also set user cookie for additional compatibility
-        document.cookie = `userId=${data.user.id}; path=/; max-age=86400`
+        // Set secure cookie
+        document.cookie = `userId=${data.user.id}; path=/; max-age=86400; secure; samesite=strict`
 
-        console.log("Login successful, redirecting...")
+        console.log("✅ Login successful, redirecting...")
 
-        // Immediate redirect without delay
+        // Clear form data
+        setPhone("")
+        setPassword("")
+
+        // Redirect
         if (redirectUrl) {
           window.location.href = redirectUrl
         } else {
@@ -87,6 +109,18 @@ export default function LoginPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // Show loading while checking authentication
+  if (checkingAuth) {
+    return (
+      <div className="h-screen flex items-center justify-center p-4 forest-bg">
+        <div className="text-center text-white">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p>Checking authentication...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -163,6 +197,7 @@ export default function LoginPage() {
                   onChange={(e) => setPhone(e.target.value)}
                   required
                   className="border-green-200 focus:border-green-500 focus:ring-green-500"
+                  autoComplete="tel"
                 />
               </div>
 
@@ -179,6 +214,7 @@ export default function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   className="border-green-200 focus:border-green-500 focus:ring-green-500"
+                  autoComplete="current-password"
                 />
               </div>
             </CardContent>
@@ -203,7 +239,7 @@ export default function LoginPage() {
                     </>
                   ) : (
                     <>
-                      <Leaf className="mr-2 h-4 w-4" />
+                      <User className="mr-2 h-4 w-4" />
                       Sign In
                     </>
                   )}

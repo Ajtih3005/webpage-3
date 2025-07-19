@@ -1,12 +1,26 @@
+"use client"
+
+import type React from "react"
+
 import { LoginButton } from "@/components/login-button"
+import { navigateToHome } from "@/lib/auth-client"
 
 export default function SiteHeader() {
+  const handleLogoClick = (e: React.MouseEvent) => {
+    e.preventDefault()
+    // 🏠 Navigate to home WITHOUT logout
+    navigateToHome()
+  }
+
   return (
     <header className="bg-gray-100 py-4">
       <div className="container mx-auto flex items-center justify-between">
-        <a href="/" className="text-2xl font-bold">
+        <button
+          onClick={handleLogoClick}
+          className="text-2xl font-bold hover:text-green-600 transition-colors cursor-pointer"
+        >
           My App
-        </a>
+        </button>
         <nav>
           <ul className="flex items-center space-x-4">
             <li>

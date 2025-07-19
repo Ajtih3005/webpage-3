@@ -1,32 +1,70 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
+import { logout, isUserLoggedIn, isAdminLoggedIn } from "@/lib/auth-client"
+import { useEffect, useState } from "react"
+import { LogOut, User, Shield } from "lucide-react"
 
 interface LoginButtonProps {
   className?: string
-  variant?: "default" | "outline" | "ghost" | "link"
 }
 
-export function LoginButton({ className, variant = "outline" }: LoginButtonProps) {
-  const router = useRouter()
-  const [isLoading, setIsLoading] = useState(false)
+export function LoginButton({ className }: LoginButtonProps) {
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    const checkAuth = () => {
+      setIsLoggedIn(isUserLoggedIn())
+      setIsAdmin(isAdminLoggedIn())
+    }
+
+    checkAuth()
+
+    // Check auth status periodically
+    const interval = setInterval(checkAuth, 1000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const handleLogout = async () => {
+    setLoading(true)
+    try {
+      await logout()
+    } catch (error) {
+      console.error("Logout error:", error)
+      // Force redirect even if logout fails
+      window.location.href = "/"
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleLogin = () => {
-    setIsLoading(true)
-    // Navigate to the login page
-    router.push("/user/login")
+    // Check if already logged in before redirecting
+    if (isUserLoggedIn()) {
+      window.location.href = "/user/dashboard"
+    } else if (isAdminLoggedIn()) {
+      window.location.href = "/admin/dashboard"
+    } else {
+      window.location.href = "/user/login"
+    }
+  }
+
+  if (isLoggedIn || isAdmin) {
+    return (
+      <Button onClick={handleLogout} variant="outline" className={className} disabled={loading}>
+        <LogOut className="mr-2 h-4 w-4" />
+        {loading ? "Logging out..." : "Logout"}
+        {isAdmin && <Shield className="ml-2 h-4 w-4" />}
+      </Button>
+    )
   }
 
   return (
-    <Button
-      variant={variant}
-      className={`backdrop-blur-sm bg-opacity-20 bg-white text-white border-white hover:bg-white hover:bg-opacity-30 transition-all ${className}`}
-      onClick={handleLogin}
-      disabled={isLoading}
-    >
-      {isLoading ? "Loading..." : "Login"}
+    <Button onClick={handleLogin} className={className}>
+      <User className="mr-2 h-4 w-4" />
+      Login
     </Button>
   )
 }
