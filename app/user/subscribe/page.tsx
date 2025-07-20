@@ -1,308 +1,294 @@
 "use client"
-
 import { useState, useEffect } from "react"
-import { UserLayout } from "@/components/user-layout"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { getSupabaseBrowserClient } from "@/lib/supabase"
-import { formatCurrency } from "@/lib/utils"
-import { AlertCircle, ArrowLeft, Check, CreditCard, Info, Loader2 } from "lucide-react"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useRouter, useSearchParams } from "next/navigation"
-import Link from "next/link"
-import { RazorpayPaymentButton } from "@/components/razorpay-payment-button"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Loader2, CreditCard, CheckCircle, ArrowLeft, Leaf, Star, Clock, Gift } from "lucide-react"
+import { RazorpayPayment } from "@/components/razorpay-payment"
+import { isUserLoggedIn } from "@/lib/auth-client"
+import { createClient } from "@/lib/supabase"
 
-interface SubscriptionPlan {
+interface Subscription {
   id: number
   name: string
   description: string
   price: number
   duration_days: number
-  features?: string[]
+  features: string[]
+  is_active: boolean
+  discount_percentage?: number
+  original_price?: number
 }
 
 export default function SubscribePage() {
-  const [plan, setPlan] = useState<SubscriptionPlan | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [userId, setUserId] = useState<string | null>(null)
-  const [hasActiveSubscription, setHasActiveSubscription] = useState(false)
-  const [checkingSubscription, setCheckingSubscription] = useState(true)
   const router = useRouter()
   const searchParams = useSearchParams()
   const planId = searchParams.get("plan")
 
+  const [loading, setLoading] = useState(true)
+  const [subscription, setSubscription] = useState<Subscription | null>(null)
+  const [error, setError] = useState("")
+  const [checkingAuth, setCheckingAuth] = useState(true)
+
+  // 🔍 Check authentication first
   useEffect(() => {
-    const storedUserId = localStorage.getItem("userId")
-
-    if (!storedUserId) {
-      router.push("/user/login")
-      return
+    const checkAuth = () => {
+      if (!isUserLoggedIn()) {
+        // Not logged in, redirect to login with current URL as redirect
+        const currentUrl = window.location.pathname + window.location.search
+        router.push(`/user/login?redirect=${encodeURIComponent(currentUrl)}`)
+        return
+      }
+      setCheckingAuth(false)
     }
 
-    setUserId(storedUserId)
+    checkAuth()
+  }, [router])
 
-    if (!planId) {
-      setError("No subscription plan selected")
-      setLoading(false)
-      return
-    }
+  // 📦 Load subscription data
+  useEffect(() => {
+    if (checkingAuth) return
 
-    async function fetchPlanAndCheckSubscription() {
+    const loadSubscription = async () => {
+      if (!planId) {
+        setError("No subscription plan specified")
+        setLoading(false)
+        return
+      }
+
       try {
-        setLoading(true)
-        setCheckingSubscription(true)
-        const supabase = getSupabaseBrowserClient()
+        const supabase = createClient()
+        const { data, error: fetchError } = await supabase
+          .from("subscriptions")
+          .select("*")
+          .eq("id", planId)
+          .eq("is_active", true)
+          .single()
 
-        // Fetch the plan details
-        const { data, error } = await supabase.from("subscriptions").select("*").eq("id", planId).single()
-
-        if (error) {
-          console.error("Error fetching plan:", error)
-          throw new Error(error.message)
+        if (fetchError) {
+          console.error("Error fetching subscription:", fetchError)
+          setError("Subscription plan not found")
+          return
         }
 
         if (!data) {
-          throw new Error("Subscription plan not found")
+          setError("Subscription plan not found")
+          return
         }
 
-        // Process the data to add features
-        let features = []
-
-        if (data.duration_days === 30) {
-          features = ["Access to all basic yoga sessions", "Monthly progress tracking", "Email support"]
-        } else if (data.duration_days === 90) {
-          features = [
-            "Access to all basic and intermediate yoga sessions",
-            "Quarterly progress tracking",
-            "Priority email support",
-            "Access to community forums",
-          ]
-        } else if (data.duration_days === 365) {
-          features = [
-            "Access to all yoga sessions (basic, intermediate, advanced)",
-            "Annual progress tracking",
-            "Priority email and phone support",
-            "Access to community forums",
-            "Exclusive workshops and events",
-          ]
-        }
-
-        const processedPlan = {
-          ...data,
-          features,
-        }
-
-        setPlan(processedPlan)
-
-        // Check if user already has an active subscription to this plan
-        const { data: userSubscriptions, error: subError } = await supabase
-          .from("user_subscriptions")
-          .select("subscription_id, end_date, is_active")
-          .eq("user_id", storedUserId)
-          .eq("subscription_id", planId)
-
-        if (subError) {
-          console.error("Error checking user subscriptions:", subError)
-        } else {
-          // Check if any of the subscriptions are active
-          const hasActive =
-            userSubscriptions?.some((sub) => {
-              const endDate = new Date(sub.end_date)
-              const now = new Date()
-              return sub.is_active || endDate > now
-            }) || false
-
-          setHasActiveSubscription(hasActive)
-
-          if (hasActive) {
-            setError("You already have an active subscription to this plan. Please choose a different plan.")
+        // Parse features if it's a string
+        let features = data.features
+        if (typeof features === "string") {
+          try {
+            features = JSON.parse(features)
+          } catch {
+            features = [features]
           }
         }
+
+        setSubscription({
+          ...data,
+          features: Array.isArray(features) ? features : [],
+        })
       } catch (err) {
-        console.error("Failed to load plan:", err)
-        setError("Failed to load subscription plan. Please try again later.")
+        console.error("Error loading subscription:", err)
+        setError("Failed to load subscription details")
       } finally {
         setLoading(false)
-        setCheckingSubscription(false)
       }
     }
 
-    fetchPlanAndCheckSubscription()
-  }, [planId, router])
+    loadSubscription()
+  }, [planId, checkingAuth])
 
-  if (loading || checkingSubscription) {
-    return (
-      <UserLayout>
-        <div className="container mx-auto py-6">
-          <h1 className="text-2xl font-bold mb-6">Subscribe</h1>
-          <div className="flex justify-center my-12">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-green-600 border-t-transparent"></div>
-          </div>
-        </div>
-      </UserLayout>
-    )
+  // 🏠 Handle logo click - navigate to home
+  const handleLogoClick = () => {
+    router.push("/")
   }
 
-  if (error || !plan) {
+  // Show loading while checking authentication
+  if (checkingAuth) {
     return (
-      <UserLayout>
-        <div className="container mx-auto py-6">
-          <h1 className="text-2xl font-bold mb-6">Subscribe</h1>
-
-          <Alert variant="destructive" className="mb-6">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Error</AlertTitle>
-            <AlertDescription>{error || "Subscription plan not found"}</AlertDescription>
-          </Alert>
-
-          <Button asChild>
-            <Link href="/user/plans">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Plans
-            </Link>
-          </Button>
-        </div>
-      </UserLayout>
-    )
-  }
-
-  return (
-    <UserLayout>
-      <div className="container mx-auto py-6">
-        <div className="flex items-center mb-6">
-          <Button variant="outline" size="sm" className="mr-4" asChild>
-            <Link href="/user/plans">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Plans
-            </Link>
-          </Button>
-          <h1 className="text-2xl font-bold">Subscribe to {plan.name}</h1>
-        </div>
-
-        {hasActiveSubscription && (
-          <Alert variant="destructive" className="mb-6">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Already Subscribed</AlertTitle>
-            <AlertDescription>
-              You already have an active subscription to this plan. Please choose a different plan or continue using
-              your current subscription.
-            </AlertDescription>
-          </Alert>
-        )}
-
-        <div className="grid gap-6 md:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>Subscription Details</CardTitle>
-              <CardDescription>Review your subscription details before payment</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-lg font-semibold">{plan.name}</h3>
-                  <p className="text-muted-foreground">{plan.description}</p>
-                </div>
-
-                <div>
-                  <div className="flex items-baseline">
-                    <span className="text-3xl font-bold">{formatCurrency(plan.price)}</span>
-                    <span className="text-sm text-muted-foreground ml-1">
-                      {plan.duration_days === 30 && "/ month"}
-                      {plan.duration_days === 90 && "/ quarter"}
-                      {plan.duration_days === 365 && "/ year"}
-                    </span>
-                  </div>
-                  <p className="text-sm text-muted-foreground mt-1">Subscription period: {plan.duration_days} days</p>
-                </div>
-
-                <div>
-                  <h4 className="font-medium mb-2">Features:</h4>
-                  <ul className="space-y-2">
-                    {plan.features?.map((feature, index) => (
-                      <li key={index} className="flex items-start">
-                        <Check className="h-5 w-5 text-green-500 mr-2 shrink-0" />
-                        <span>{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <Alert>
-                  <Info className="h-4 w-4" />
-                  <AlertDescription>
-                    By proceeding with payment, you agree to our terms and conditions, including the non-refundable
-                    payment policy.
-                  </AlertDescription>
-                </Alert>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Payment</CardTitle>
-              <CardDescription>Secure payment via Razorpay</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {hasActiveSubscription ? (
-                <div className="text-center py-6">
-                  <AlertCircle className="h-12 w-12 text-amber-500 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">Already Subscribed</h3>
-                  <p className="text-muted-foreground mb-6">You already have an active subscription to this plan.</p>
-                  <Button asChild className="w-full">
-                    <Link href="/user/plans">View Other Plans</Link>
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  <div className="bg-gray-50 p-4 rounded-lg border">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="font-medium">Subscription:</span>
-                      <span>{plan.name}</span>
-                    </div>
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="font-medium">Duration:</span>
-                      <span>{plan.duration_days} days</span>
-                    </div>
-                    <div className="flex justify-between items-center text-lg font-bold">
-                      <span>Total:</span>
-                      <span>{formatCurrency(plan.price)}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col items-center">
-                    {userId && plan ? (
-                      <RazorpayPaymentButton
-                        amount={plan.price}
-                        subscriptionId={plan.id}
-                        userId={userId}
-                        duration={plan.duration_days}
-                        buttonText="Pay Now"
-                        className="w-full"
-                        notes={{
-                          plan_name: plan.name,
-                          duration_days: plan.duration_days.toString(),
-                        }}
-                      />
-                    ) : (
-                      <Button disabled className="w-full">
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Loading...
-                      </Button>
-                    )}
-
-                    <div className="flex items-center mt-4 text-sm text-muted-foreground">
-                      <CreditCard className="h-4 w-4 mr-2" />
-                      <span>Secure payment powered by Razorpay</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+      <div className="min-h-screen flex items-center justify-center p-4 forest-bg">
+        <div className="text-center text-white">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p>Checking authentication...</p>
         </div>
       </div>
-    </UserLayout>
+    )
+  }
+
+  // Show loading while fetching subscription
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 forest-bg">
+        <div className="text-center text-white">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p>Loading subscription details...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show error state
+  if (error || !subscription) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 forest-bg">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <CardTitle className="text-red-600">Error</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Alert variant="destructive">
+              <AlertDescription>{error || "Subscription not found"}</AlertDescription>
+            </Alert>
+          </CardContent>
+          <CardFooter className="flex gap-2">
+            <Button variant="outline" onClick={() => router.push("/user/plans")} className="flex-1">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              View Plans
+            </Button>
+            <Button onClick={handleLogoClick} className="flex-1">
+              <Leaf className="mr-2 h-4 w-4" />
+              Home
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
+    )
+  }
+
+  const discountedPrice = subscription.discount_percentage
+    ? subscription.price * (1 - subscription.discount_percentage / 100)
+    : subscription.price
+
+  return (
+    <div className="min-h-screen p-4 forest-bg relative overflow-hidden">
+      {/* Background Pattern */}
+      <div className="absolute inset-0 leaf-pattern opacity-20"></div>
+
+      {/* Floating Elements */}
+      <div className="absolute top-10 left-10 opacity-30">
+        <CreditCard className="h-8 w-8 text-white animate-pulse" />
+      </div>
+      <div className="absolute top-20 right-20 opacity-20">
+        <Star className="h-12 w-12 text-white animate-pulse" style={{ animationDelay: "1s" }} />
+      </div>
+
+      <div className="max-w-2xl mx-auto relative z-10">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <button
+            onClick={handleLogoClick}
+            className="inline-flex items-center space-x-3 hover:opacity-80 transition-opacity mb-6"
+          >
+            <div className="bg-white p-2 rounded-full shadow-lg">
+              <div className="relative h-12 w-12">
+                <img src="/images/logo.png" alt="Sthavishtah Logo" className="object-contain w-full h-full" />
+              </div>
+            </div>
+            <div className="text-left">
+              <h1 className="text-2xl font-bold text-white">STHAVISHTAH</h1>
+              <p className="text-white/80 text-sm tracking-widest">YOGA AND WELLNESS</p>
+            </div>
+          </button>
+          <div className="w-24 h-1 bg-white/30 mx-auto rounded-full"></div>
+        </div>
+
+        {/* Subscription Card */}
+        <Card className="nature-card shadow-2xl border-0 mb-6">
+          <CardHeader className="text-center pb-4">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <Gift className="h-6 w-6 text-green-600" />
+              <Badge variant="secondary" className="bg-green-100 text-green-800">
+                Premium Plan
+              </Badge>
+            </div>
+            <CardTitle className="text-3xl font-bold forest-text-gradient">{subscription.name}</CardTitle>
+            <CardDescription className="text-gray-600 text-lg">{subscription.description}</CardDescription>
+          </CardHeader>
+
+          <CardContent className="space-y-6">
+            {/* Pricing */}
+            <div className="text-center py-6 bg-green-50 rounded-lg">
+              <div className="flex items-center justify-center gap-2 mb-2">
+                {subscription.discount_percentage && (
+                  <span className="text-2xl text-gray-400 line-through">₹{subscription.price}</span>
+                )}
+                <span className="text-4xl font-bold text-green-600">₹{Math.round(discountedPrice)}</span>
+              </div>
+              {subscription.discount_percentage && (
+                <Badge variant="destructive" className="mb-2">
+                  {subscription.discount_percentage}% OFF
+                </Badge>
+              )}
+              <div className="flex items-center justify-center gap-2 text-gray-600">
+                <Clock className="h-4 w-4" />
+                <span>{subscription.duration_days} days access</span>
+              </div>
+            </div>
+
+            {/* Features */}
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                <CheckCircle className="h-5 w-5 text-green-600" />
+                What's Included:
+              </h3>
+              <div className="grid gap-2">
+                {subscription.features.map((feature, index) => (
+                  <div key={index} className="flex items-center gap-2 text-gray-700">
+                    <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                    <span>{feature}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Benefits */}
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <h4 className="font-semibold text-blue-900 mb-2 flex items-center gap-2">
+                <Star className="h-4 w-4" />
+                Why Choose This Plan?
+              </h4>
+              <ul className="text-sm text-blue-800 space-y-1">
+                <li>• Unlimited access to all yoga sessions</li>
+                <li>• Expert guidance from certified instructors</li>
+                <li>• Flexible scheduling to fit your lifestyle</li>
+                <li>• Progress tracking and personalized recommendations</li>
+              </ul>
+            </div>
+          </CardContent>
+
+          <CardFooter className="flex flex-col space-y-4">
+            {/* Payment Component */}
+            <RazorpayPayment
+              amount={Math.round(discountedPrice)}
+              subscriptionId={subscription.id}
+              subscriptionName={subscription.name}
+              className="w-full"
+            />
+
+            {/* Navigation Buttons */}
+            <div className="flex gap-2 w-full">
+              <Button variant="outline" onClick={() => router.push("/user/plans")} className="flex-1">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Other Plans
+              </Button>
+              <Button variant="outline" onClick={handleLogoClick} className="flex-1 bg-transparent">
+                <Leaf className="mr-2 h-4 w-4" />
+                Home
+              </Button>
+            </div>
+
+            {/* Security Notice */}
+            <div className="text-center">
+              <p className="text-xs text-gray-500">🔒 Secure payment powered by Razorpay • Your data is protected</p>
+            </div>
+          </CardFooter>
+        </Card>
+      </div>
+    </div>
   )
 }

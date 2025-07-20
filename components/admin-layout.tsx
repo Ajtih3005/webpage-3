@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
@@ -22,17 +21,27 @@ function AdminLayout({ children }: AdminLayoutProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
   useEffect(() => {
-    // Check authentication status from BOTH localStorage AND sessionStorage for backward compatibility
-    const adminAuthLocal = localStorage.getItem("adminAuthenticated")
-    const adminAuthSession = sessionStorage.getItem("adminAuthenticated")
-    const isAuth = adminAuthLocal === "true" || adminAuthSession === "true"
+    const checkAuth = () => {
+      try {
+        // Check both localStorage (old) and sessionStorage (new) for backward compatibility
+        const adminAuthLocal = localStorage.getItem("adminAuthenticated")
+        const adminAuthSession = sessionStorage.getItem("adminAuthenticated")
+        const isAuth = adminAuthLocal === "true" || adminAuthSession === "true"
 
-    setIsAuthenticated(isAuth)
-    setIsLoading(false)
+        setIsAuthenticated(isAuth)
+        setIsLoading(false)
 
-    if (!isAuth) {
-      router.push("/admin/login")
+        if (!isAuth) {
+          router.push("/admin/login")
+        }
+      } catch (error) {
+        console.error("Auth check error:", error)
+        setIsLoading(false)
+        router.push("/admin/login")
+      }
     }
+
+    checkAuth()
   }, [router])
 
   const handleLogout = async () => {
@@ -43,6 +52,10 @@ function AdminLayout({ children }: AdminLayoutProps) {
       // Force redirect even if logout fails
       window.location.href = "/admin/login"
     }
+  }
+
+  const handleLogoClick = () => {
+    router.push("/")
   }
 
   // Show loading state to prevent flickering
@@ -77,8 +90,8 @@ function AdminLayout({ children }: AdminLayoutProps) {
     { href: "/admin/updates", label: "Updates", icon: "refresh-cw" },
     { href: "/admin/contact", label: "Contact", icon: "mail" },
     { href: "/admin/email", label: "Send Email", icon: "send" },
-    { href: "/admin/api-verification", label: "API Verification", icon: ApiIcon },
-    { href: "/admin/reviews", label: "Reviews", icon: Star },
+    { href: "/admin/api-verification", label: "API Verification", icon: "api" },
+    { href: "/admin/reviews", label: "Reviews", icon: "star" },
   ]
 
   return (
@@ -88,15 +101,17 @@ function AdminLayout({ children }: AdminLayoutProps) {
         <div className="hidden md:flex md:w-64 md:flex-col">
           <div className="flex flex-col flex-grow pt-5 overflow-y-auto bg-white border-r">
             <div className="flex items-center flex-shrink-0 px-4">
-              <Logo />
-              <span className="ml-2 text-xl font-semibold text-gray-800">Admin</span>
+              <button onClick={handleLogoClick} className="flex items-center hover:opacity-80 transition-opacity">
+                <Logo />
+                <span className="ml-2 text-xl font-semibold text-gray-800">Admin</span>
+              </button>
             </div>
             <div className="mt-5 flex-grow flex flex-col">
               <nav className="flex-1 px-2 pb-4 space-y-1">
                 {navItems.map((item) => (
                   <Link key={item.href} href={item.href}>
                     <div
-                      className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md ${
+                      className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md cursor-pointer ${
                         pathname === item.href
                           ? "bg-blue-600 text-white"
                           : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
@@ -104,7 +119,9 @@ function AdminLayout({ children }: AdminLayoutProps) {
                     >
                       <span className="mr-3 flex-shrink-0 h-6 w-6">
                         {item.icon === "send" && <Send className="h-6 w-6" />}
-                        {item.icon !== "send" && (
+                        {item.icon === "star" && <Star className="h-6 w-6" />}
+                        {item.icon === "api" && <ApiIcon className="h-6 w-6" />}
+                        {item.icon !== "send" && item.icon !== "star" && item.icon !== "api" && (
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
                             className="h-6 w-6"
@@ -176,13 +193,6 @@ function AdminLayout({ children }: AdminLayoutProps) {
                                 d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
                               />
                             )}
-                            {item.icon === "star" && (
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.412 5.518.442a.562.562 0 01.494.944l-3.903 3.255.719 5.504a.562.562 0 01-.815.583l-4.774-2.877-4.774 2.877a.562.562 0 01-.814-.583l.719-5.504-3.903-3.255a.562.562 0 01.494-.944l5.518-.442 2.125-5.412z"
-                              />
-                            )}
                             {item.icon === "link" && (
                               <path
                                 strokeLinecap="round"
@@ -231,7 +241,9 @@ function AdminLayout({ children }: AdminLayoutProps) {
           {/* Mobile header - Always visible on mobile */}
           <div className="md:hidden bg-white border-b p-4 sticky top-0 z-30">
             <div className="flex items-center justify-between">
-              <Logo />
+              <button onClick={handleLogoClick} className="hover:opacity-80 transition-opacity">
+                <Logo />
+              </button>
               <Button variant="ghost" size="sm" onClick={() => setIsMobileMenuOpen(true)}>
                 <Menu className="h-5 w-5" />
               </Button>

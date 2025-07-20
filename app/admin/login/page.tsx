@@ -1,122 +1,171 @@
 "use client"
 
 import type React from "react"
+
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Eye, EyeOff, Lock, AlertCircle } from "lucide-react"
+import { Logo } from "@/components/logo"
+import { Eye, EyeOff, Loader2 } from "lucide-react"
 
 export default function AdminLogin() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
-  const router = useRouter()
+  const [checkingAuth, setCheckingAuth] = useState(true)
 
-  // Check if already authenticated on component mount
+  const redirect = searchParams.get("redirect") || "/admin/dashboard"
+
   useEffect(() => {
-    const adminAuthLocal = localStorage.getItem("adminAuthenticated")
-    const adminAuthSession = sessionStorage.getItem("adminAuthenticated")
+    const checkExistingAuth = () => {
+      try {
+        // Check if already authenticated
+        const adminAuthLocal = localStorage.getItem("adminAuthenticated")
+        const adminAuthSession = sessionStorage.getItem("adminAuthenticated")
 
-    if (adminAuthLocal === "true" || adminAuthSession === "true") {
-      router.push("/admin/dashboard")
+        if (adminAuthLocal === "true" || adminAuthSession === "true") {
+          // Already logged in, redirect to dashboard or specified redirect
+          router.push(redirect)
+          return
+        }
+      } catch (error) {
+        console.error("Auth check error:", error)
+      }
+
+      setCheckingAuth(false)
     }
-  }, [router])
 
-  const handleLogin = async (e: React.FormEvent) => {
+    checkExistingAuth()
+  }, [router, redirect])
+
+  const handleLogoClick = () => {
+    router.push("/")
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
     setError("")
+    setLoading(true)
 
     try {
-      // Get admin password from environment variable
-      const adminPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || "admin123"
+      // Validate password
+      if (!password) {
+        setError("Please enter the admin password")
+        setLoading(false)
+        return
+      }
+
+      // Check against environment variable
+      const adminPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD
 
       if (password === adminPassword) {
-        // Store authentication status in BOTH for backward compatibility
-        localStorage.setItem("adminAuthenticated", "true")
+        // Store authentication status (NOT the password)
         sessionStorage.setItem("adminAuthenticated", "true")
 
-        // Clear the password input immediately
+        // Clear password input for security
         setPassword("")
 
-        router.push("/admin/dashboard")
+        // Redirect to dashboard or specified redirect
+        router.push(redirect)
       } else {
         setError("Invalid admin password")
       }
-    } catch (err) {
+    } catch (error) {
+      console.error("Login error:", error)
       setError("Login failed. Please try again.")
     } finally {
       setLoading(false)
     }
   }
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
+  // Show loading while checking authentication
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-blue-50">
         <div className="text-center">
-          <Lock className="mx-auto h-12 w-12 text-green-600" />
-          <h2 className="mt-6 text-3xl font-extrabold text-gray-900">Admin Login</h2>
-          <p className="mt-2 text-sm text-gray-600">Enter your admin password to continue</p>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Admin Access</CardTitle>
-            <CardDescription>Secure access to admin dashboard</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                  Admin Password
-                </label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter admin password"
-                    required
-                    className="pr-10"
-                    autoComplete="off"
-                  />
-                  <button
-                    type="button"
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4 text-gray-400" />
-                    ) : (
-                      <Eye className="h-4 w-4 text-gray-400" />
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              {error && (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? "Signing in..." : "Sign In"}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-
-        <div className="text-center">
-          <p className="text-xs text-gray-500">This is a secure admin area. Unauthorized access is prohibited.</p>
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-green-600" />
+          <p className="text-gray-600">Checking authentication...</p>
         </div>
       </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-blue-50 p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <div className="flex justify-center mb-4">
+            <button onClick={handleLogoClick} className="hover:opacity-80 transition-opacity">
+              <Logo />
+            </button>
+          </div>
+          <CardTitle className="text-2xl font-bold text-green-700">Admin Login</CardTitle>
+          <CardDescription>Enter your admin password to access the admin panel</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="password">Admin Password</Label>
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter admin password"
+                  className="pr-10"
+                  disabled={loading}
+                  autoComplete="current-password"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                  onClick={() => setShowPassword(!showPassword)}
+                  disabled={loading}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4 text-gray-400" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-gray-400" />
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            {error && (
+              <Alert variant="destructive">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Logging in...
+                </>
+              ) : (
+                "Login"
+              )}
+            </Button>
+          </form>
+
+          <div className="mt-6 text-center">
+            <Button variant="link" onClick={handleLogoClick} className="text-sm text-gray-600 hover:text-gray-900">
+              ← Back to Home
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }
