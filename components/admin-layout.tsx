@@ -8,6 +8,7 @@ import { usePathname, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Logo } from "@/components/logo"
 import { Menu, LogOut, PiIcon as ApiIcon, Star, Send } from "lucide-react"
+import { logout } from "@/lib/auth-client"
 
 interface AdminLayoutProps {
   children: React.ReactNode
@@ -17,22 +18,46 @@ function AdminLayout({ children }: AdminLayoutProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
   useEffect(() => {
-    const adminAuth = localStorage.getItem("adminAuthenticated")
-    setIsAuthenticated(adminAuth === "true")
+    // Check authentication status from BOTH localStorage AND sessionStorage for backward compatibility
+    const adminAuthLocal = localStorage.getItem("adminAuthenticated")
+    const adminAuthSession = sessionStorage.getItem("adminAuthenticated")
+    const isAuth = adminAuthLocal === "true" || adminAuthSession === "true"
 
-    if (adminAuth !== "true") {
+    setIsAuthenticated(isAuth)
+    setIsLoading(false)
+
+    if (!isAuth) {
       router.push("/admin/login")
     }
   }, [router])
 
-  const handleLogout = () => {
-    localStorage.removeItem("adminAuthenticated")
-    router.push("/admin/login")
+  const handleLogout = async () => {
+    try {
+      await logout()
+    } catch (error) {
+      console.error("Logout error:", error)
+      // Force redirect even if logout fails
+      window.location.href = "/admin/login"
+    }
   }
 
+  // Show loading state to prevent flickering
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading admin panel...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Don't render anything if not authenticated
   if (!isAuthenticated) {
     return null
   }
@@ -189,7 +214,11 @@ function AdminLayout({ children }: AdminLayoutProps) {
               </nav>
             </div>
             <div className="flex-shrink-0 p-4">
-              <Button variant="outline" className="w-full flex items-center justify-center" onClick={handleLogout}>
+              <Button
+                variant="outline"
+                className="w-full flex items-center justify-center bg-transparent"
+                onClick={handleLogout}
+              >
                 <LogOut className="mr-2 h-4 w-4" />
                 Logout
               </Button>

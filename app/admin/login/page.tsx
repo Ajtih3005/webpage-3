@@ -18,8 +18,10 @@ export default function AdminLogin() {
 
   // Check if already authenticated on component mount
   useEffect(() => {
-    const isAuthenticated = sessionStorage.getItem("adminAuthenticated")
-    if (isAuthenticated === "true") {
+    const adminAuthLocal = localStorage.getItem("adminAuthenticated")
+    const adminAuthSession = sessionStorage.getItem("adminAuthenticated")
+
+    if (adminAuthLocal === "true" || adminAuthSession === "true") {
       router.push("/admin/dashboard")
     }
   }, [router])
@@ -34,8 +36,8 @@ export default function AdminLogin() {
       const adminPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || "admin123"
 
       if (password === adminPassword) {
-        // ✅ SECURE: Only store authentication status in sessionStorage (not localStorage)
-        // ✅ SECURE: Never store the actual password
+        // Store authentication status in BOTH for backward compatibility
+        localStorage.setItem("adminAuthenticated", "true")
         sessionStorage.setItem("adminAuthenticated", "true")
 
         // Clear the password input immediately
