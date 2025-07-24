@@ -152,39 +152,26 @@ const navigation: NavItem[] = [
 export default function AdminLayout({ children }: AdminLayoutProps) {
   const router = useRouter()
   const pathname = usePathname()
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
   const [openSections, setOpenSections] = useState<string[]>([])
 
   useEffect(() => {
-    checkAuthentication()
-  }, [])
+    // Synchronous authentication check to prevent flickering
+    const storedPassword = localStorage.getItem("adminPassword")
+    const envPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD
 
-  const checkAuthentication = async () => {
-    try {
-      setIsLoading(true)
-
-      // Check if admin password is stored
-      const storedPassword = localStorage.getItem("adminPassword")
-      const envPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD
-
-      if (storedPassword && envPassword && storedPassword === envPassword) {
-        setIsAuthenticated(true)
-      } else {
-        // Redirect to login
-        router.push("/admin/login")
-      }
-    } catch (error) {
-      console.error("Authentication check failed:", error)
-      router.push("/admin/login")
-    } finally {
-      setIsLoading(false)
+    if (storedPassword && envPassword && storedPassword === envPassword) {
+      setIsAuthenticated(true)
+    } else {
+      setIsAuthenticated(false)
+      router.replace("/admin/login")
     }
-  }
+  }, [router])
 
   const handleLogout = () => {
     localStorage.removeItem("adminPassword")
-    router.push("/admin/login")
+    setIsAuthenticated(false)
+    router.replace("/admin/login")
   }
 
   const toggleSection = (title: string) => {
@@ -212,21 +199,23 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         setOpenSections((prev) => [...prev, item.title])
       }
     })
-  }, [pathname])
+  }, [pathname, openSections])
 
-  if (isLoading) {
+  // Show nothing while checking authentication to prevent flickering
+  if (isAuthenticated === null) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading admin panel...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto mb-2"></div>
+          <p className="text-sm text-gray-600">Loading...</p>
         </div>
       </div>
     )
   }
 
+  // Don't render anything if not authenticated (will redirect)
   if (!isAuthenticated) {
-    return null // Will redirect to login
+    return null
   }
 
   const NavContent = () => (
