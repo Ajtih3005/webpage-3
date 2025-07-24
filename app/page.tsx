@@ -28,6 +28,8 @@ import {
   ExternalLink,
   Star,
   Zap,
+  Music,
+  Crown,
 } from "lucide-react"
 import { useState, useEffect } from "react"
 import ReviewCarousel from "@/components/review-carousel"
@@ -257,6 +259,132 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Krishna Janmashtami Special Offer Section */}
+      <section className="py-16 md:py-20 bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 relative overflow-hidden">
+        {/* Background decorations */}
+        <div className="absolute inset-0 opacity-5 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgdmlld0JveD0iMCAwIDYwIDYwIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMSI+PHBhdGggZD0iTTM2IDM0di00aC0ydjRoLTR2Mmg0djRoMnYtNGg0di0yaC00em0wLTMwVjBoLTJ2NGgtNHYyaDR2NGgyVjZoNFY0aC00ek02IDM0di00SDR2NEgwdjJoNHY0aDJ2LTRoNHYtMkg2ek02IDRWMEg0djRIMHYyaDR2NGgyVjZoNFY0SDZ6Ii8+PC9nPjwvc3ZnPg==')] -z-10"></div>
+
+        {/* Floating particles */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          {[...Array(25)].map((_, i) => (
+            <div
+              key={i}
+              className="absolute rounded-full bg-purple-300/20 animate-float"
+              style={{
+                width: `${Math.random() * 8 + 4}px`,
+                height: `${Math.random() * 8 + 4}px`,
+                top: `${Math.random() * 100}%`,
+                left: `${Math.random() * 100}%`,
+                animationDuration: `${Math.random() * 15 + 10}s`,
+                animationDelay: `${Math.random() * 5}s`,
+              }}
+            />
+          ))}
+        </div>
+
+        <div className="container mx-auto px-4 relative">
+          <div className="text-center mb-12">
+            <div className="inline-block px-6 py-2 rounded-full bg-gradient-to-r from-yellow-400/20 to-orange-400/20 backdrop-blur-sm text-purple-800 text-sm font-medium mb-6 border border-yellow-400/30 shadow-lg">
+              <Crown className="inline-block mr-2 h-4 w-4" />
+              Krishna Janmashtami Special
+            </div>
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-6 text-green-900 drop-shadow-lg">
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-yellow-300 via-orange-300 to-yellow-300">
+                Divine Blessings Await
+              </span>
+            </h2>
+            <p className="text-xl md:text-2xl text-green-700 mb-8 max-w-3xl mx-auto drop-shadow-md">
+              Celebrate Krishna Janmashtami with us and receive the divine gift of wellness
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-12 items-center max-w-6xl mx-auto">
+            {/* Krishna Image */}
+            <div className="flex justify-center">
+              <div className="relative">
+                <div className="absolute -inset-4 bg-gradient-to-r from-yellow-400/30 to-orange-400/30 rounded-full blur-2xl animate-pulse"></div>
+                <div className="relative w-80 h-80 sm:w-96 sm:h-96 rounded-full overflow-hidden border-4 border-yellow-400/50 shadow-2xl bg-gradient-to-br from-blue-800 to-purple-800">
+                  <Image
+                    src="/images/krishna-janmashtami.jpg"
+                    alt="Lord Krishna - Divine Blessings"
+                    fill
+                    className="object-cover object-center"
+                    sizes="(max-width: 768px) 320px, 384px"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-blue-900/30 to-transparent"></div>
+                </div>
+                {/* Floating musical notes */}
+                <div className="absolute -top-4 -right-4 animate-bounce delay-1000">
+                  <Music className="h-8 w-8 text-purple-600" />
+                </div>
+                <div className="absolute -bottom-4 -left-4 animate-bounce delay-2000">
+                  <Music className="h-6 w-6 text-orange-300" />
+                </div>
+              </div>
+            </div>
+
+            {/* Offer Details */}
+            <div className="text-center md:text-left">
+              <div className="bg-white/90 backdrop-blur-md rounded-2xl p-8 border border-white/20 shadow-2xl">
+                <h3 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-6">🎉 FREE 1 MONTH SESSIONS</h3>
+
+                <div className="space-y-4 mb-8">
+                  <div className="flex items-center justify-center md:justify-start text-gray-700">
+                    <Calendar className="h-5 w-5 mr-3 text-purple-600" />
+                    <span className="text-lg">Starting from August 15, 2025</span>
+                  </div>
+                  <div className="flex items-center justify-center md:justify-start text-gray-700">
+                    <Crown className="h-5 w-5 mr-3 text-purple-600" />
+                    <span className="text-lg">Krishna's Divine Blessings</span>
+                  </div>
+                  <div className="flex items-center justify-center md:justify-start text-gray-700">
+                    <Heart className="h-5 w-5 mr-3 text-purple-600" />
+                    <span className="text-lg">Complete Wellness Journey</span>
+                  </div>
+                  <div className="flex items-center justify-center md:justify-start text-gray-700">
+                    <Users className="h-5 w-5 mr-3 text-purple-600" />
+                    <span className="text-lg">Join Our Spiritual Community</span>
+                  </div>
+                </div>
+
+                <div className="bg-gradient-to-r from-green-100/80 to-emerald-100/80 rounded-xl p-6 mb-8 border border-green-300/30 shadow-md">
+                  <h4 className="text-xl font-semibold text-green-800 mb-3">🕉️ Special Krishna Janmashtami Features:</h4>
+                  <ul className="space-y-2 text-green-800">
+                    <li>• Mantra Jap sessions for spiritual awakening</li>
+                    <li>• Bhajan Kirtan for devotional practice</li>
+                    <li>• Yoga sessions 4 days a week</li>
+                    <li>• Fitness training in natural harmony</li>
+                  </ul>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <Link href="/user/register" className="flex-1">
+                    <Button className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 text-lg">
+                      Join Divine Journey
+                      <Crown className="ml-2 h-5 w-5" />
+                    </Button>
+                  </Link>
+                  <Link href="/user/login" className="flex-1">
+                    <Button
+                      variant="outline"
+                      className="w-full border-yellow-400/50 text-yellow-200 hover:bg-yellow-400/10 py-3 px-6 rounded-lg transition-all duration-300 bg-transparent"
+                    >
+                      Login
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom decorative text */}
+          <div className="text-center mt-12">
+            <p className="text-green-700 text-lg italic">"योगः कर्मसु कौशलम्" - Yoga is skill in action</p>
+            <p className="text-green-600 text-sm mt-2">- Bhagavad Gita 2.50</p>
+          </div>
+        </div>
+      </section>
+
       {/* Buttons Section - Enhanced with better gradients */}
       <section className="py-10 bg-gradient-to-br from-green-50 via-emerald-50/50 to-green-100 relative overflow-hidden">
         {/* Background decorations */}
@@ -312,7 +440,7 @@ export default function Home() {
             <div className="h-px w-12 sm:w-20 bg-gradient-to-r from-emerald-400 via-green-400 to-transparent"></div>
           </div>
           <p className="text-base sm:text-lg md:text-xl text-green-700 font-semibold px-3 sm:px-5 mt-3">
-            Sessions starting from August 1, 2025
+            Sessions starting from August 15, 2025
           </p>
         </div>
       </section>
@@ -440,7 +568,7 @@ export default function Home() {
               <OfferingCard
                 icon={<BookOpen className="h-8 w-8 sm:h-10 sm:w-10 text-green-600" />}
                 title="Bhagavad Gita Study"
-                description="Discover timeless wisdom through our Gita practice sessions starting now. Join our enlightening journey where ancient teachings meet modern understanding, with detailed explanations beginning in July."
+                description="Discover timeless wisdom through our Gita practice sessions starting now. Join our enlightening journey where ancient teachings meet modern understanding, with detailed explanations beginning in August."
               />
               <OfferingCard
                 icon={<Users className="h-8 w-8 sm:h-10 sm:w-10 text-green-600" />}
@@ -745,7 +873,7 @@ export default function Home() {
           </h2>
 
           <p className="text-xl md:text-2xl mb-8 md:mb-10 text-white/90 drop-shadow-lg max-w-2xl mx-auto">
-            Sessions starting from August 1, 2025.
+            Sessions starting from August 15, 2025.
           </p>
 
           <div className="flex justify-center mb-8 md:mb-10">

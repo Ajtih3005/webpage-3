@@ -122,17 +122,15 @@ export default function UserSubscriptionsPage() {
         return
       }
 
-      // Process subscriptions with proper status calculation
+      // Process subscriptions with status based on is_active column
       const subscriptionsWithStatus = userSubs.map((sub) => {
         const totalActiveDaysUsed = sub.total_active_days_used || 0
         const durationDays = sub.subscription?.duration_days || 30
         const remainingDays = Math.max(0, durationDays - totalActiveDaysUsed)
 
-        // Check if subscription is expired based on days used
-        const isExpiredByDays = totalActiveDaysUsed >= durationDays
-
-        // A subscription is considered "current" if it still has remaining days
-        const isCurrent = !isExpiredByDays
+        // Simple logic: use is_active column directly
+        const isCurrentlyActive = sub.is_active === true
+        const isExpired = totalActiveDaysUsed >= durationDays
 
         // Calculate actual days since activation for display
         let actualDaysSinceActivation = 0
@@ -146,16 +144,16 @@ export default function UserSubscriptionsPage() {
         return {
           ...sub,
           remaining_days: remainingDays,
-          is_expired: isExpiredByDays,
-          is_current: isCurrent,
+          is_expired: isExpired,
+          is_current_active: isCurrentlyActive,
           actual_days_since_activation: actualDaysSinceActivation,
-          status: getSubscriptionStatus(sub, isExpiredByDays),
+          status: getSubscriptionStatus(sub, isExpired),
         }
       })
 
-      // Separate current and expired subscriptions
-      const current = subscriptionsWithStatus.filter((sub) => sub.is_current)
-      const expired = subscriptionsWithStatus.filter((sub) => !sub.is_current)
+      // Separate based on is_active column and expiry
+      const current = subscriptionsWithStatus.filter((sub) => !sub.is_expired)
+      const expired = subscriptionsWithStatus.filter((sub) => sub.is_expired)
 
       setSubscriptions(subscriptionsWithStatus)
       setCurrentSubscriptions(current)
@@ -174,7 +172,7 @@ export default function UserSubscriptionsPage() {
     setUpdating(false)
   }
 
-  // Get subscription status based on database is_active column and expiry
+  // Get subscription status based on is_active column and expiry
   const getSubscriptionStatus = (subscription: any, isExpiredByDays: boolean) => {
     // First check if truly expired (all days used)
     if (isExpiredByDays) {
@@ -187,7 +185,7 @@ export default function UserSubscriptionsPage() {
       }
     }
 
-    // If not expired, check is_active directly
+    // Use is_active column directly for status
     if (subscription.is_active === true) {
       return {
         text: "Active",
@@ -199,10 +197,10 @@ export default function UserSubscriptionsPage() {
     } else {
       return {
         text: "Inactive",
-        color: "text-gray-600",
-        bgColor: "bg-gray-100",
+        color: "text-amber-600",
+        bgColor: "bg-amber-100",
         icon: PauseCircle,
-        description: "Your subscription is not activated yet or has been paused",
+        description: "Your subscription is paused - days are not being counted",
       }
     }
   }
@@ -296,17 +294,17 @@ export default function UserSubscriptionsPage() {
         {/* Subscription Status Explanation */}
         <Alert className="mb-6 bg-blue-50 border-blue-200">
           <Info className="h-4 w-4 text-blue-600" />
-          <AlertTitle className="text-blue-800">How Subscription Day Counting Works</AlertTitle>
+          <AlertTitle className="text-blue-800">How Subscription Status Works</AlertTitle>
           <AlertDescription className="text-blue-700 space-y-2">
             <div className="grid gap-2 mt-2">
               <div className="flex items-center gap-2">
                 <PlayCircle className="h-4 w-4 text-green-500" />
                 <span>
-                  <strong>Active:</strong> Days are counted from activation date (1 day per 24 hours)
+                  <strong>Active:</strong> Days are being counted daily (1 day per 24 hours)
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <PauseCircle className="h-4 w-4 text-gray-500" />
+                <PauseCircle className="h-4 w-4 text-amber-500" />
                 <span>
                   <strong>Inactive:</strong> Day counting is paused, remaining days are preserved
                 </span>
@@ -319,8 +317,8 @@ export default function UserSubscriptionsPage() {
               </div>
             </div>
             <p className="text-sm mt-3 p-3 bg-blue-100 rounded-md">
-              <strong>Example:</strong> If activated 3 days ago, it shows 3 days used. When inactive, the count stops
-              and resumes when reactivated.
+              <strong>Note:</strong> Only active subscriptions count days. When inactive, your remaining days are saved
+              for when it becomes active again.
             </p>
           </AlertDescription>
         </Alert>
@@ -513,7 +511,11 @@ export default function UserSubscriptionsPage() {
                             <div className="w-full bg-gray-200 rounded-full h-2">
                               <div
                                 className={`h-2 rounded-full transition-all duration-300 ${
-                                  canAccess ? "bg-green-500" : "bg-gray-400"
+                                  canAccess
+                                    ? "bg-green-500"
+                                    : status.text === "Inactive"
+                                      ? "bg-amber-500"
+                                      : "bg-gray-400"
                                 }`}
                                 style={{
                                   width: `${Math.min(((subscription.total_active_days_used || 0) / (subscription.subscription?.duration_days || 1)) * 100, 100)}%`,
@@ -527,9 +529,11 @@ export default function UserSubscriptionsPage() {
                             <p className={`text-sm ${status.color}`}>
                               <strong>{status.text}:</strong> {status.description}
                             </p>
-                            {subscription.activation_date && status.text === "Active" && (
+                            {subscription.activation_date && (
                               <p className={`text-xs mt-1 ${status.color}`}>
-                                Activated on {formatDate(subscription.activation_date)} • Days counting daily
+                                {status.text === "Active"
+                                  ? `Activated on ${formatDate(subscription.activation_date)} • Days counting daily`
+                                  : `Activated on ${formatDate(subscription.activation_date)} • Days preserved while inactive`}
                               </p>
                             )}
                           </div>

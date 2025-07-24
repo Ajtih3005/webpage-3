@@ -3,231 +3,341 @@
 import type React from "react"
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Logo } from "@/components/logo"
-import { Menu, LogOut, PiIcon as ApiIcon, Star, Send } from "lucide-react"
-import { logout } from "@/lib/auth-client"
+import { Badge } from "@/components/ui/badge"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import {
+  LayoutDashboard,
+  Users,
+  BookOpen,
+  CreditCard,
+  Settings,
+  LogOut,
+  Menu,
+  UserPlus,
+  Mail,
+  Database,
+  TestTube,
+  FileText,
+  MessageSquare,
+  BarChart3,
+  LinkIcon,
+  Star,
+  DollarSign,
+  UserCheck,
+  Bell,
+  Shield,
+  Zap,
+  RefreshCw,
+  Activity,
+  Package,
+  GraduationCap,
+  ChevronDown,
+  ChevronRight,
+} from "lucide-react"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 
 interface AdminLayoutProps {
   children: React.ReactNode
 }
 
-function AdminLayout({ children }: AdminLayoutProps) {
-  const pathname = usePathname()
+interface NavItem {
+  title: string
+  href?: string
+  icon: React.ComponentType<{ className?: string }>
+  badge?: string
+  children?: NavItem[]
+}
+
+const navigation: NavItem[] = [
+  {
+    title: "Dashboard",
+    href: "/admin/dashboard",
+    icon: LayoutDashboard,
+  },
+  {
+    title: "Users",
+    icon: Users,
+    children: [
+      { title: "All Users", href: "/admin/users", icon: Users },
+      { title: "Bulk Registration", href: "/admin/bulk-registration", icon: UserPlus },
+    ],
+  },
+  {
+    title: "Courses",
+    icon: BookOpen,
+    children: [
+      { title: "All Courses", href: "/admin/courses", icon: BookOpen },
+      { title: "Create Course", href: "/admin/courses/create", icon: BookOpen },
+    ],
+  },
+  {
+    title: "Subscriptions",
+    icon: CreditCard,
+    children: [
+      { title: "All Subscriptions", href: "/admin/subscriptions", icon: CreditCard },
+      { title: "Create Subscription", href: "/admin/subscriptions/create", icon: CreditCard },
+      { title: "Subscription Pages", href: "/admin/subscription-pages", icon: Package },
+      { title: "Activate Subscriptions", href: "/admin/subscriptions/activate", icon: UserCheck },
+      { title: "Free Subscriptions", href: "/admin/free-subscriptions", icon: CreditCard },
+    ],
+  },
+  {
+    title: "Instructors",
+    icon: GraduationCap,
+    children: [
+      { title: "All Instructors", href: "/admin/instructors", icon: GraduationCap },
+      { title: "Create Instructor", href: "/admin/instructors/create", icon: GraduationCap },
+    ],
+  },
+  {
+    title: "Analytics",
+    icon: BarChart3,
+    children: [
+      { title: "Video Analytics", href: "/admin/analytics/video", icon: BarChart3 },
+      { title: "Payment Recovery", href: "/admin/payment-recovery", icon: DollarSign },
+    ],
+  },
+  {
+    title: "Communications",
+    icon: Mail,
+    children: [
+      { title: "Email Management", href: "/admin/email", icon: Mail },
+      { title: "Email Configuration", href: "/admin/email-config", icon: Settings },
+      { title: "Email Setup", href: "/admin/email-setup", icon: Settings },
+      { title: "Test Email", href: "/admin/email-test", icon: TestTube },
+      { title: "Notifications", href: "/admin/notifications", icon: Bell },
+      { title: "Contact Messages", href: "/admin/contact", icon: MessageSquare },
+    ],
+  },
+  {
+    title: "Reviews",
+    icon: Star,
+    children: [
+      { title: "All Reviews", href: "/admin/reviews", icon: Star },
+      { title: "Add Reviews", href: "/admin/add-reviews", icon: Star },
+      { title: "Insert Reviews", href: "/admin/insert-reviews", icon: Star },
+      { title: "Auto Insert Reviews", href: "/admin/auto-insert-reviews", icon: Zap },
+      { title: "Make Reviews Visible", href: "/admin/make-reviews-visible", icon: Star },
+    ],
+  },
+  {
+    title: "Tools",
+    icon: Settings,
+    children: [
+      { title: "Link Generator", href: "/admin/link-generator", icon: LinkIcon },
+      { title: "Direct Access", href: "/admin/direct-access", icon: Shield },
+      { title: "Send Course Links", href: "/admin/send-course-links", icon: LinkIcon },
+      { title: "Documents", href: "/admin/documents", icon: FileText },
+      { title: "Updates", href: "/admin/updates", icon: RefreshCw },
+    ],
+  },
+  {
+    title: "System",
+    icon: Database,
+    children: [
+      { title: "Database", href: "/admin/database", icon: Database },
+      { title: "API Verification", href: "/admin/api-verification", icon: TestTube },
+      { title: "Razorpay Test", href: "/admin/razorpay-test", icon: TestTube },
+      { title: "Razorpay Amount Test", href: "/admin/razorpay-amount-test", icon: TestTube },
+      { title: "Supabase Test", href: "/admin/supabase-test", icon: TestTube },
+      { title: "Debug Subscriptions", href: "/admin/debug-subscriptions", icon: Activity },
+      { title: "Fix Subscription Days", href: "/admin/fix-subscription-days", icon: RefreshCw },
+    ],
+  },
+]
+
+export default function AdminLayout({ children }: AdminLayoutProps) {
   const router = useRouter()
+  const pathname = usePathname()
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [openSections, setOpenSections] = useState<string[]>([])
 
   useEffect(() => {
-    const checkAuth = () => {
-      try {
-        // Check both localStorage (old) and sessionStorage (new) for backward compatibility
-        const adminAuthLocal = localStorage.getItem("adminAuthenticated")
-        const adminAuthSession = sessionStorage.getItem("adminAuthenticated")
-        const isAuth = adminAuthLocal === "true" || adminAuthSession === "true"
+    checkAuthentication()
+  }, [])
 
-        setIsAuthenticated(isAuth)
-        setIsLoading(false)
+  const checkAuthentication = async () => {
+    try {
+      setIsLoading(true)
 
-        if (!isAuth) {
-          router.push("/admin/login")
-        }
-      } catch (error) {
-        console.error("Auth check error:", error)
-        setIsLoading(false)
+      // Check if admin password is stored
+      const storedPassword = localStorage.getItem("adminPassword")
+      const envPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD
+
+      if (storedPassword && envPassword && storedPassword === envPassword) {
+        setIsAuthenticated(true)
+      } else {
+        // Redirect to login
         router.push("/admin/login")
       }
-    }
-
-    checkAuth()
-  }, [router])
-
-  const handleLogout = async () => {
-    try {
-      await logout()
     } catch (error) {
-      console.error("Logout error:", error)
-      // Force redirect even if logout fails
-      window.location.href = "/admin/login"
+      console.error("Authentication check failed:", error)
+      router.push("/admin/login")
+    } finally {
+      setIsLoading(false)
     }
   }
 
-  const handleLogoClick = () => {
-    router.push("/")
+  const handleLogout = () => {
+    localStorage.removeItem("adminPassword")
+    router.push("/admin/login")
   }
 
-  // Show loading state to prevent flickering
+  const toggleSection = (title: string) => {
+    setOpenSections((prev) => (prev.includes(title) ? prev.filter((section) => section !== title) : [...prev, title]))
+  }
+
+  const isActive = (href: string) => {
+    return pathname === href || pathname.startsWith(href + "/")
+  }
+
+  const isSectionActive = (item: NavItem): boolean => {
+    if (item.href) {
+      return isActive(item.href)
+    }
+    if (item.children) {
+      return item.children.some((child) => child.href && isActive(child.href))
+    }
+    return false
+  }
+
+  // Auto-expand active sections
+  useEffect(() => {
+    navigation.forEach((item) => {
+      if (isSectionActive(item) && !openSections.includes(item.title)) {
+        setOpenSections((prev) => [...prev, item.title])
+      }
+    })
+  }, [pathname])
+
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading admin panel...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading admin panel...</p>
         </div>
       </div>
     )
   }
 
-  // Don't render anything if not authenticated
   if (!isAuthenticated) {
-    return null
+    return null // Will redirect to login
   }
 
-  const navItems = [
-    { href: "/admin/dashboard", label: "Dashboard", icon: "grid" },
-    { href: "/admin/courses", label: "Courses", icon: "book-open" },
-    { href: "/admin/users", label: "Users", icon: "users" },
-    { href: "/admin/instructors", label: "Instructors", icon: "user" },
-    { href: "/admin/subscriptions", label: "Subscriptions", icon: "credit-card" },
-    { href: "/admin/subscription-pages", label: "Subscription Pages", icon: "layout-template" },
-    { href: "/admin/link-generator", label: "Link Generator", icon: "link" },
-    { href: "/admin/payment-recovery", label: "Payment Recovery", icon: "refresh-cw" },
-    { href: "/admin/notifications", label: "Notifications", icon: "bell" },
-    { href: "/admin/documents", label: "Documents", icon: "file-text" },
-    { href: "/admin/analytics/video", label: "Analytics", icon: "bar-chart" },
-    { href: "/admin/updates", label: "Updates", icon: "refresh-cw" },
-    { href: "/admin/contact", label: "Contact", icon: "mail" },
-    { href: "/admin/email", label: "Send Email", icon: "send" },
-    { href: "/admin/api-verification", label: "API Verification", icon: "api" },
-    { href: "/admin/reviews", label: "Reviews", icon: "star" },
-  ]
+  const NavContent = () => (
+    <div className="space-y-2">
+      {navigation.map((item) => {
+        if (item.children) {
+          const isOpen = openSections.includes(item.title)
+          const isItemActive = isSectionActive(item)
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="flex h-screen overflow-hidden">
-        {/* Sidebar - Always visible on desktop */}
-        <div className="hidden md:flex md:w-64 md:flex-col">
-          <div className="flex flex-col flex-grow pt-5 overflow-y-auto bg-white border-r">
-            <div className="flex items-center flex-shrink-0 px-4">
-              <button onClick={handleLogoClick} className="flex items-center hover:opacity-80 transition-opacity">
-                <Logo />
-                <span className="ml-2 text-xl font-semibold text-gray-800">Admin</span>
-              </button>
-            </div>
-            <div className="mt-5 flex-grow flex flex-col">
-              <nav className="flex-1 px-2 pb-4 space-y-1">
-                {navItems.map((item) => (
-                  <Link key={item.href} href={item.href}>
-                    <div
-                      className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md cursor-pointer ${
-                        pathname === item.href
-                          ? "bg-blue-600 text-white"
-                          : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+          return (
+            <Collapsible key={item.title} open={isOpen} onOpenChange={() => toggleSection(item.title)}>
+              <CollapsibleTrigger asChild>
+                <Button
+                  variant={isItemActive ? "secondary" : "ghost"}
+                  className={`w-full justify-between ${
+                    isItemActive
+                      ? "bg-green-100 text-green-800"
+                      : "text-gray-700 hover:text-green-800 hover:bg-green-50"
+                  }`}
+                >
+                  <div className="flex items-center">
+                    <item.icon className="mr-2 h-4 w-4" />
+                    {item.title}
+                    {item.badge && (
+                      <Badge variant="secondary" className="ml-2">
+                        {item.badge}
+                      </Badge>
+                    )}
+                  </div>
+                  {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-1 ml-4">
+                {item.children.map((child) => (
+                  <Link key={child.href} href={child.href!}>
+                    <Button
+                      variant={isActive(child.href!) ? "secondary" : "ghost"}
+                      size="sm"
+                      className={`w-full justify-start ${
+                        isActive(child.href!)
+                          ? "bg-green-100 text-green-800"
+                          : "text-gray-600 hover:text-green-800 hover:bg-green-50"
                       }`}
                     >
-                      <span className="mr-3 flex-shrink-0 h-6 w-6">
-                        {item.icon === "send" && <Send className="h-6 w-6" />}
-                        {item.icon === "star" && <Star className="h-6 w-6" />}
-                        {item.icon === "api" && <ApiIcon className="h-6 w-6" />}
-                        {item.icon !== "send" && item.icon !== "star" && item.icon !== "api" && (
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="h-6 w-6"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            strokeWidth={2}
-                          >
-                            {item.icon === "grid" && (
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
-                              />
-                            )}
-                            {item.icon === "book-open" && (
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-                              />
-                            )}
-                            {item.icon === "users" && (
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
-                              />
-                            )}
-                            {item.icon === "credit-card" && (
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
-                              />
-                            )}
-                            {item.icon === "bell" && (
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-                              />
-                            )}
-                            {item.icon === "file-text" && (
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                              />
-                            )}
-                            {item.icon === "bar-chart" && (
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                              />
-                            )}
-                            {item.icon === "refresh-cw" && (
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                              />
-                            )}
-                            {item.icon === "mail" && (
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                              />
-                            )}
-                            {item.icon === "link" && (
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 001.242 7.244"
-                              />
-                            )}
-                            {item.icon === "user" && (
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"
-                              />
-                            )}
-                            {item.icon === "layout-template" && (
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"
-                              />
-                            )}
-                          </svg>
-                        )}
-                      </span>
-                      {item.label}
-                    </div>
+                      <child.icon className="mr-2 h-3 w-3" />
+                      {child.title}
+                      {child.badge && (
+                        <Badge variant="secondary" className="ml-auto">
+                          {child.badge}
+                        </Badge>
+                      )}
+                    </Button>
                   </Link>
                 ))}
-              </nav>
+              </CollapsibleContent>
+            </Collapsible>
+          )
+        }
+
+        return (
+          <Link key={item.href} href={item.href!}>
+            <Button
+              variant={isActive(item.href!) ? "secondary" : "ghost"}
+              className={`w-full justify-start ${
+                isActive(item.href!)
+                  ? "bg-green-100 text-green-800"
+                  : "text-gray-700 hover:text-green-800 hover:bg-green-50"
+              }`}
+            >
+              <item.icon className="mr-2 h-4 w-4" />
+              {item.title}
+              {item.badge && (
+                <Badge variant="secondary" className="ml-2">
+                  {item.badge}
+                </Badge>
+              )}
+            </Button>
+          </Link>
+        )
+      })}
+    </div>
+  )
+
+  return (
+    <div className="flex h-screen bg-gray-50">
+      {/* Desktop Sidebar */}
+      <div className="hidden md:flex md:w-64 md:flex-col">
+        <div className="flex flex-col flex-grow pt-5 overflow-y-auto bg-white border-r border-gray-200">
+          <div className="flex items-center flex-shrink-0 px-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center">
+                  <Shield className="w-5 h-5 text-white" />
+                </div>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm font-medium text-gray-900">Admin Panel</p>
+                <p className="text-xs text-gray-500">Sthavishtah Yoga</p>
+              </div>
             </div>
-            <div className="flex-shrink-0 p-4">
+          </div>
+          <div className="mt-5 flex-grow flex flex-col">
+            <ScrollArea className="flex-1 px-3">
+              <NavContent />
+            </ScrollArea>
+            <div className="flex-shrink-0 p-3 border-t border-gray-200">
               <Button
                 variant="outline"
-                className="w-full flex items-center justify-center bg-transparent"
+                size="sm"
                 onClick={handleLogout}
+                className="w-full text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300 bg-transparent"
               >
                 <LogOut className="mr-2 h-4 w-4" />
                 Logout
@@ -235,29 +345,59 @@ function AdminLayout({ children }: AdminLayoutProps) {
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Main content */}
-        <div className="flex flex-col flex-1 overflow-y-auto">
-          {/* Mobile header - Always visible on mobile */}
-          <div className="md:hidden bg-white border-b p-4 sticky top-0 z-30">
-            <div className="flex items-center justify-between">
-              <button onClick={handleLogoClick} className="hover:opacity-80 transition-opacity">
-                <Logo />
-              </button>
-              <Button variant="ghost" size="sm" onClick={() => setIsMobileMenuOpen(true)}>
-                <Menu className="h-5 w-5" />
+      {/* Mobile Sidebar */}
+      <Sheet>
+        <SheetTrigger asChild>
+          <Button variant="outline" size="icon" className="md:hidden fixed top-4 left-4 z-40 bg-transparent">
+            <Menu className="h-4 w-4" />
+          </Button>
+        </SheetTrigger>
+        <SheetContent side="left" className="w-64 p-0">
+          <div className="flex flex-col h-full">
+            <div className="flex items-center px-4 py-5 border-b border-gray-200">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center">
+                    <Shield className="w-5 h-5 text-white" />
+                  </div>
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm font-medium text-gray-900">Admin Panel</p>
+                  <p className="text-xs text-gray-500">Sthavishtah Yoga</p>
+                </div>
+              </div>
+            </div>
+            <ScrollArea className="flex-1 px-3 py-3">
+              <NavContent />
+            </ScrollArea>
+            <div className="flex-shrink-0 p-3 border-t border-gray-200">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleLogout}
+                className="w-full text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300 bg-transparent"
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                Logout
               </Button>
             </div>
           </div>
+        </SheetContent>
+      </Sheet>
 
-          {/* Page content */}
-          <main className="flex-1 p-6">{children}</main>
-        </div>
+      {/* Main Content */}
+      <div className="flex flex-col flex-1 overflow-hidden">
+        <main className="flex-1 relative overflow-y-auto focus:outline-none">
+          <div className="py-6">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">{children}</div>
+          </div>
+        </main>
       </div>
     </div>
   )
 }
 
-// Export both as default and named export to support both import styles
-export default AdminLayout
+// Add named export for compatibility
 export { AdminLayout }
