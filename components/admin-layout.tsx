@@ -1,9 +1,11 @@
 "use client"
 
-import type React from "react"
-import { useState, useEffect } from "react"
+import React from "react"
+
+import type { ReactNode } from "react"
+import { useState, useEffect, useCallback } from "react"
+import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
-import { useRouter, usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -39,7 +41,7 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 
 interface AdminLayoutProps {
-  children: React.ReactNode
+  children: ReactNode
 }
 
 interface NavItem {
@@ -146,53 +148,45 @@ const navigation: NavItem[] = [
   },
 ]
 
-export default function AdminLayout({ children }: AdminLayoutProps) {
+const AdminLayout = ({ children }: AdminLayoutProps) => {
   const router = useRouter()
   const pathname = usePathname()
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [openSections, setOpenSections] = useState<string[]>([])
 
-  useEffect(() => {
-    // Immediate synchronous check to prevent flickering
-    const storedPassword = localStorage.getItem("adminPassword")
-    const envPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD
-
-    if (storedPassword && envPassword && storedPassword === envPassword) {
-      setIsAuthenticated(true)
-      setIsLoading(false)
-    } else {
-      setIsAuthenticated(false)
-      setIsLoading(false)
-      // Use setTimeout to prevent immediate redirect during render
-      setTimeout(() => {
-        router.push("/admin/login")
-      }, 0)
-    }
-  }, [router])
-
-  const handleLogout = () => {
+  // Use useCallback to memoize handleLogout
+  const handleLogout = useCallback(() => {
     localStorage.removeItem("adminPassword")
     router.push("/admin/login")
-  }
+  }, [router])
 
-  const toggleSection = (title: string) => {
+  // Use useCallback to memoize toggleSection
+  const toggleSection = useCallback((title: string) => {
     setOpenSections((prev) => (prev.includes(title) ? prev.filter((section) => section !== title) : [...prev, title]))
-  }
+  }, [])
 
-  const isActive = (href: string) => {
-    return pathname === href || pathname.startsWith(href + "/")
-  }
+  // Use useCallback to memoize isActive
+  const isActive = useCallback(
+    (href: string) => {
+      return pathname === href || pathname.startsWith(href + "/")
+    },
+    [pathname],
+  )
 
-  const isSectionActive = (item: NavItem): boolean => {
-    if (item.href) {
-      return isActive(item.href)
-    }
-    if (item.children) {
-      return item.children.some((child) => child.href && isActive(child.href))
-    }
-    return false
-  }
+  // Use useCallback to memoize isSectionActive
+  const isSectionActive = useCallback(
+    (item: NavItem): boolean => {
+      if (item.href) {
+        return isActive(item.href)
+      }
+      if (item.children) {
+        return item.children.some((child) => child.href && isActive(child.href))
+      }
+      return false
+    },
+    [isActive],
+  )
 
   // Auto-expand active sections
   useEffect(() => {
@@ -201,7 +195,25 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         setOpenSections((prev) => [...prev, item.title])
       }
     })
-  }, [pathname])
+  }, [pathname, isSectionActive, openSections])
+
+  // Perform authentication check only once on initial load
+  useEffect(() => {
+    const checkAuth = () => {
+      const storedPassword = localStorage.getItem("adminPassword")
+      const envPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD
+
+      if (storedPassword && envPassword && storedPassword === envPassword) {
+        setIsAuthenticated(true)
+      } else {
+        setIsAuthenticated(false)
+        router.push("/admin/login")
+      }
+      setIsLoading(false)
+    }
+
+    checkAuth()
+  }, [router])
 
   if (isLoading) {
     return (
@@ -215,7 +227,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     return null // Will redirect to login
   }
 
-  const NavContent = () => (
+  const NavContent = React.memo(() => (
     <div className="space-y-2">
       {navigation.map((item) => {
         if (item.children) {
@@ -294,7 +306,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         )
       })}
     </div>
-  )
+  ))
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -385,5 +397,5 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   )
 }
 
-// Add named export for compatibility
 export { AdminLayout }
+export default AdminLayout
