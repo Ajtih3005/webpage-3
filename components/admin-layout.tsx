@@ -26,7 +26,6 @@ import {
   LinkIcon,
   Star,
   DollarSign,
-  UserCheck,
   Bell,
   Shield,
   Zap,
@@ -80,8 +79,6 @@ const navigation: NavItem[] = [
       { title: "All Subscriptions", href: "/admin/subscriptions", icon: CreditCard },
       { title: "Create Subscription", href: "/admin/subscriptions/create", icon: CreditCard },
       { title: "Subscription Pages", href: "/admin/subscription-pages", icon: Package },
-      { title: "Activate Subscriptions", href: "/admin/subscriptions/activate", icon: UserCheck },
-      { title: "Free Subscriptions", href: "/admin/free-subscriptions", icon: CreditCard },
     ],
   },
   {
@@ -152,26 +149,31 @@ const navigation: NavItem[] = [
 export default function AdminLayout({ children }: AdminLayoutProps) {
   const router = useRouter()
   const pathname = usePathname()
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const [openSections, setOpenSections] = useState<string[]>([])
 
   useEffect(() => {
-    // Synchronous authentication check to prevent flickering
+    // Immediate synchronous check to prevent flickering
     const storedPassword = localStorage.getItem("adminPassword")
     const envPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD
 
     if (storedPassword && envPassword && storedPassword === envPassword) {
       setIsAuthenticated(true)
+      setIsLoading(false)
     } else {
       setIsAuthenticated(false)
-      router.replace("/admin/login")
+      setIsLoading(false)
+      // Use setTimeout to prevent immediate redirect during render
+      setTimeout(() => {
+        router.push("/admin/login")
+      }, 0)
     }
   }, [router])
 
   const handleLogout = () => {
     localStorage.removeItem("adminPassword")
-    setIsAuthenticated(false)
-    router.replace("/admin/login")
+    router.push("/admin/login")
   }
 
   const toggleSection = (title: string) => {
@@ -199,23 +201,18 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         setOpenSections((prev) => [...prev, item.title])
       }
     })
-  }, [pathname, openSections])
+  }, [pathname])
 
-  // Show nothing while checking authentication to prevent flickering
-  if (isAuthenticated === null) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto mb-2"></div>
-          <p className="text-sm text-gray-600">Loading...</p>
-        </div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
       </div>
     )
   }
 
-  // Don't render anything if not authenticated (will redirect)
   if (!isAuthenticated) {
-    return null
+    return null // Will redirect to login
   }
 
   const NavContent = () => (
