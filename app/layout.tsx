@@ -29,10 +29,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="shortcut icon" href="/favicon.ico" />
         <script src="https://checkout.razorpay.com/v1/checkout.js" async></script>
 
+        {/* Facebook App ID - Required for Open Graph */}
+        <meta property="fb:app_id" content="924180826548374" />
+
         {/* Single Open Graph meta tags */}
         <meta property="og:title" content="Sthavishtah Yoga and Wellness" />
         <meta property="og:description" content="Yoga and wellness platform for holistic health" />
         <meta property="og:image" content="https://sthavishtah.com/images/logo.png" />
+        <meta property="og:image:alt" content="Sthavishtah Yoga and Wellness Logo" />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
         <meta property="og:url" content="https://sthavishtah.com" />
         <meta property="og:type" content="website" />
         <meta property="og:site_name" content="Sthavishtah Yoga" />
