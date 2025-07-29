@@ -1,10 +1,28 @@
-User-agent: *
+User-Agent: *
 Allow: /
 
-User-agent: facebookexternalhit
+# Allow Facebook scraping bots
+User-Agent: facebookexternalhit
 Allow: /
 
-User-agent: facebookexternalhit/1.1
+User-Agent: facebookexternalhit/1.1
 Allow: /
 
-Sitemap: https://sthavishtahyoga.com/sitemap.xml
+# Allow other social media bots
+User-Agent: Twitterbot
+Allow: /
+
+User-Agent: LinkedInBot
+Allow: /
+
+User-Agent: WhatsApp
+Allow: /
+
+# Disallow admin areas from general crawling
+User-Agent: *
+Disallow: /admin/
+Disallow: /api/
+Disallow: /instructor/login
+Disallow: /admin/login
+
+Sitemap: https://sthavishtah.com/sitemap.xml
