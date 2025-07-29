@@ -1,401 +1,308 @@
 "use client"
 
-import React from "react"
+import type React from "react"
 
-import type { ReactNode } from "react"
-import { useState, useEffect, useCallback } from "react"
-import { usePathname, useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import {
-  LayoutDashboard,
   Users,
-  BookOpen,
-  CreditCard,
   Settings,
-  LogOut,
-  Menu,
-  UserPlus,
+  BarChart3,
+  FileText,
+  CreditCard,
   Mail,
   Database,
-  TestTube,
-  FileText,
-  MessageSquare,
-  BarChart3,
-  LinkIcon,
-  Star,
-  DollarSign,
-  Bell,
-  Shield,
-  Zap,
-  RefreshCw,
-  Activity,
+  LogOut,
+  Menu,
+  Home,
   Package,
-  GraduationCap,
+  UserPlus,
+  MessageSquare,
+  BookOpen,
+  Shield,
+  Bell,
   ChevronDown,
-  ChevronRight,
+  LinkIcon,
+  UserCheck,
+  PlayCircle,
+  DollarSign,
+  RefreshCw,
+  TestTube,
+  Layers,
+  Eye,
+  Plus,
+  Send,
+  Star,
+  ExternalLink,
 } from "lucide-react"
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 
 interface AdminLayoutProps {
-  children: ReactNode
+  children: React.ReactNode
 }
 
-interface NavItem {
-  title: string
-  href?: string
-  icon: React.ComponentType<{ className?: string }>
-  badge?: string
-  children?: NavItem[]
-}
-
-const navigation: NavItem[] = [
-  {
-    title: "Dashboard",
-    href: "/admin/dashboard",
-    icon: LayoutDashboard,
-  },
-  {
-    title: "Users",
-    icon: Users,
-    children: [
-      { title: "All Users", href: "/admin/users", icon: Users },
-      { title: "Bulk Registration", href: "/admin/bulk-registration", icon: UserPlus },
-    ],
-  },
-  {
-    title: "Courses",
-    icon: BookOpen,
-    children: [
-      { title: "All Courses", href: "/admin/courses", icon: BookOpen },
-      { title: "Create Course", href: "/admin/courses/create", icon: BookOpen },
-    ],
-  },
-  {
-    title: "Subscriptions",
-    icon: CreditCard,
-    children: [
-      { title: "All Subscriptions", href: "/admin/subscriptions", icon: CreditCard },
-      { title: "Create Subscription", href: "/admin/subscriptions/create", icon: CreditCard },
-      { title: "Subscription Pages", href: "/admin/subscription-pages", icon: Package },
-    ],
-  },
-  {
-    title: "Instructors",
-    icon: GraduationCap,
-    children: [
-      { title: "All Instructors", href: "/admin/instructors", icon: GraduationCap },
-      { title: "Create Instructor", href: "/admin/instructors/create", icon: GraduationCap },
-    ],
-  },
-  {
-    title: "Analytics",
-    icon: BarChart3,
-    children: [
-      { title: "Video Analytics", href: "/admin/analytics/video", icon: BarChart3 },
-      { title: "Payment Recovery", href: "/admin/payment-recovery", icon: DollarSign },
-    ],
-  },
-  {
-    title: "Communications",
-    icon: Mail,
-    children: [
-      { title: "Email Management", href: "/admin/email", icon: Mail },
-      { title: "Email Configuration", href: "/admin/email-config", icon: Settings },
-      { title: "Email Setup", href: "/admin/email-setup", icon: Settings },
-      { title: "Test Email", href: "/admin/email-test", icon: TestTube },
-      { title: "Notifications", href: "/admin/notifications", icon: Bell },
-      { title: "Contact Messages", href: "/admin/contact", icon: MessageSquare },
-    ],
-  },
-  {
-    title: "Reviews",
-    icon: Star,
-    children: [
-      { title: "All Reviews", href: "/admin/reviews", icon: Star },
-      { title: "Add Reviews", href: "/admin/add-reviews", icon: Star },
-      { title: "Insert Reviews", href: "/admin/insert-reviews", icon: Star },
-      { title: "Auto Insert Reviews", href: "/admin/auto-insert-reviews", icon: Zap },
-      { title: "Make Reviews Visible", href: "/admin/make-reviews-visible", icon: Star },
-    ],
-  },
-  {
-    title: "Tools",
-    icon: Settings,
-    children: [
-      { title: "Link Generator", href: "/admin/link-generator", icon: LinkIcon },
-      { title: "Direct Access", href: "/admin/direct-access", icon: Shield },
-      { title: "Send Course Links", href: "/admin/send-course-links", icon: LinkIcon },
-      { title: "Documents", href: "/admin/documents", icon: FileText },
-      { title: "Updates", href: "/admin/updates", icon: RefreshCw },
-    ],
-  },
-  {
-    title: "System",
-    icon: Database,
-    children: [
-      { title: "Database", href: "/admin/database", icon: Database },
-      { title: "API Verification", href: "/admin/api-verification", icon: TestTube },
-      { title: "Razorpay Test", href: "/admin/razorpay-test", icon: TestTube },
-      { title: "Razorpay Amount Test", href: "/admin/razorpay-amount-test", icon: TestTube },
-      { title: "Supabase Test", href: "/admin/supabase-test", icon: TestTube },
-      { title: "Debug Subscriptions", href: "/admin/debug-subscriptions", icon: Activity },
-      { title: "Fix Subscription Days", href: "/admin/fix-subscription-days", icon: RefreshCw },
-    ],
-  },
-]
-
-const AdminLayout = ({ children }: AdminLayoutProps) => {
-  const router = useRouter()
-  const pathname = usePathname()
+function AdminLayout({ children }: AdminLayoutProps) {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
-  const [openSections, setOpenSections] = useState<string[]>([])
+  const [loading, setLoading] = useState(true)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const router = useRouter()
 
-  // Use useCallback to memoize handleLogout
-  const handleLogout = useCallback(() => {
-    localStorage.removeItem("adminPassword")
-    router.push("/admin/login")
-  }, [router])
-
-  // Use useCallback to memoize toggleSection
-  const toggleSection = useCallback((title: string) => {
-    setOpenSections((prev) => (prev.includes(title) ? prev.filter((section) => section !== title) : [...prev, title]))
+  useEffect(() => {
+    checkAuthentication()
   }, [])
 
-  // Use useCallback to memoize isActive
-  const isActive = useCallback(
-    (href: string) => {
-      return pathname === href || pathname.startsWith(href + "/")
-    },
-    [pathname],
-  )
-
-  // Use useCallback to memoize isSectionActive
-  const isSectionActive = useCallback(
-    (item: NavItem): boolean => {
-      if (item.href) {
-        return isActive(item.href)
+  const checkAuthentication = async () => {
+    try {
+      // Check if we're on the client side
+      if (typeof window === "undefined") {
+        setLoading(false)
+        return
       }
-      if (item.children) {
-        return item.children.some((child) => child.href && isActive(child.href))
+
+      // Use the same authentication method as login page
+      const adminPassword = localStorage.getItem("adminPassword")
+
+      if (!adminPassword) {
+        router.push("/admin/login")
+        return
       }
-      return false
-    },
-    [isActive],
-  )
 
-  // Auto-expand active sections
-  useEffect(() => {
-    navigation.forEach((item) => {
-      if (isSectionActive(item) && !openSections.includes(item.title)) {
-        setOpenSections((prev) => [...prev, item.title])
-      }
-    })
-  }, [pathname, isSectionActive, openSections])
+      // Verify the password is correct - same logic as login
+      const validPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || "admin123"
 
-  // Perform authentication check only once on initial load
-  useEffect(() => {
-    const checkAuth = () => {
-      const storedPassword = localStorage.getItem("adminPassword")
-      const envPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD
-
-      if (storedPassword && envPassword && storedPassword === envPassword) {
+      if (adminPassword === validPassword) {
         setIsAuthenticated(true)
       } else {
-        setIsAuthenticated(false)
+        localStorage.removeItem("adminPassword")
         router.push("/admin/login")
+        return
       }
-      setIsLoading(false)
+    } catch (error) {
+      console.error("Authentication check failed:", error)
+      router.push("/admin/login")
+    } finally {
+      setLoading(false)
     }
+  }
 
-    checkAuth()
-  }, [router])
+  const handleLogout = () => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("adminPassword")
+    }
+    router.push("/admin/login")
+  }
 
-  if (isLoading) {
+  if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto mb-4"></div>
+          <p>Loading admin panel...</p>
+        </div>
       </div>
     )
   }
 
   if (!isAuthenticated) {
-    return null // Will redirect to login
+    return null
   }
 
-  const NavContent = React.memo(() => (
-    <div className="space-y-2">
-      {navigation.map((item) => {
-        if (item.children) {
-          const isOpen = openSections.includes(item.title)
-          const isItemActive = isSectionActive(item)
-
-          return (
-            <Collapsible key={item.title} open={isOpen} onOpenChange={() => toggleSection(item.title)}>
-              <CollapsibleTrigger asChild>
-                <Button
-                  variant={isItemActive ? "secondary" : "ghost"}
-                  className={`w-full justify-between ${
-                    isItemActive
-                      ? "bg-green-100 text-green-800"
-                      : "text-gray-700 hover:text-green-800 hover:bg-green-50"
-                  }`}
-                >
-                  <div className="flex items-center">
-                    <item.icon className="mr-2 h-4 w-4" />
-                    {item.title}
-                    {item.badge && (
-                      <Badge variant="secondary" className="ml-2">
-                        {item.badge}
-                      </Badge>
-                    )}
-                  </div>
-                  {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                </Button>
-              </CollapsibleTrigger>
-              <CollapsibleContent className="space-y-1 ml-4">
-                {item.children.map((child) => (
-                  <Link key={child.href} href={child.href!}>
-                    <Button
-                      variant={isActive(child.href!) ? "secondary" : "ghost"}
-                      size="sm"
-                      className={`w-full justify-start ${
-                        isActive(child.href!)
-                          ? "bg-green-100 text-green-800"
-                          : "text-gray-600 hover:text-green-800 hover:bg-green-50"
-                      }`}
-                    >
-                      <child.icon className="mr-2 h-3 w-3" />
-                      {child.title}
-                      {child.badge && (
-                        <Badge variant="secondary" className="ml-auto">
-                          {child.badge}
-                        </Badge>
-                      )}
-                    </Button>
-                  </Link>
-                ))}
-              </CollapsibleContent>
-            </Collapsible>
-          )
-        }
-
-        return (
-          <Link key={item.href} href={item.href!}>
-            <Button
-              variant={isActive(item.href!) ? "secondary" : "ghost"}
-              className={`w-full justify-start ${
-                isActive(item.href!)
-                  ? "bg-green-100 text-green-800"
-                  : "text-gray-700 hover:text-green-800 hover:bg-green-50"
-              }`}
-            >
-              <item.icon className="mr-2 h-4 w-4" />
-              {item.title}
-              {item.badge && (
-                <Badge variant="secondary" className="ml-2">
-                  {item.badge}
-                </Badge>
-              )}
-            </Button>
-          </Link>
-        )
-      })}
-    </div>
-  ))
+  const navigationItems = [
+    {
+      title: "Dashboard",
+      href: "/admin/dashboard",
+      icon: Home,
+      description: "Overview and analytics",
+    },
+    {
+      title: "User Management",
+      icon: Users,
+      items: [
+        { title: "All Users", href: "/admin/users", icon: Users },
+        { title: "Bulk Registration", href: "/admin/bulk-registration", icon: UserPlus },
+      ],
+    },
+    {
+      title: "Subscription Management",
+      icon: Package,
+      items: [
+        { title: "All Subscriptions", href: "/admin/subscriptions", icon: Package },
+        { title: "Create Subscription", href: "/admin/subscriptions/create", icon: Plus },
+        { title: "Activate Subscriptions", href: "/admin/subscriptions/activate", icon: UserCheck },
+        { title: "Free Subscriptions", href: "/admin/free-subscriptions", icon: Package },
+      ],
+    },
+    {
+      title: "Course Management",
+      icon: BookOpen,
+      items: [
+        { title: "All Courses", href: "/admin/courses", icon: BookOpen },
+        { title: "Create Course", href: "/admin/courses/create", icon: Plus },
+      ],
+    },
+    {
+      title: "Instructor Management",
+      icon: UserCheck,
+      items: [
+        { title: "All Instructors", href: "/admin/instructors", icon: UserCheck },
+        { title: "Create Instructor", href: "/admin/instructors/create", icon: Plus },
+      ],
+    },
+    {
+      title: "Content & Reviews",
+      icon: Star,
+      items: [
+        { title: "Reviews", href: "/admin/reviews", icon: Star },
+        { title: "Add Reviews", href: "/admin/add-reviews", icon: Plus },
+        { title: "Auto Insert Reviews", href: "/admin/auto-insert-reviews", icon: RefreshCw },
+        { title: "Make Reviews Visible", href: "/admin/make-reviews-visible", icon: Eye },
+      ],
+    },
+    {
+      title: "Communication",
+      icon: Mail,
+      items: [
+        { title: "Email Management", href: "/admin/email", icon: Mail },
+        { title: "Email Configuration", href: "/admin/email-config", icon: Settings },
+        { title: "Email Setup", href: "/admin/email-setup", icon: Settings },
+        { title: "Test Email", href: "/admin/email-test", icon: TestTube },
+        { title: "Send Course Links", href: "/admin/send-course-links", icon: Send },
+        { title: "Contact Messages", href: "/admin/contact", icon: MessageSquare },
+        { title: "Notifications", href: "/admin/notifications", icon: Bell },
+      ],
+    },
+    {
+      title: "Analytics & Reports",
+      icon: BarChart3,
+      items: [
+        { title: "Video Analytics", href: "/admin/analytics/video", icon: PlayCircle },
+        { title: "Payment Recovery", href: "/admin/payment-recovery", icon: DollarSign },
+      ],
+    },
+    {
+      title: "Tools & Utilities",
+      icon: Settings,
+      items: [
+        { title: "Link Generator", href: "/admin/link-generator", icon: LinkIcon },
+        { title: "Direct Access", href: "/admin/direct-access", icon: ExternalLink },
+        { title: "Documents", href: "/admin/documents", icon: FileText },
+        { title: "Database Management", href: "/admin/database", icon: Database },
+        { title: "API Verification", href: "/admin/api-verification", icon: Shield },
+      ],
+    },
+    {
+      title: "Payment & Testing",
+      icon: CreditCard,
+      items: [
+        { title: "Razorpay Test", href: "/admin/razorpay-test", icon: TestTube },
+        { title: "Razorpay Amount Test", href: "/admin/razorpay-amount-test", icon: TestTube },
+      ],
+    },
+    {
+      title: "System",
+      icon: Settings,
+      items: [
+        { title: "Updates", href: "/admin/updates", icon: RefreshCw },
+        { title: "Subscription Pages", href: "/admin/subscription-pages", icon: Layers },
+      ],
+    },
+  ]
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      {/* Desktop Sidebar */}
-      <div className="hidden md:flex md:w-64 md:flex-col">
-        <div className="flex flex-col flex-grow pt-5 overflow-y-auto bg-white border-r border-gray-200">
-          <div className="flex items-center flex-shrink-0 px-4">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center">
-                  <Shield className="w-5 h-5 text-white" />
-                </div>
-              </div>
-              <div className="ml-3">
-                <p className="text-sm font-medium text-gray-900">Admin Panel</p>
-                <p className="text-xs text-gray-500">Sthavishtah Yoga</p>
-              </div>
+    <div className="min-h-screen bg-gray-50">
+      {/* Mobile sidebar overlay */}
+      {sidebarOpen && (
+        <div className="fixed inset-0 z-40 bg-black bg-opacity-50 lg:hidden" onClick={() => setSidebarOpen(false)} />
+      )}
+
+      {/* Sidebar */}
+      <div
+        className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <div className="flex items-center justify-between h-16 px-6 border-b">
+          <h1 className="text-xl font-bold text-gray-900">Admin Panel</h1>
+          <Button variant="ghost" size="sm" className="lg:hidden" onClick={() => setSidebarOpen(false)}>
+            ×
+          </Button>
+        </div>
+
+        <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
+          {navigationItems.map((item, index) => (
+            <div key={index}>
+              {item.href ? (
+                <Link
+                  href={item.href}
+                  className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 hover:text-gray-900"
+                  onClick={() => setSidebarOpen(false)}
+                >
+                  <item.icon className="w-5 h-5 mr-3" />
+                  {item.title}
+                </Link>
+              ) : (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                    >
+                      <item.icon className="w-5 h-5 mr-3" />
+                      {item.title}
+                      <ChevronDown className="w-4 h-4 ml-auto" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-56">
+                    {item.items?.map((subItem, subIndex) => (
+                      <DropdownMenuItem key={subIndex} asChild>
+                        <Link href={subItem.href} className="flex items-center" onClick={() => setSidebarOpen(false)}>
+                          <subItem.icon className="w-4 h-4 mr-2" />
+                          {subItem.title}
+                        </Link>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
             </div>
-          </div>
-          <div className="mt-5 flex-grow flex flex-col">
-            <ScrollArea className="flex-1 px-3">
-              <NavContent />
-            </ScrollArea>
-            <div className="flex-shrink-0 p-3 border-t border-gray-200">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleLogout}
-                className="w-full text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300 bg-transparent"
-              >
-                <LogOut className="mr-2 h-4 w-4" />
-                Logout
-              </Button>
-            </div>
-          </div>
+          ))}
+        </nav>
+
+        <div className="p-4 border-t">
+          <Button variant="outline" className="w-full justify-start bg-transparent" onClick={handleLogout}>
+            <LogOut className="w-4 h-4 mr-2" />
+            Logout
+          </Button>
         </div>
       </div>
 
-      {/* Mobile Sidebar */}
-      <Sheet>
-        <SheetTrigger asChild>
-          <Button variant="outline" size="icon" className="md:hidden fixed top-4 left-4 z-40 bg-transparent">
-            <Menu className="h-4 w-4" />
+      {/* Main content */}
+      <div className="lg:ml-64">
+        {/* Top bar */}
+        <div className="flex items-center justify-between h-16 px-6 bg-white border-b lg:px-8">
+          <Button variant="ghost" size="sm" className="lg:hidden" onClick={() => setSidebarOpen(true)}>
+            <Menu className="w-5 h-5" />
           </Button>
-        </SheetTrigger>
-        <SheetContent side="left" className="w-64 p-0">
-          <div className="flex flex-col h-full">
-            <div className="flex items-center px-4 py-5 border-b border-gray-200">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center">
-                    <Shield className="w-5 h-5 text-white" />
-                  </div>
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-900">Admin Panel</p>
-                  <p className="text-xs text-gray-500">Sthavishtah Yoga</p>
-                </div>
-              </div>
-            </div>
-            <ScrollArea className="flex-1 px-3 py-3">
-              <NavContent />
-            </ScrollArea>
-            <div className="flex-shrink-0 p-3 border-t border-gray-200">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleLogout}
-                className="w-full text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300 bg-transparent"
-              >
-                <LogOut className="mr-2 h-4 w-4" />
-                Logout
-              </Button>
-            </div>
-          </div>
-        </SheetContent>
-      </Sheet>
 
-      {/* Main Content */}
-      <div className="flex flex-col flex-1 overflow-hidden">
-        <main className="flex-1 relative overflow-y-auto focus:outline-none">
-          <div className="py-6">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">{children}</div>
+          <div className="flex items-center space-x-4">
+            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+              Admin Access
+            </Badge>
           </div>
-        </main>
+        </div>
+
+        {/* Page content */}
+        <main className="p-6 lg:p-8">{children}</main>
       </div>
     </div>
   )
 }
 
-export { AdminLayout }
+// Export as default
 export default AdminLayout
+
+// Also export as named export for compatibility
+export { AdminLayout }

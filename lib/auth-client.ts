@@ -35,25 +35,27 @@ export async function logout() {
     sessionStorage.clear()
 
     // Clear ALL cookies manually
-    document.cookie.split(";").forEach((cookie) => {
-      const [name] = cookie.trim().split("=")
-      if (name) {
-        // Clear for multiple paths and domains
-        const clearCommands = [
-          `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/;`,
-          `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=${window.location.hostname};`,
-          `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/user;`,
-          `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/admin;`,
-          `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/instructor;`,
-        ]
-        clearCommands.forEach((cmd) => {
-          document.cookie = cmd
-        })
-      }
-    })
+    if (typeof document !== "undefined") {
+      document.cookie.split(";").forEach((cookie) => {
+        const [name] = cookie.trim().split("=")
+        if (name) {
+          // Clear for multiple paths and domains
+          const clearCommands = [
+            `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/;`,
+            `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=${window.location.hostname};`,
+            `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/user;`,
+            `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/admin;`,
+            `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/instructor;`,
+          ]
+          clearCommands.forEach((cmd) => {
+            document.cookie = cmd
+          })
+        }
+      })
+    }
 
     // 3. Clear any cached data
-    if ("caches" in window) {
+    if (typeof window !== "undefined" && "caches" in window) {
       caches.keys().then((names) => {
         names.forEach((name) => {
           caches.delete(name)
@@ -64,11 +66,15 @@ export async function logout() {
     console.log("✅ Secure logout complete - all data cleared")
 
     // 4. Redirect to home page
-    window.location.href = "/"
+    if (typeof window !== "undefined") {
+      window.location.href = "/"
+    }
   } catch (error) {
     console.error("❌ Logout error:", error)
     // Force redirect even if cleanup fails
-    window.location.href = "/"
+    if (typeof window !== "undefined") {
+      window.location.href = "/"
+    }
   }
 }
 
@@ -78,6 +84,7 @@ export async function logout() {
  */
 export function isUserLoggedIn(): boolean {
   try {
+    if (typeof window === "undefined") return false
     const userId = localStorage.getItem("userId")
     const userAuthenticated = localStorage.getItem("userAuthenticated")
     return !!(userId && userAuthenticated === "true")
@@ -88,13 +95,14 @@ export function isUserLoggedIn(): boolean {
 
 /**
  * 🔍 CHECK ADMIN AUTHENTICATION STATUS
- * Secure way to check if admin is logged in
+ * Secure way to check if admin is logged in - using same method as before
  */
 export function isAdminLoggedIn(): boolean {
   try {
-    const sessionAuth = sessionStorage.getItem("adminAuthenticated") === "true"
-    const localAuth = localStorage.getItem("adminAuthenticated") === "true"
-    return sessionAuth || localAuth
+    if (typeof window === "undefined") return false
+    const adminPassword = localStorage.getItem("adminPassword")
+    const validPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || "admin123"
+    return adminPassword === validPassword
   } catch {
     return false
   }
@@ -106,6 +114,7 @@ export function isAdminLoggedIn(): boolean {
  */
 export function isInstructorLoggedIn(): boolean {
   try {
+    if (typeof window === "undefined") return false
     const instructorId = localStorage.getItem("instructorId")
     const instructorAuthenticated = localStorage.getItem("instructorAuthenticated")
     return !!(instructorId && instructorAuthenticated === "true")
@@ -150,6 +159,7 @@ export function getCurrentInstructorId(): string | null {
  */
 export function setUserAuth(userId: string, userData?: any): void {
   try {
+    if (typeof window === "undefined") return
     localStorage.setItem("userId", userId)
     localStorage.setItem("userAuthenticated", "true")
 
@@ -169,6 +179,7 @@ export function setUserAuth(userId: string, userData?: any): void {
  */
 export function setInstructorAuth(instructorId: string, instructorData?: any): void {
   try {
+    if (typeof window === "undefined") return
     localStorage.setItem("instructorId", instructorId)
     localStorage.setItem("instructorAuthenticated", "true")
 
@@ -184,12 +195,12 @@ export function setInstructorAuth(instructorId: string, instructorData?: any): v
 
 /**
  * 🔐 SET ADMIN AUTHENTICATION
- * Securely store admin authentication data
+ * Securely store admin authentication data - using same method as before
  */
-export function setAdminAuth(): void {
+export function setAdminAuth(password: string): void {
   try {
-    // Use sessionStorage for admin (more secure, doesn't persist)
-    sessionStorage.setItem("adminAuthenticated", "true")
+    if (typeof window === "undefined") return
+    localStorage.setItem("adminPassword", password)
     console.log("✅ Admin authentication set")
   } catch (error) {
     console.error("❌ Error setting admin auth:", error)
@@ -202,6 +213,7 @@ export function setAdminAuth(): void {
  */
 export function clearUserAuth(): void {
   try {
+    if (typeof window === "undefined") return
     localStorage.removeItem("userId")
     localStorage.removeItem("userAuthenticated")
     localStorage.removeItem("userData")
@@ -217,6 +229,7 @@ export function clearUserAuth(): void {
  */
 export function clearInstructorAuth(): void {
   try {
+    if (typeof window === "undefined") return
     localStorage.removeItem("instructorId")
     localStorage.removeItem("instructorAuthenticated")
     localStorage.removeItem("instructorData")
@@ -232,8 +245,8 @@ export function clearInstructorAuth(): void {
  */
 export function clearAdminAuth(): void {
   try {
-    sessionStorage.removeItem("adminAuthenticated")
-    localStorage.removeItem("adminAuthenticated") // Clear old localStorage too
+    if (typeof window === "undefined") return
+    localStorage.removeItem("adminPassword")
     console.log("✅ Admin authentication cleared")
   } catch (error) {
     console.error("❌ Error clearing admin auth:", error)
@@ -245,7 +258,9 @@ export function clearAdminAuth(): void {
  * Navigate to home without logout
  */
 export function navigateToHome(): void {
-  window.location.href = "/"
+  if (typeof window !== "undefined") {
+    window.location.href = "/"
+  }
 }
 
 /**
@@ -253,6 +268,8 @@ export function navigateToHome(): void {
  * Redirect to appropriate login page with return URL
  */
 export function redirectToLogin(returnUrl?: string, userType: "user" | "admin" | "instructor" = "user"): void {
+  if (typeof window === "undefined") return
+
   const loginPaths = {
     user: "/user/login",
     admin: "/admin/login",
@@ -271,6 +288,7 @@ export function redirectToLogin(returnUrl?: string, userType: "user" | "admin" |
  */
 export function getUserData(): any | null {
   try {
+    if (typeof window === "undefined") return null
     const userData = localStorage.getItem("userData")
     return userData ? JSON.parse(userData) : null
   } catch {
@@ -284,6 +302,7 @@ export function getUserData(): any | null {
  */
 export function getInstructorData(): any | null {
   try {
+    if (typeof window === "undefined") return null
     const instructorData = localStorage.getItem("instructorData")
     return instructorData ? JSON.parse(instructorData) : null
   } catch {
@@ -315,6 +334,8 @@ export function getCurrentUserType(): "user" | "admin" | "instructor" | null {
  * Automatically redirect based on current authentication status
  */
 export function autoRedirectBasedOnAuth(currentPath: string): void {
+  if (typeof window === "undefined") return
+
   const userType = getCurrentUserType()
 
   if (!userType) {
