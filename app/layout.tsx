@@ -17,39 +17,31 @@ export const metadata: Metadata = {
     ],
     shortcut: "/favicon.ico",
   },
-  // Add Open Graph meta tags for social sharing
+  // Explicitly declare Open Graph meta tags
   openGraph: {
     title: "Sthavishtah Yoga and Wellness",
-    description:
-      "Transform your life through authentic yoga practices and natural wellness approaches. Join our serene community for mind, body, and spirit harmony.",
-    url: "https://sthavishtah-yoga.vercel.app",
+    description: "Yoga and wellness platform for holistic health",
+    url: "https://sthavishtah.com",
     siteName: "Sthavishtah Yoga",
     images: [
       {
-        url: "/images/logo.png", // Using your existing logo
+        url: "https://sthavishtah.com/images/logo.png",
         width: 1200,
         height: 630,
         alt: "Sthavishtah Yoga and Wellness Logo",
-      },
-      {
-        url: "/images/serene-forest-meditation.jpg", // Alternative hero image
-        width: 1200,
-        height: 630,
-        alt: "Serene Forest Meditation - Sthavishtah Yoga",
       },
     ],
     locale: "en_US",
     type: "website",
   },
-  // Add Twitter Card meta tags
+  // Twitter Card meta tags
   twitter: {
     card: "summary_large_image",
     title: "Sthavishtah Yoga and Wellness",
-    description: "Transform your life through authentic yoga practices and natural wellness approaches.",
-    images: ["/images/logo.png"],
-    creator: "@sthavishtah",
+    description: "Yoga and wellness platform for holistic health",
+    images: ["https://sthavishtah.com/images/logo.png"],
   },
-  // Additional meta tags
+  // Additional SEO meta tags
   keywords: [
     "yoga",
     "wellness",
@@ -57,7 +49,6 @@ export const metadata: Metadata = {
     "holistic health",
     "mindfulness",
     "spiritual growth",
-    "natural healing",
     "yoga classes",
     "online yoga",
     "sthavishtah",
@@ -65,17 +56,6 @@ export const metadata: Metadata = {
   authors: [{ name: "Sthavishtah Yoga Team" }],
   creator: "Sthavishtah Yoga",
   publisher: "Sthavishtah Yoga",
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
-      index: true,
-      follow: true,
-      "max-video-preview": -1,
-      "max-image-preview": "large",
-      "max-snippet": -1,
-    },
-  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -88,10 +68,25 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="shortcut icon" href="/favicon.ico" />
         <script src="https://checkout.razorpay.com/v1/checkout.js" async></script>
 
-        {/* Additional meta tags for better SEO */}
+        {/* Explicitly declare Open Graph meta tags */}
+        <meta property="og:title" content="Sthavishtah Yoga and Wellness" />
+        <meta property="og:description" content="Yoga and wellness platform for holistic health" />
+        <meta property="og:image" content="https://sthavishtah.com/images/logo.png" />
+        <meta property="og:image:alt" content="Sthavishtah Yoga and Wellness Logo" />
+        <meta property="og:url" content="https://sthavishtah.com" />
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="Sthavishtah Yoga" />
+
+        {/* Twitter Card meta tags */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="Sthavishtah Yoga and Wellness" />
+        <meta name="twitter:description" content="Yoga and wellness platform for holistic health" />
+        <meta name="twitter:image" content="https://sthavishtah.com/images/logo.png" />
+
+        {/* Additional meta tags */}
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="theme-color" content="#16a34a" />
-        <link rel="canonical" href="https://sthavishtah-yoga.vercel.app" />
+        <link rel="canonical" href="https://sthavishtah.com" />
       </head>
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem>

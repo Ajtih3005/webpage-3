@@ -1,4 +1,4 @@
-import { getSupabaseBrowserClient } from "./supabase"
+import { createClient } from "@/lib/supabase"
 
 export interface ChatMessage {
   id: string
@@ -8,63 +8,44 @@ export interface ChatMessage {
   user_type: "student" | "instructor" | "admin"
   message: string
   message_type: "text" | "link" | "announcement"
+  is_pinned: boolean
   created_at: string
-  is_pinned?: boolean
+  updated_at: string
 }
 
 export interface ChatRoom {
-  id: string
   course_id: number
   course_title: string
   batch_number: number
-  is_active: boolean
-  participant_count: number
+  subscription_name: string
+  active_users: number
 }
 
-// Generate chat room ID from course ID
+// Get chat room ID from course ID
 export function getChatRoomId(courseId: number): string {
   return `chat_${courseId}`
 }
 
-// Get chat room info
-export async function getChatRoomInfo(courseId: number): Promise<ChatRoom | null> {
-  const supabase = getSupabaseBrowserClient()
+// Get chat messages for a specific course
+export async function getChatMessages(courseId: number): Promise<ChatMessage[]> {
+  const supabase = createClient()
 
-  try {
-    // Get course details
-    const { data: course, error: courseError } = await supabase
-      .from("courses")
-      .select("id, title, batch_number")
-      .eq("id", courseId)
-      .single()
+  const { data, error } = await supabase
+    .from("chat_messages")
+    .select("*")
+    .eq("course_id", courseId)
+    .order("created_at", { ascending: true })
+    .limit(100)
 
-    if (courseError || !course) {
-      console.error("Error fetching course:", courseError)
-      return null
-    }
-
-    // Get participant count (users currently in this course)
-    const { count: participantCount } = await supabase
-      .from("user_subscriptions")
-      .select("*", { count: "exact", head: true })
-      .eq("course_id", courseId)
-      .eq("status", "active")
-
-    return {
-      id: getChatRoomId(courseId),
-      course_id: courseId,
-      course_title: course.title,
-      batch_number: course.batch_number,
-      is_active: true,
-      participant_count: participantCount || 0,
-    }
-  } catch (error) {
-    console.error("Error getting chat room info:", error)
-    return null
+  if (error) {
+    console.error("Error fetching chat messages:", error)
+    return []
   }
+
+  return data || []
 }
 
-// Send message to chat room
+// Send a new chat message
 export async function sendChatMessage(
   courseId: number,
   userId: string,
@@ -73,59 +54,86 @@ export async function sendChatMessage(
   message: string,
   messageType: "text" | "link" | "announcement" = "text",
 ): Promise<boolean> {
-  const supabase = getSupabaseBrowserClient()
+  const supabase = createClient()
 
-  try {
-    const { error } = await supabase.from("chat_messages").insert({
-      course_id: courseId,
-      user_id: userId,
-      user_name: userName,
-      user_type: userType,
-      message: message.trim(),
-      message_type: messageType,
-      created_at: new Date().toISOString(),
-    })
+  const { error } = await supabase.from("chat_messages").insert({
+    course_id: courseId,
+    user_id: userId,
+    user_name: userName,
+    user_type: userType,
+    message: message.trim(),
+    message_type: messageType,
+    is_pinned: false,
+  })
 
-    if (error) {
-      console.error("Error sending message:", error)
-      return false
-    }
-
-    return true
-  } catch (error) {
+  if (error) {
     console.error("Error sending chat message:", error)
     return false
   }
+
+  return true
 }
 
-// Get chat messages for a course
-export async function getChatMessages(courseId: number, limit = 50): Promise<ChatMessage[]> {
-  const supabase = getSupabaseBrowserClient()
+// Pin/Unpin a message (admin/instructor only)
+export async function togglePinMessage(messageId: string, isPinned: boolean): Promise<boolean> {
+  const supabase = createClient()
 
-  try {
-    const { data: messages, error } = await supabase
-      .from("chat_messages")
-      .select("*")
-      .eq("course_id", courseId)
-      .order("created_at", { ascending: false })
-      .limit(limit)
+  const { error } = await supabase.from("chat_messages").update({ is_pinned: isPinned }).eq("id", messageId)
 
-    if (error) {
-      console.error("Error fetching messages:", error)
-      return []
-    }
+  if (error) {
+    console.error("Error toggling pin message:", error)
+    return false
+  }
 
-    // Return in chronological order (oldest first)
-    return (messages || []).reverse()
-  } catch (error) {
-    console.error("Error getting chat messages:", error)
-    return []
+  return true
+}
+
+// Delete a message (admin/instructor only)
+export async function deleteChatMessage(messageId: string): Promise<boolean> {
+  const supabase = createClient()
+
+  const { error } = await supabase.from("chat_messages").delete().eq("id", messageId)
+
+  if (error) {
+    console.error("Error deleting chat message:", error)
+    return false
+  }
+
+  return true
+}
+
+// Get course info for chat room header
+export async function getCourseInfo(courseId: number): Promise<ChatRoom | null> {
+  const supabase = createClient()
+
+  const { data, error } = await supabase
+    .from("courses")
+    .select(`
+      id,
+      title,
+      batch_number,
+      subscriptions (name)
+    `)
+    .eq("id", courseId)
+    .single()
+
+  if (error) {
+    console.error("Error fetching course info:", error)
+    return null
+  }
+
+  return {
+    course_id: data.id,
+    course_title: data.title,
+    batch_number: data.batch_number,
+    subscription_name: data.subscriptions?.name || "Unknown",
+    active_users: 0, // Will be updated with real-time data
   }
 }
 
 // Subscribe to real-time chat updates
 export function subscribeToChatRoom(courseId: number, onMessage: (message: ChatMessage) => void) {
-  const supabase = getSupabaseBrowserClient()
+  const supabase = createClient()
 
   const subscription = supabase
     .channel(`chat_${courseId}`)
@@ -144,59 +152,4 @@ export function subscribeToChatRoom(courseId: number, onMessage: (message: ChatM
     .subscribe()
 
   return subscription
-}
-
-// Pin/unpin message (admin/instructor only)
-export async function toggleMessagePin(
-  messageId: string,
-  isPinned: boolean,
-  userType: "student" | "instructor" | "admin",
-): Promise<boolean> {
-  if (userType === "student") {
-    console.error("Students cannot pin messages")
-    return false
-  }
-
-  const supabase = getSupabaseBrowserClient()
-
-  try {
-    const { error } = await supabase.from("chat_messages").update({ is_pinned: isPinned }).eq("id", messageId)
-
-    if (error) {
-      console.error("Error toggling message pin:", error)
-      return false
-    }
-
-    return true
-  } catch (error) {
-    console.error("Error toggling message pin:", error)
-    return false
-  }
-}
-
-// Delete message (admin only)
-export async function deleteChatMessage(
-  messageId: string,
-  userType: "student" | "instructor" | "admin",
-): Promise<boolean> {
-  if (userType !== "admin") {
-    console.error("Only admins can delete messages")
-    return false
-  }
-
-  const supabase = getSupabaseBrowserClient()
-
-  try {
-    const { error } = await supabase.from("chat_messages").delete().eq("id", messageId)
-
-    if (error) {
-      console.error("Error deleting message:", error)
-      return false
-    }
-
-    return true
-  } catch (error) {
-    console.error("Error deleting message:", error)
-    return false
-  }
 }
