@@ -17,30 +17,6 @@ export const metadata: Metadata = {
     ],
     shortcut: "/favicon.ico",
   },
-  // Explicitly declare Open Graph meta tags
-  openGraph: {
-    title: "Sthavishtah Yoga and Wellness",
-    description: "Yoga and wellness platform for holistic health",
-    url: "https://sthavishtah.com",
-    siteName: "Sthavishtah Yoga",
-    images: [
-      {
-        url: "https://sthavishtah.com/images/logo.png",
-        width: 1200,
-        height: 630,
-        alt: "Sthavishtah Yoga and Wellness Logo",
-      },
-    ],
-    locale: "en_US",
-    type: "website",
-  },
-  // Twitter Card meta tags
-  twitter: {
-    card: "summary_large_image",
-    title: "Sthavishtah Yoga and Wellness",
-    description: "Yoga and wellness platform for holistic health",
-    images: ["https://sthavishtah.com/images/logo.png"],
-  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -53,7 +29,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="shortcut icon" href="/favicon.ico" />
         <script src="https://checkout.razorpay.com/v1/checkout.js" async></script>
 
-        {/* Explicitly declare Open Graph meta tags to fix the warning */}
+        {/* Explicitly declare Open Graph meta tags */}
         <meta property="og:title" content="Sthavishtah Yoga and Wellness" />
         <meta property="og:description" content="Yoga and wellness platform for holistic health" />
         <meta property="og:image" content="https://sthavishtah.com/images/logo.png" />
