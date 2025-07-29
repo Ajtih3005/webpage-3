@@ -20,6 +20,13 @@ Allow: /
 User-agent: TelegramBot
 Allow: /
 
+# Allow public assets
+Allow: /images/
+Allow: /public/
+Allow: /favicon.ico
+Allow: /robots.txt
+Allow: /sitemap.xml
+
 # Disallow sensitive areas
 Disallow: /admin/
 Disallow: /api/
@@ -27,13 +34,6 @@ Disallow: /scripts/
 Disallow: /db/
 Disallow: /_next/
 Disallow: /node_modules/
-
-# Allow public assets
-Allow: /images/
-Allow: /public/
-Allow: /favicon.ico
-Allow: /robots.txt
-Allow: /sitemap.xml
 
 # Sitemap location
 Sitemap: https://sthavishtah.com/sitemap.xml
