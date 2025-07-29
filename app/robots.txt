@@ -1,7 +1,7 @@
 User-Agent: *
 Allow: /
 
-# Allow Facebook scraping bots
+# Allow Facebook's scraping bots
 User-Agent: facebookexternalhit
 Allow: /
 
@@ -18,11 +18,11 @@ Allow: /
 User-Agent: WhatsApp
 Allow: /
 
-# Disallow admin areas from general crawling
-User-Agent: *
+# Disallow admin and sensitive areas
 Disallow: /admin/
 Disallow: /api/
 Disallow: /instructor/login
 Disallow: /admin/login
 
+# Sitemap
 Sitemap: https://sthavishtah.com/sitemap.xml
