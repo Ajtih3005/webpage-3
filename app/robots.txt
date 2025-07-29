@@ -1,28 +1,29 @@
-User-Agent: *
+User-agent: *
 Allow: /
 
-# Allow Facebook's scraping bots
-User-Agent: facebookexternalhit
+# Allow social media crawlers
+User-agent: facebookexternalhit
 Allow: /
 
-User-Agent: facebookexternalhit/1.1
+User-agent: facebookexternalhit/1.1
 Allow: /
 
-# Allow other social media bots
-User-Agent: Twitterbot
+User-agent: Twitterbot
 Allow: /
 
-User-Agent: LinkedInBot
+User-agent: LinkedInBot
 Allow: /
 
-User-Agent: WhatsApp
+User-agent: WhatsApp
 Allow: /
 
-# Disallow admin and sensitive areas
+# Disallow sensitive areas
 Disallow: /admin/
 Disallow: /api/
-Disallow: /instructor/login
-Disallow: /admin/login
+Disallow: /scripts/
+Disallow: /db/
+Disallow: /_next/
+Disallow: /node_modules/
 
 # Sitemap
 Sitemap: https://sthavishtah.com/sitemap.xml
