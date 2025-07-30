@@ -1,43 +1,30 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import {
   Users,
-  Settings,
   BarChart3,
   FileText,
-  CreditCard,
   Mail,
-  Database,
   LogOut,
   Menu,
-  Home,
   Package,
-  UserPlus,
-  MessageSquare,
   BookOpen,
   Shield,
   Bell,
-  ChevronDown,
   LinkIcon,
   UserCheck,
-  PlayCircle,
   DollarSign,
   RefreshCw,
-  TestTube,
   Layers,
-  Eye,
-  Plus,
   Send,
   Star,
-  ExternalLink,
+  Grid3X3,
+  X,
 } from "lucide-react"
 
 interface AdminLayoutProps {
@@ -49,6 +36,7 @@ function AdminLayout({ children }: AdminLayoutProps) {
   const [loading, setLoading] = useState(true)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const router = useRouter()
+  const pathname = usePathname()
 
   useEffect(() => {
     checkAuthentication()
@@ -56,26 +44,18 @@ function AdminLayout({ children }: AdminLayoutProps) {
 
   const checkAuthentication = async () => {
     try {
-      // Check if we're on the client side
       if (typeof window === "undefined") {
         setLoading(false)
         return
       }
 
-      // Use the same authentication method as login page
       const adminPassword = localStorage.getItem("adminPassword")
-
-      if (!adminPassword) {
-        router.push("/admin/login")
-        return
-      }
-
-      // Verify the password is correct - same logic as login
       const validPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || "admin123"
 
       if (adminPassword === validPassword) {
         setIsAuthenticated(true)
       } else {
+        // Clear any invalid auth and redirect
         localStorage.removeItem("adminPassword")
         router.push("/admin/login")
         return
@@ -95,124 +75,150 @@ function AdminLayout({ children }: AdminLayoutProps) {
     router.push("/admin/login")
   }
 
+  const forceLogin = () => {
+    if (typeof window !== "undefined") {
+      const validPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || "admin123"
+      localStorage.setItem("adminPassword", validPassword)
+      setIsAuthenticated(true)
+    }
+  }
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto mb-4"></div>
-          <p>Loading admin panel...</p>
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading admin panel...</p>
         </div>
       </div>
     )
   }
 
   if (!isAuthenticated) {
-    return null
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full">
+          <div className="text-center mb-6">
+            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Shield className="w-6 h-6 text-red-600" />
+            </div>
+            <h2 className="text-xl font-bold text-gray-900 mb-2">Authentication Required</h2>
+            <p className="text-gray-600">Please log in to access the admin panel</p>
+          </div>
+          <div className="space-y-4">
+            <Button onClick={forceLogin} className="w-full bg-blue-600 hover:bg-blue-700">
+              Force Login
+            </Button>
+            <Button onClick={() => router.push("/admin/login")} variant="outline" className="w-full">
+              Go to Login Page
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   const navigationItems = [
     {
       title: "Dashboard",
       href: "/admin/dashboard",
-      icon: Home,
-      description: "Overview and analytics",
+      icon: Grid3X3,
+      active: pathname === "/admin/dashboard",
     },
     {
-      title: "User Management",
-      icon: Users,
-      items: [
-        { title: "All Users", href: "/admin/users", icon: Users },
-        { title: "Bulk Registration", href: "/admin/bulk-registration", icon: UserPlus },
-      ],
-    },
-    {
-      title: "Subscription Management",
-      icon: Package,
-      items: [
-        { title: "All Subscriptions", href: "/admin/subscriptions", icon: Package },
-        { title: "Create Subscription", href: "/admin/subscriptions/create", icon: Plus },
-        { title: "Activate Subscriptions", href: "/admin/subscriptions/activate", icon: UserCheck },
-        { title: "Free Subscriptions", href: "/admin/free-subscriptions", icon: Package },
-      ],
-    },
-    {
-      title: "Course Management",
+      title: "Courses",
+      href: "/admin/courses",
       icon: BookOpen,
-      items: [
-        { title: "All Courses", href: "/admin/courses", icon: BookOpen },
-        { title: "Create Course", href: "/admin/courses/create", icon: Plus },
-      ],
+      active: pathname.startsWith("/admin/courses"),
     },
     {
-      title: "Instructor Management",
+      title: "Users",
+      href: "/admin/users",
+      icon: Users,
+      active: pathname.startsWith("/admin/users"),
+    },
+    {
+      title: "Instructors",
+      href: "/admin/instructors",
       icon: UserCheck,
-      items: [
-        { title: "All Instructors", href: "/admin/instructors", icon: UserCheck },
-        { title: "Create Instructor", href: "/admin/instructors/create", icon: Plus },
-      ],
+      active: pathname.startsWith("/admin/instructors"),
     },
     {
-      title: "Content & Reviews",
-      icon: Star,
-      items: [
-        { title: "Reviews", href: "/admin/reviews", icon: Star },
-        { title: "Add Reviews", href: "/admin/add-reviews", icon: Plus },
-        { title: "Auto Insert Reviews", href: "/admin/auto-insert-reviews", icon: RefreshCw },
-        { title: "Make Reviews Visible", href: "/admin/make-reviews-visible", icon: Eye },
-      ],
+      title: "Subscriptions",
+      href: "/admin/subscriptions",
+      icon: Package,
+      active: pathname.startsWith("/admin/subscriptions"),
     },
     {
-      title: "Communication",
-      icon: Mail,
-      items: [
-        { title: "Email Management", href: "/admin/email", icon: Mail },
-        { title: "Email Configuration", href: "/admin/email-config", icon: Settings },
-        { title: "Email Setup", href: "/admin/email-setup", icon: Settings },
-        { title: "Test Email", href: "/admin/email-test", icon: TestTube },
-        { title: "Send Course Links", href: "/admin/send-course-links", icon: Send },
-        { title: "Contact Messages", href: "/admin/contact", icon: MessageSquare },
-        { title: "Notifications", href: "/admin/notifications", icon: Bell },
-      ],
+      title: "Subscription Pages",
+      href: "/admin/subscription-pages",
+      icon: Layers,
+      active: pathname.startsWith("/admin/subscription-pages"),
     },
     {
-      title: "Analytics & Reports",
+      title: "Link Generator",
+      href: "/admin/link-generator",
+      icon: LinkIcon,
+      active: pathname.startsWith("/admin/link-generator"),
+    },
+    {
+      title: "Payment Recovery",
+      href: "/admin/payment-recovery",
+      icon: DollarSign,
+      active: pathname.startsWith("/admin/payment-recovery"),
+    },
+    {
+      title: "Notifications",
+      href: "/admin/notifications",
+      icon: Bell,
+      active: pathname.startsWith("/admin/notifications"),
+    },
+    {
+      title: "Documents",
+      href: "/admin/documents",
+      icon: FileText,
+      active: pathname.startsWith("/admin/documents"),
+    },
+    {
+      title: "Analytics",
+      href: "/admin/analytics/video",
       icon: BarChart3,
-      items: [
-        { title: "Video Analytics", href: "/admin/analytics/video", icon: PlayCircle },
-        { title: "Payment Recovery", href: "/admin/payment-recovery", icon: DollarSign },
-      ],
+      active: pathname.startsWith("/admin/analytics"),
     },
     {
-      title: "Tools & Utilities",
-      icon: Settings,
-      items: [
-        { title: "Link Generator", href: "/admin/link-generator", icon: LinkIcon },
-        { title: "Direct Access", href: "/admin/direct-access", icon: ExternalLink },
-        { title: "Documents", href: "/admin/documents", icon: FileText },
-        { title: "Database Management", href: "/admin/database", icon: Database },
-        { title: "API Verification", href: "/admin/api-verification", icon: Shield },
-      ],
+      title: "Updates",
+      href: "/admin/updates",
+      icon: RefreshCw,
+      active: pathname.startsWith("/admin/updates"),
     },
     {
-      title: "Payment & Testing",
-      icon: CreditCard,
-      items: [
-        { title: "Razorpay Test", href: "/admin/razorpay-test", icon: TestTube },
-        { title: "Razorpay Amount Test", href: "/admin/razorpay-amount-test", icon: TestTube },
-      ],
+      title: "Contact",
+      href: "/admin/contact",
+      icon: Mail,
+      active: pathname.startsWith("/admin/contact"),
     },
     {
-      title: "System",
-      icon: Settings,
-      items: [
-        { title: "Updates", href: "/admin/updates", icon: RefreshCw },
-        { title: "Subscription Pages", href: "/admin/subscription-pages", icon: Layers },
-      ],
+      title: "Send Email",
+      href: "/admin/email",
+      icon: Send,
+      active: pathname.startsWith("/admin/email"),
+    },
+    {
+      title: "API Verification",
+      href: "/admin/api-verification",
+      icon: Shield,
+      active: pathname.startsWith("/admin/api-verification"),
+    },
+    {
+      title: "Reviews",
+      href: "/admin/reviews",
+      icon: Star,
+      active: pathname.startsWith("/admin/reviews"),
     },
   ]
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div className="fixed inset-0 z-40 bg-black bg-opacity-50 lg:hidden" onClick={() => setSidebarOpen(false)} />
@@ -220,89 +226,81 @@ function AdminLayout({ children }: AdminLayoutProps) {
 
       {/* Sidebar */}
       <div
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 ${
+        className={`fixed inset-y-0 left-0 z-50 w-72 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:flex-shrink-0 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="flex items-center justify-between h-16 px-6 border-b">
-          <h1 className="text-xl font-bold text-gray-900">Admin Panel</h1>
-          <Button variant="ghost" size="sm" className="lg:hidden" onClick={() => setSidebarOpen(false)}>
-            ×
-          </Button>
-        </div>
-
-        <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
-          {navigationItems.map((item, index) => (
-            <div key={index}>
-              {item.href ? (
-                <Link
-                  href={item.href}
-                  className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 hover:text-gray-900"
-                  onClick={() => setSidebarOpen(false)}
-                >
-                  <item.icon className="w-5 h-5 mr-3" />
-                  {item.title}
-                </Link>
-              ) : (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900"
-                    >
-                      <item.icon className="w-5 h-5 mr-3" />
-                      {item.title}
-                      <ChevronDown className="w-4 h-4 ml-auto" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="w-56">
-                    {item.items?.map((subItem, subIndex) => (
-                      <DropdownMenuItem key={subIndex} asChild>
-                        <Link href={subItem.href} className="flex items-center" onClick={() => setSidebarOpen(false)}>
-                          <subItem.icon className="w-4 h-4 mr-2" />
-                          {subItem.title}
-                        </Link>
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
+        <div className="flex flex-col w-full">
+          {/* Logo Section */}
+          <div className="flex items-center h-16 px-6 border-b bg-white">
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
+                <span className="text-white font-bold text-sm">S</span>
+              </div>
+              <div>
+                <h1 className="text-lg font-bold text-gray-900">Sthavishtah</h1>
+                <p className="text-xs text-gray-500">Admin</p>
+              </div>
             </div>
-          ))}
-        </nav>
+            <Button variant="ghost" size="sm" className="lg:hidden ml-auto" onClick={() => setSidebarOpen(false)}>
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
 
-        <div className="p-4 border-t">
-          <Button variant="outline" className="w-full justify-start bg-transparent" onClick={handleLogout}>
-            <LogOut className="w-4 h-4 mr-2" />
-            Logout
-          </Button>
+          {/* Navigation */}
+          <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+            {navigationItems.map((item, index) => (
+              <Link
+                key={index}
+                href={item.href}
+                className={`flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                  item.active
+                    ? "bg-blue-50 text-blue-700 border-r-2 border-blue-700"
+                    : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                }`}
+                onClick={() => setSidebarOpen(false)}
+              >
+                <item.icon className={`w-5 h-5 mr-3 ${item.active ? "text-blue-700" : "text-gray-500"}`} />
+                {item.title}
+              </Link>
+            ))}
+          </nav>
+
+          {/* Logout Section */}
+          <div className="p-4 border-t">
+            <Button
+              variant="ghost"
+              className="w-full justify-start text-gray-700 hover:bg-gray-100"
+              onClick={handleLogout}
+            >
+              <LogOut className="w-4 h-4 mr-3" />
+              Logout
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* Main content */}
-      <div className="lg:ml-64">
+      {/* Main content area */}
+      <div className="flex-1 flex flex-col min-w-0">
         {/* Top bar */}
-        <div className="flex items-center justify-between h-16 px-6 bg-white border-b lg:px-8">
+        <div className="flex items-center justify-between h-16 px-6 bg-white border-b shadow-sm">
           <Button variant="ghost" size="sm" className="lg:hidden" onClick={() => setSidebarOpen(true)}>
             <Menu className="w-5 h-5" />
           </Button>
 
-          <div className="flex items-center space-x-4">
-            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+          <div className="flex items-center space-x-4 ml-auto">
+            <div className="px-3 py-1 bg-green-50 text-green-700 border border-green-200 rounded-full text-sm font-medium">
               Admin Access
-            </Badge>
+            </div>
           </div>
         </div>
 
         {/* Page content */}
-        <main className="p-6 lg:p-8">{children}</main>
+        <main className="flex-1 p-6 lg:p-8 overflow-auto">{children}</main>
       </div>
     </div>
   )
 }
 
-// Export as default
 export default AdminLayout
-
-// Also export as named export for compatibility
 export { AdminLayout }

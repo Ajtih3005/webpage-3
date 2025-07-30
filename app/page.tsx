@@ -371,8 +371,8 @@ export default function Home() {
                 {/* Main Krishna Image */}
                 <div className="relative w-80 h-80 sm:w-96 sm:h-96 rounded-full overflow-hidden border-8 border-gradient-to-r from-yellow-400 via-orange-400 to-purple-400 shadow-2xl">
                   <Image
-                    src="/images/krishna-janmashtami.png"
-                    alt="Lord Krishna Janmashtami Celebration"
+                    src="/images/krishna-radha-divine.jpg"
+                    alt="Lord Krishna and Radha - Divine Love and Devotion"
                     fill
                     className="object-cover"
                     sizes="(max-width: 640px) 320px, 384px"
