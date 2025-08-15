@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation"
-import { auth } from "@clerk/nextjs"
+import { currentUser } from "@clerk/nextjs/server"
 import { db } from "@/lib/db"
 import { redirect } from "next/navigation"
 import { SubscriptionDetails } from "@/components/subscription/subscription-details"
@@ -11,9 +11,9 @@ interface SubscriptionPageProps {
 }
 
 const SubscriptionPage = async ({ params }: SubscriptionPageProps) => {
-  const { userId } = auth()
+  const user = await currentUser()
 
-  if (!userId) {
+  if (!user) {
     return redirect("/")
   }
 
@@ -31,15 +31,15 @@ const SubscriptionPage = async ({ params }: SubscriptionPageProps) => {
     return notFound()
   }
 
-  if (subscription.userId !== userId) {
+  if (subscription.userId !== user.id) {
     // Check if the user is an admin.  If not, redirect.
-    const user = await db.user.findUnique({
+    const dbUser = await db.user.findUnique({
       where: {
-        id: userId,
+        id: user.id,
       },
     })
 
-    if (!user?.isAdmin) {
+    if (!dbUser?.isAdmin) {
       return redirect("/instructor/subscriptions")
     }
   }
