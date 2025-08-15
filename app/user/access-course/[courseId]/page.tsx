@@ -23,6 +23,7 @@ interface CourseDetails {
   scheduling_type?: string
   subscription_day?: number | null
   subscription_week?: number | null
+  batch_times?: string | null
 }
 
 export default function VideoPlayer({ params }: { params: { courseId: string } }) {
@@ -530,7 +531,7 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
         }
       }
     }
-  }, [courseDetails, showCameraPermission])
+  }, [courseDetails, showCameraPermission, sessionStartTime])
 
   // Calculate the current time position in the video based on session start time
   const calculateCurrentTimePosition = (startTime: Date): number => {
@@ -539,74 +540,23 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
     return Math.floor(elapsedMilliseconds / 1000) // Convert to seconds
   }
 
-  // Check if the session is still active
   const checkSessionStatus = () => {
-    if (!courseDetails) return
+    if (!courseDetails || !sessionStartTime) return
 
     const now = new Date()
     const scheduledDate = new Date(courseDetails.scheduled_date)
 
-    // NEW LOGIC: Check if batch times are specified
-    const hasBatchTimes = courseDetails.batch_number || courseDetails.custom_batch_time
+    // Parse batch times if available
+    const batchTimes = courseDetails.batch_times ? JSON.parse(courseDetails.batch_times) : null
+    let startHour = scheduledDate.getHours()
+    let startMinute = scheduledDate.getMinutes()
 
-    if (!hasBatchTimes) {
-      // NO BATCH TIMES: Allow access for full day
-      const todayLocalDate = now.toLocaleDateString("en-CA")
-      const scheduledLocalDate = scheduledDate.toLocaleDateString("en-CA")
-
-      if (scheduledLocalDate === todayLocalDate) {
-        setSessionActive(true)
-        return
-      } else {
-        setSessionActive(false)
-        return
-      }
+    if (batchTimes && batchTimes.start_time) {
+      const [hour, minute] = batchTimes.start_time.split(":").map(Number)
+      startHour = hour
+      startMinute = minute
     }
 
-    // HAS BATCH TIMES: Use existing batch time logic
-    let startHour = 0
-    let startMinute = 0
-
-    if (courseDetails.is_predefined_batch && courseDetails.batch_number) {
-      // Parse predefined batch times
-      const batchNum = Number.parseInt(courseDetails.batch_number)
-      if (batchNum === 1) {
-        startHour = 5
-        startMinute = 30 // Morning Batch 1 (5:30 to 6:30)
-      } else if (batchNum === 2) {
-        startHour = 6
-        startMinute = 40 // Morning Batch 2 (6:40 to 7:40)
-      } else if (batchNum === 3) {
-        startHour = 7
-        startMinute = 50 // Morning Batch 3 (7:50 to 8:50)
-      } else if (batchNum === 4) {
-        startHour = 17
-        startMinute = 30 // Evening Batch 4 (5:30 to 6:30)
-      } else if (batchNum === 5) {
-        startHour = 18
-        startMinute = 40 // Evening Batch 5 (6:40 to 7:40)
-      } else if (batchNum === 6) {
-        startHour = 19
-        startMinute = 50 // Evening Batch 6 (7:50 to 8:50)
-      }
-    } else if (courseDetails.custom_batch_time) {
-      // Parse custom batch time
-      const timeMatch = courseDetails.custom_batch_time.match(/(\d+):(\d+)\s*(AM|PM)?/)
-      if (timeMatch) {
-        let hour = Number.parseInt(timeMatch[1])
-        const minute = Number.parseInt(timeMatch[2])
-        const ampm = timeMatch[3]?.toUpperCase()
-
-        // Convert to 24-hour format if needed
-        if (ampm === "PM" && hour < 12) hour += 12
-        if (ampm === "AM" && hour === 12) hour = 0
-
-        startHour = hour
-        startMinute = minute
-      }
-    }
-
-    // Set the start time
     scheduledDate.setHours(startHour, startMinute, 0, 0)
 
     // Store the session start time
@@ -614,8 +564,8 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
       setSessionStartTime(scheduledDate)
     }
 
-    // Calculate end time based on actual video duration or default
-    const duration = actualVideoDuration || courseDetails.videoDuration || 1800 // Use actual duration if available
+    // Support videos up to 24 hours (86400 seconds) - YouTube's maximum length
+    const duration = actualVideoDuration || courseDetails.videoDuration || 86400 // Default to 24 hours max
     const endTime = new Date(scheduledDate.getTime() + duration * 1000)
 
     // Check if current time is within the session time
@@ -624,15 +574,28 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
     // Update session active state
     setSessionActive(isActive)
 
-    // If session is no longer active and video is not completed, redirect back
-    if (!isActive && !hasCompletedVideo) {
+    // Only redirect if session hasn't started yet or if it's been more than 1 hour past the actual video end
+    // This prevents premature session termination for long videos
+    const gracePeriod = 3600 // 1 hour grace period after video ends
+    const sessionEndWithGrace = new Date(endTime.getTime() + gracePeriod * 1000)
+
+    if (now < scheduledDate) {
+      // Session hasn't started yet
+      toast({
+        title: "Session Not Started",
+        description: "This session hasn't started yet. Please wait for the scheduled time.",
+        variant: "destructive",
+      })
+      setTimeout(() => {
+        router.push("/user/access-course")
+      }, 3000)
+    } else if (now > sessionEndWithGrace && !hasCompletedVideo) {
+      // Session ended with grace period and video not completed
       toast({
         title: "Session Ended",
         description: "This session is no longer active. Returning to course list.",
         variant: "destructive",
       })
-
-      // Redirect after a short delay
       setTimeout(() => {
         router.push("/user/access-course")
       }, 3000)
@@ -712,8 +675,7 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
         throw new Error("Course not found")
       }
 
-      // Set default video duration if not specified
-      const videoDuration = data.video_duration || 1800 // 30 minutes by default
+      const videoDuration = data.video_duration || 86400 // 24 hours maximum by default
 
       setCourseDetails({
         ...data,
@@ -924,11 +886,23 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
               }
             }
 
-            // Get the actual video duration from YouTube API
             const duration = event.target.getDuration()
             if (duration && duration > 0) {
-              console.log("Actual video duration:", duration)
+              console.log(
+                "Actual video duration:",
+                duration,
+                "seconds (",
+                Math.floor(duration / 3600),
+                "hours",
+                Math.floor((duration % 3600) / 60),
+                "minutes)",
+              )
               setActualVideoDuration(duration)
+
+              // Update course details with actual duration if it's longer than stored duration
+              if (courseDetails && duration > courseDetails.videoDuration) {
+                setCourseDetails((prev) => (prev ? { ...prev, videoDuration: duration } : null))
+              }
             }
 
             // Start video timer
@@ -981,8 +955,8 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
             console.log("Playback quality changed to:", event.data)
           },
           onPlaybackRateChange: (event) => {
-            // If playback rate changes, reset it to 1
             if (event.data !== 1) {
+              console.log("Playback rate changed to:", event.data, "- resetting to normal speed")
               event.target.setPlaybackRate(1)
             }
           },
