@@ -31,7 +31,7 @@ export const metadata: Metadata = {
     description: "Yoga and wellness platform for holistic health",
     images: ["https://sthavishtah.com/images/logo.png"],
   },
-    generator: 'v0.dev'
+    generator: 'v0.app'
 }
 
 export default function RootLayout({
