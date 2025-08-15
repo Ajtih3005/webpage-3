@@ -564,8 +564,21 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
       setSessionStartTime(scheduledDate)
     }
 
-    // Support videos up to 24 hours (86400 seconds) - YouTube's maximum length
-    const duration = actualVideoDuration || courseDetails.videoDuration || 86400 // Default to 24 hours max
+    // Priority: 1. Actual YouTube duration, 2. 24 hours default (never use short database duration)
+    const duration = actualVideoDuration || 86400 // Always default to 24 hours if YouTube duration not available
+
+    console.log(
+      "[v0] Session check - Using duration:",
+      duration,
+      "seconds (",
+      Math.floor(duration / 3600),
+      "hours",
+      Math.floor((duration % 3600) / 60),
+      "minutes)",
+    )
+    console.log("[v0] Actual video duration:", actualVideoDuration)
+    console.log("[v0] Database duration:", courseDetails.videoDuration)
+
     const endTime = new Date(scheduledDate.getTime() + duration * 1000)
 
     // Check if current time is within the session time
@@ -574,13 +587,19 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
     // Update session active state
     setSessionActive(isActive)
 
-    // Only redirect if session hasn't started yet or if it's been more than 1 hour past the actual video end
-    // This prevents premature session termination for long videos
-    const gracePeriod = 3600 // 1 hour grace period after video ends
+    const gracePeriod = 7200 // 2 hour grace period after video ends (was 1 hour)
     const sessionEndWithGrace = new Date(endTime.getTime() + gracePeriod * 1000)
+
+    console.log("[v0] Session times:")
+    console.log("[v0] - Scheduled start:", scheduledDate.toLocaleString())
+    console.log("[v0] - Calculated end:", endTime.toLocaleString())
+    console.log("[v0] - End with grace:", sessionEndWithGrace.toLocaleString())
+    console.log("[v0] - Current time:", now.toLocaleString())
+    console.log("[v0] - Session active:", isActive)
 
     if (now < scheduledDate) {
       // Session hasn't started yet
+      console.log("[v0] Session hasn't started yet")
       toast({
         title: "Session Not Started",
         description: "This session hasn't started yet. Please wait for the scheduled time.",
@@ -591,6 +610,7 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
       }, 3000)
     } else if (now > sessionEndWithGrace && !hasCompletedVideo) {
       // Session ended with grace period and video not completed
+      console.log("[v0] Session ended with grace period")
       toast({
         title: "Session Ended",
         description: "This session is no longer active. Returning to course list.",
@@ -599,6 +619,8 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
       setTimeout(() => {
         router.push("/user/access-course")
       }, 3000)
+    } else {
+      console.log("[v0] Session is active and running normally")
     }
   }
 
@@ -889,7 +911,7 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
             const duration = event.target.getDuration()
             if (duration && duration > 0) {
               console.log(
-                "Actual video duration:",
+                "[v0] Actual YouTube video duration detected:",
                 duration,
                 "seconds (",
                 Math.floor(duration / 3600),
@@ -897,12 +919,16 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
                 Math.floor((duration % 3600) / 60),
                 "minutes)",
               )
+
               setActualVideoDuration(duration)
 
-              // Update course details with actual duration if it's longer than stored duration
-              if (courseDetails && duration > courseDetails.videoDuration) {
-                setCourseDetails((prev) => (prev ? { ...prev, videoDuration: duration } : null))
-              }
+              // Update course details with actual duration
+              setCourseDetails((prev) => (prev ? { ...prev, videoDuration: duration } : null))
+
+              // Force a session status check with the new duration
+              setTimeout(() => {
+                checkSessionStatus()
+              }, 1000)
             }
 
             // Start video timer
