@@ -4,10 +4,7 @@ import { useEffect, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { extractYoutubeVideoId } from "@/lib/utils"
-import { Loader2, ArrowLeft, Lock, Camera, X, Video, VideoOff, CameraOff } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
-import { Button } from "@/components/ui/button"
-import CameraPermission from "./camera-permission"
 
 interface CourseDetails {
   id: number
@@ -539,6 +536,33 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
     return Math.floor(elapsedMilliseconds / 1000) // Convert to seconds
   }
 
+  const calculateLiveTimestamp = () => {
+    if (!sessionStartTime) return 0
+
+    const now = new Date()
+    const elapsedMs = now.getTime() - sessionStartTime.getTime()
+    const elapsedSeconds = Math.floor(elapsedMs / 1000)
+
+    // Support videos up to 24 hours (86400 seconds)
+    return Math.min(elapsedSeconds, 86400)
+  }
+
+  useEffect(() => {
+    if (sessionActive && sessionStartTime) {
+      const interval = setInterval(() => {
+        const newPosition = calculateLiveTimestamp()
+        setCurrentTimePosition(newPosition)
+
+        // If YouTube player is ready, seek to current live position
+        if (youtubePlayer.current && youtubePlayer.current.seekTo) {
+          youtubePlayer.current.seekTo(newPosition, true)
+        }
+      }, 60000) // Update every minute
+
+      return () => clearInterval(interval)
+    }
+  }, [sessionActive, sessionStartTime])
+
   // Check if the session is still active
   const checkSessionStatus = () => {
     if (!courseDetails) return
@@ -849,6 +873,13 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
       return
     }
 
+    if (!sessionStartTime) {
+      setSessionStartTime(new Date())
+    }
+
+    const livePosition = calculateLiveTimestamp()
+    setCurrentTimePosition(livePosition)
+
     // Destroy existing player if it exists
     if (youtubePlayer.current) {
       try {
@@ -880,9 +911,9 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
         videoId: youtubeVideoId,
         playerVars: {
           autoplay: 1,
-          controls: 0,
-          disablekb: 1,
-          fs: 0,
+          controls: 0, // Completely disable controls for live streaming
+          disablekb: 1, // Disable keyboard shortcuts
+          fs: 0, // Disable fullscreen button
           rel: 0,
           showinfo: 0,
           iv_load_policy: 3,
@@ -891,13 +922,12 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
           playsinline: 1,
           origin: window.location.origin,
           mute: 0, // Ensure audio is not muted
-          start: currentTimePosition > 0 ? currentTimePosition : 0, // Start from current position if joining late
+          start: livePosition > 0 ? livePosition : 0, // Start from live timestamp
         },
         events: {
           onReady: (event) => {
-            console.log("YouTube player ready")
+            console.log("YouTube player ready for live streaming")
 
-            // Set player size to fill container
             const iframe = event.target.getIframe()
             if (iframe) {
               iframe.style.width = "100vw"
@@ -906,28 +936,29 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
               iframe.style.top = "0"
               iframe.style.left = "0"
               iframe.style.border = "none"
-
-              // Add additional styles to prevent interaction
-              iframe.style.pointerEvents = "none"
-
-              // Add a transparent overlay to capture all events
-              const overlay = document.createElement("div")
-              overlay.style.position = "absolute"
-              overlay.style.top = "0"
-              overlay.style.left = "0"
-              overlay.style.width = "100%"
-              overlay.style.height = "100%"
-              overlay.style.zIndex = "10"
-
-              if (playerContainerRef.current) {
-                playerContainerRef.current.appendChild(overlay)
-              }
+              iframe.style.pointerEvents = "none" // Completely disable interaction
+              iframe.style.userSelect = "none"
             }
 
-            // Get the actual video duration from YouTube API
+            const overlay = document.createElement("div")
+            overlay.style.position = "absolute"
+            overlay.style.top = "0"
+            overlay.style.left = "0"
+            overlay.style.width = "100%"
+            overlay.style.height = "100%"
+            overlay.style.zIndex = "10"
+            overlay.style.backgroundColor = "transparent"
+            overlay.style.pointerEvents = "auto"
+            overlay.addEventListener("contextmenu", (e) => e.preventDefault())
+
+            if (playerContainerRef.current) {
+              playerContainerRef.current.appendChild(overlay)
+            }
+
+            // Get the actual video duration (supports 10+ hour videos)
             const duration = event.target.getDuration()
             if (duration && duration > 0) {
-              console.log("Actual video duration:", duration)
+              console.log(`Video duration: ${Math.floor(duration / 3600)}h ${Math.floor((duration % 3600) / 60)}m`)
               setActualVideoDuration(duration)
             }
 
@@ -937,549 +968,70 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
             // Mark attendance after a delay
             startVideoTimeout.current = setTimeout(() => {
               markAttendance()
-            }, 60000) // Mark attendance after 1 minute
+            }, 60000)
 
-            // Start the video at the current position if joining late
-            if (currentTimePosition > 0) {
-              event.target.seekTo(currentTimePosition, true)
+            if (livePosition > 0) {
+              console.log(`Starting video from live position: ${Math.floor(livePosition / 60)}m ${livePosition % 60}s`)
+              event.target.seekTo(livePosition, true)
             }
 
             event.target.playVideo()
-
-            // Set volume to 100% (full sound)
             event.target.setVolume(100)
-            // Ensure video is unmuted
-            event.target.unMute()
           },
           onStateChange: (event) => {
-            // YT.PlayerState.ENDED = 0
-            if (event.data === 0) {
-              handleVideoEnd()
-            }
-
-            // If video is paused, play it again (prevent user from pausing)
-            if (event.data === 2) {
-              // YT.PlayerState.PAUSED = 2
-              event.target.playVideo()
-            }
-
-            // If video is buffering, show loading state
-            if (event.data === 3) {
-              // YT.PlayerState.BUFFERING = 3
-              console.log("Video is buffering...")
-            }
-          },
-          onError: (event) => {
-            console.error("YouTube player error:", event.data)
-            toast({
-              title: "Video Error",
-              description: "There was an error playing the video. Please try again.",
-              variant: "destructive",
-            })
-          },
-          onPlaybackQualityChange: (event) => {
-            console.log("Playback quality changed to:", event.data)
-          },
-          onPlaybackRateChange: (event) => {
-            // If playback rate changes, reset it to 1
-            if (event.data !== 1) {
-              event.target.setPlaybackRate(1)
+            if (event.data === window.YT.PlayerState.ENDED) {
+              setHasCompletedVideo(true)
             }
           },
         },
       })
     } catch (error) {
       console.error("Error initializing YouTube player:", error)
-
-      // Fallback to iframe if YT Player fails
-      if (playerContainerRef.current) {
-        playerContainerRef.current.innerHTML = ""
-        const iframe = document.createElement("iframe")
-
-        // Add start parameter to start from current position if joining late
-        const startParam = currentTimePosition > 0 ? `&start=${currentTimePosition}` : ""
-
-        iframe.src = `https://www.youtube.com/embed/${youtubeVideoId}?autoplay=1&controls=0&disablekb=1&fs=0&rel=0&showinfo=0&iv_load_policy=3&modestbranding=1&cc_load_policy=0&playsinlinecontrols=0&disablekb=1&fs=0&rel=0&showinfo=0&iv_load_policy=3&modestbranding=1&cc_load_policy=0&playsinline=1${startParam}&origin=${window.location.origin}`
-        iframe.title = "YouTube video player"
-        iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-        iframe.allowFullscreen = true
-        iframe.style.width = "100vw"
-        iframe.style.height = "100vh"
-        iframe.style.position = "absolute"
-        iframe.style.top = "0"
-        iframe.style.left = "0"
-        iframe.style.border = "none"
-        iframe.style.pointerEvents = "none"
-        playerContainerRef.current.appendChild(iframe)
-
-        // Add a transparent overlay to capture all events
-        const overlay = document.createElement("div")
-        overlay.style.position = "absolute"
-        overlay.style.top = "0"
-        overlay.style.left = "0"
-        overlay.style.width = "100%"
-        overlay.style.height = "100%"
-        overlay.style.zIndex = "10"
-
-        playerContainerRef.current.appendChild(overlay)
-
-        // Start video timer
-        startVideoTimer()
-
-        // Mark attendance after a delay
-        startVideoTimeout.current = setTimeout(() => {
-          markAttendance()
-        }, 60000) // Mark attendance after 1 minute
-      }
     }
   }
 
-  // Function to start the video timer
+  // Function to start video timer
   const startVideoTimer = () => {
-    console.log("Starting video timer...")
+    if (videoTimer.current) clearInterval(videoTimer.current)
+
     videoTimer.current = setInterval(() => {
       setElapsedTime((prev) => prev + 1)
     }, 1000)
   }
 
-  // Function to handle video end
-  const handleVideoEnd = async () => {
-    console.log("📹 Video ended - stopping camera...")
-    clearInterval(videoTimer.current!)
-    setHasCompletedVideo(true)
-
-    // Mark video as completed
-    await markVideoCompleted()
-
-    // Force stop camera
-    if (cameraStream) {
-      cameraStream.getTracks().forEach((track) => {
-        console.log("🎥 Force stopping track on video end:", track.kind)
-        track.stop()
-      })
-      setCameraStream(null)
-    }
-
-    if (cameraVideoRef.current) {
-      cameraVideoRef.current.srcObject = null
-    }
-
-    setCameraOn(false)
-    setShowCameraPreview(false)
-
-    // Exit fullscreen
-    if (document.fullscreenElement) {
-      document.exitFullscreen().catch((err) => console.error("Error exiting fullscreen:", err))
-    } else if ((document as any).webkitExitFullscreen) {
-      ;(document as any).webkitExitFullscreen()
-    } else if ((document as any).mozCancelFullScreen) {
-      ;(document as any).mozCancelFullScreen()
-    } else if ((document as any).msExitFullscreen) {
-      ;(document as any).msExitFullscreen()
-    }
-
-    // Redirect back to course list after a delay
-    setTimeout(() => {
-      router.push("/user/access-course")
-    }, 3000)
-  }
-
   // Function to mark attendance
-  async function markAttendance() {
-    if (!courseDetails || !userDbId) return
+  const markAttendance = async () => {
+    if (!userDbId || !courseDetails) return
 
     setMarkingAttendance(true)
-    setAttendanceError(null)
 
     try {
       const supabase = getSupabaseBrowserClient()
-
-      // Check if attendance already marked
-      const { data: existingAttendance, error: attendanceCheckError } = await supabase
-        .from("user_courses")
-        .select("*")
-        .eq("user_id", userDbId)
-        .eq("course_id", courseDetails.id)
-
-      if (attendanceCheckError) {
-        console.error("Error checking existing attendance:", attendanceCheckError)
-        setAttendanceError("Error checking attendance. Please try again.")
-        return
-      }
-
-      if (existingAttendance && existingAttendance.length > 0) {
-        console.log("Attendance already marked for this course")
-        return
-      }
-
-      // Mark attendance
-      const { data, error } = await supabase
-        .from("user_courses")
-        .insert([
-          {
-            user_id: userDbId,
-            course_id: courseDetails.id,
-            attended: true,
-          },
-        ])
-        .select()
+      const { error } = await supabase.from("attendance").insert([
+        {
+          user_id: userDbId,
+          course_id: courseDetails.id,
+          timestamp: new Date(),
+        },
+      ])
 
       if (error) {
-        console.error("Error marking attendance:", error)
-        setAttendanceError("Error marking attendance. Please try again.")
-        return
+        throw error
       }
 
-      console.log("Attendance marked successfully:", data)
-    } catch (error) {
-      console.error("Error in markAttendance:", error)
-      setAttendanceError("An unexpected error occurred. Please try again.")
+      toast({
+        title: "Attendance Marked",
+        description: "Your attendance has been successfully marked.",
+      })
+    } catch (error: any) {
+      console.error("Error marking attendance:", error)
+      toast({
+        title: "Attendance Error",
+        description: error.message || "Failed to mark attendance. Please try again later.",
+        variant: "destructive",
+      })
     } finally {
       setMarkingAttendance(false)
     }
   }
-
-  // Function to mark video as completed
-  async function markVideoCompleted() {
-    if (!courseDetails || !userDbId) return
-
-    try {
-      const supabase = getSupabaseBrowserClient()
-
-      // Check if video completion already marked
-      const { data: existingCompletion, error: completionCheckError } = await supabase
-        .from("user_courses")
-        .select("*")
-        .eq("user_id", userDbId)
-        .eq("course_id", courseDetails.id)
-
-      if (completionCheckError) {
-        console.error("Error checking existing completion:", completionCheckError)
-        return
-      }
-
-      if (existingCompletion && existingCompletion.length > 0 && existingCompletion[0].completed_video) {
-        console.log("Video completion already marked for this course")
-        return
-      }
-
-      // Mark video as completed
-      const { data, error } = await supabase
-        .from("user_courses")
-        .upsert([
-          {
-            user_id: userDbId,
-            course_id: courseDetails.id,
-            attended: true,
-            completed_video: true,
-          },
-        ])
-        .select()
-
-      if (error) {
-        console.error("Error marking video as completed:", error)
-        return
-      }
-
-      console.log("Video marked as completed successfully:", data)
-    } catch (error) {
-      console.error("Error in markVideoCompleted:", error)
-    }
-  }
-
-  // Handle back button click
-  const handleExitClick = () => {
-    console.log("🚪 Exiting session - stopping camera...")
-
-    // Force stop camera
-    if (cameraStream) {
-      cameraStream.getTracks().forEach((track) => {
-        console.log("🎥 Force stopping track:", track.kind)
-        track.stop()
-      })
-      setCameraStream(null)
-    }
-
-    if (cameraVideoRef.current) {
-      cameraVideoRef.current.srcObject = null
-    }
-
-    setCameraOn(false)
-    setShowCameraPreview(false)
-
-    // Exit fullscreen
-    if (document.fullscreenElement) {
-      document.exitFullscreen().catch((err) => console.error("Error exiting fullscreen:", err))
-    } else if ((document as any).webkitExitFullscreen) {
-      ;(document as any).webkitExitFullscreen()
-    } else if ((document as any).msExitFullscreen) {
-      ;(document as any).msExitFullscreen()
-    }
-
-    router.push("/user/access-course")
-  }
-
-  // Show camera permission screen first
-  if (showCameraPermission) {
-    return <CameraPermission onPermissionGranted={handleCameraPermissionGranted} onSkip={handleSkipCamera} />
-  }
-
-  if (loading) {
-    return (
-      <div className="fixed inset-0 flex items-center justify-center bg-black">
-        <div className="text-center">
-          <Loader2 className="h-12 w-12 animate-spin text-white mx-auto mb-4" />
-          <p className="text-white text-lg">Loading video session...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (!sessionActive) {
-    return (
-      <div className="fixed inset-0 flex items-center justify-center bg-black">
-        <div className="text-center p-6 bg-gray-800 rounded-lg max-w-md">
-          <h2 className="text-white text-xl font-bold mb-4">Session Not Active</h2>
-          <p className="text-gray-300 mb-6">This session is no longer active. Please return to the course list.</p>
-          <Button onClick={handleExitClick}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Courses
-          </Button>
-        </div>
-      </div>
-    )
-  }
-
-  if (fullscreenBlocked) {
-    return (
-      <div className="fixed inset-0 flex items-center justify-center bg-black">
-        <div className="text-center p-6 bg-gray-800 rounded-lg max-w-md">
-          <h2 className="text-white text-xl font-bold mb-4">Session Terminated</h2>
-          <p className="text-gray-300 mb-6">
-            This session has been terminated due to multiple fullscreen exits. Please return to the course list.
-          </p>
-          <Button onClick={handleExitClick}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Courses
-          </Button>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="fixed inset-0 bg-black flex flex-col w-screen h-screen overflow-hidden" ref={videoWrapperRef}>
-      {/* Video Container */}
-      <div
-        className="absolute inset-0 w-screen h-screen flex items-center justify-center overflow-hidden"
-        ref={playerContainerRef}
-      >
-        {/* Camera Preview goes HERE - inside the video container */}
-        {showCameraPreview && (
-          <div className="absolute top-4 right-4 z-50 bg-black rounded-lg border-2 border-white overflow-hidden shadow-2xl">
-            <div className="relative">
-              <video
-                ref={cameraVideoRef}
-                autoPlay
-                muted
-                playsInline
-                className="w-48 h-36 object-cover bg-gray-800"
-                style={{ transform: "scaleX(-1)" }} // Mirror the video like a selfie
-              />
-              <button
-                onClick={() => setShowCameraPreview(false)}
-                className="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white rounded-full p-1 transition-colors"
-              >
-                <X className="h-3 w-3" />
-              </button>
-              {/* Camera Status Indicator */}
-              <div className="absolute top-2 left-2 bg-green-600 text-white text-xs px-2 py-1 rounded flex items-center">
-                <div className="w-2 h-2 bg-white rounded-full mr-1 animate-pulse"></div>
-                {cameraOn ? "LIVE" : "OFF"}
-              </div>
-              {/* Show message when camera is off */}
-              {!cameraOn && (
-                <div className="absolute inset-0 bg-gray-800 flex items-center justify-center">
-                  <div className="text-white text-center">
-                    <CameraOff className="h-8 w-8 mx-auto mb-2" />
-                    <p className="text-xs">Camera Off</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* LIVE Indicator */}
-      <div className="absolute top-2 left-2 z-50 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-md flex items-center">
-        <span className="animate-pulse mr-1 h-2 w-2 rounded-full bg-white inline-block"></span>
-        LIVE
-      </div>
-
-      {/* Fullscreen Warning Overlay */}
-      {showFullscreenWarning && (
-        <div
-          className="absolute inset-0 z-50 bg-black/90 flex flex-col items-center justify-center"
-          ref={fullscreenOverlayRef}
-        >
-          <div className="text-center p-6 max-w-md">
-            <Lock className="h-16 w-16 text-red-500 mx-auto mb-4" />
-            <h2 className="text-white text-2xl font-bold mb-4">Fullscreen Required</h2>
-            <p className="text-gray-300 mb-6">
-              This video must be viewed in fullscreen mode. Please click the button below to continue.
-            </p>
-            <p className="text-yellow-400 text-sm mb-6">
-              Warning: Exiting fullscreen {fullscreenAttempts > 1 ? `${fullscreenAttempts} times` : "repeatedly"} will
-              terminate your session.
-            </p>
-            <Button
-              onClick={() => {
-                if (document.documentElement) {
-                  requestFullscreen(document.documentElement)
-                  setShowFullscreenWarning(false)
-                }
-              }}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              Enter Fullscreen
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* NEW SIMPLIFIED CONTROLS BAR */}
-      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 text-white z-10">
-        <div className="flex justify-between items-center mb-2">
-          {courseDetails?.title && <h1 className="text-xl font-bold">{courseDetails.title}</h1>}
-        </div>
-
-        {attendanceError && <div className="text-red-400 text-sm mt-2">{attendanceError}</div>}
-
-        {hasCompletedVideo && (
-          <div className="text-green-400 text-sm mt-2">Video completed! Returning to course list...</div>
-        )}
-
-        {/* NEW CONTROL BAR WITH CAMERA TOGGLE */}
-        <div className="flex items-center justify-between mt-4 bg-black/50 rounded-lg p-3">
-          {/* Camera Controls */}
-          <div className="flex items-center gap-2">
-            {/* Camera ON/OFF Toggle */}
-            {cameraPermissionGranted && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={toggleCamera}
-                className={`text-white hover:bg-white/20 flex items-center gap-2 ${
-                  cameraOn ? "bg-green-600/20" : "bg-gray-600/20"
-                }`}
-              >
-                {cameraOn ? <Video className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}
-                {cameraOn ? "Camera ON" : "Camera OFF"}
-              </Button>
-            )}
-
-            {/* Video Preview Toggle */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={toggleCameraPreview}
-              disabled={!cameraPermissionGranted}
-              className={`text-white hover:bg-white/20 flex items-center gap-2 ${
-                showCameraPreview ? "bg-blue-600/20" : "bg-gray-600/20"
-              }`}
-            >
-              <Camera className="h-4 w-4" />
-              {showCameraPreview ? "Hide Preview" : "Show Preview"}
-            </Button>
-          </div>
-
-          {/* Emoji Reaction Bar */}
-          <div className="flex items-center space-x-3">
-            <button
-              className="emoji-btn p-2 rounded-full hover:bg-white/20 transition-colors"
-              onClick={() => {
-                const btn = document.createElement("div")
-                btn.className = "absolute animate-emoji text-2xl"
-                btn.textContent = "✋"
-                btn.style.bottom = "20%"
-                btn.style.left = `${Math.random() * 80 + 10}%`
-                if (videoWrapperRef.current) videoWrapperRef.current.appendChild(btn)
-                setTimeout(() => btn.remove(), 2000)
-              }}
-            >
-              <span className="text-xl">✋</span>
-            </button>
-            <button
-              className="emoji-btn p-2 rounded-full hover:bg-white/20 transition-colors"
-              onClick={() => {
-                const btn = document.createElement("div")
-                btn.className = "absolute animate-emoji text-2xl"
-                btn.textContent = "❤️"
-                btn.style.bottom = "20%"
-                btn.style.left = `${Math.random() * 80 + 10}%`
-                if (videoWrapperRef.current) videoWrapperRef.current.appendChild(btn)
-                setTimeout(() => btn.remove(), 2000)
-              }}
-            >
-              <span className="text-xl">❤️</span>
-            </button>
-            <button
-              className="emoji-btn p-2 rounded-full hover:bg-white/20 transition-colors"
-              onClick={() => {
-                const btn = document.createElement("div")
-                btn.className = "absolute animate-emoji text-2xl"
-                btn.textContent = "👍"
-                btn.style.bottom = "20%"
-                btn.style.left = `${Math.random() * 80 + 10}%`
-                if (videoWrapperRef.current) videoWrapperRef.current.appendChild(btn)
-                setTimeout(() => btn.remove(), 2000)
-              }}
-            >
-              <span className="text-xl">👍</span>
-            </button>
-            <button
-              className="emoji-btn p-2 rounded-full hover:bg-white/20 transition-colors"
-              onClick={() => {
-                const btn = document.createElement("div")
-                btn.className = "absolute animate-emoji text-2xl"
-                btn.textContent = "😊"
-                btn.style.bottom = "20%"
-                btn.style.left = `${Math.random() * 80 + 10}%`
-                if (videoWrapperRef.current) videoWrapperRef.current.appendChild(btn)
-                setTimeout(() => btn.remove(), 2000)
-              }}
-            >
-              <span className="text-xl">😊</span>
-            </button>
-            <button
-              className="emoji-btn p-2 rounded-full hover:bg-white/20 transition-colors"
-              onClick={() => {
-                const btn = document.createElement("div")
-                btn.className = "absolute animate-emoji text-2xl"
-                btn.textContent = "👏"
-                btn.style.bottom = "20%"
-                btn.style.left = `${Math.random() * 80 + 10}%`
-                if (videoWrapperRef.current) videoWrapperRef.current.appendChild(btn)
-                setTimeout(() => btn.remove(), 2000)
-              }}
-            >
-              <span className="text-xl">👏</span>
-            </button>
-          </div>
-
-          {/* Exit Button */}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleExitClick}
-            className="text-white hover:bg-red-600/20 flex items-center gap-2"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Exit
-          </Button>
-        </div>
-      </div>
-    </div>
-  )
 }
