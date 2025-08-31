@@ -198,7 +198,7 @@ export default function UserRegister() {
   }
 
   const handleWhatsAppRedirect = () => {
-    window.open("https://chat.whatsapp.com/H81SwZ9TxAPLqoU43yTYDW", "_blank")
+    window.open("https://chat.whatsapp.com/KSBmccGU9FC4ZvRE1AndhD", "_blank")
 
     if (redirectUrl && !isWhatsAppLink) {
       // For non-WhatsApp links, redirect to the original link after WhatsApp

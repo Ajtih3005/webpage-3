@@ -28,8 +28,6 @@ import {
   ExternalLink,
   Star,
   Zap,
-  Crown,
-  Music,
 } from "lucide-react"
 import { useState, useEffect } from "react"
 import ReviewCarousel from "@/components/review-carousel"
@@ -170,7 +168,7 @@ export default function Home() {
       </header>
 
       {/* Hero Section with Enhanced Forest Meditation Background */}
-      <section className="relative flex items-center justify-center py-20 md:py-28 lg:py-36 overflow-hidden min-h-[80vh]">
+      <section className="relative flex items-center justify-center py-12 md:py-28 lg:py-36 overflow-hidden min-h-[70vh] md:min-h-[80vh]">
         {/* Background Image with Overlay */}
         <div className="absolute inset-0 -z-10">
           <Image
@@ -187,12 +185,11 @@ export default function Home() {
         {/* Enhanced Decorative Pattern Overlay */}
         <div className="absolute inset-0 opacity-10 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgdmlld0JveD0iMCAwIDYwIDYwIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48cGF0aCBkPSJNMzYgMzR2LTRoLTJ2NGgtNHYyaDR2NGgydi00aDR2LTJoLTR6bTAtMzBWMGgtMnY0aC00djJoNHY0aDJWNmg0VjRoLTR6TTYgMzR2LTRINHY0SDB2Mmg0djRoMnYtNGg0di0ySDZ6TTYgNFYwSDR2NEgwdjJoNHY0aDJWNmg0VjRINnoiLz48L2c+PC9nPjwvc3ZnPg==')] -z-10"></div>
 
-        {/* Floating particles effect */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          {[...Array(20)].map((_, i) => (
+          {[...Array(10)].map((_, i) => (
             <div
               key={i}
-              className="absolute rounded-full bg-white/20 animate-float"
+              className="absolute rounded-full bg-white/20 animate-float hidden md:block"
               style={{
                 width: `${Math.random() * 10 + 5}px`,
                 height: `${Math.random() * 10 + 5}px`,
@@ -205,71 +202,63 @@ export default function Home() {
           ))}
         </div>
 
-        {/* Subtle geometric decorations */}
-        <div className="absolute top-20 left-10 w-32 h-32 border border-white/10 rounded-full animate-pulse"></div>
-        <div className="absolute bottom-20 right-10 w-24 h-24 border border-white/10 rounded-full animate-pulse delay-1000"></div>
-        <div className="absolute top-1/3 right-20 w-16 h-16 border border-white/10 rotate-45 animate-pulse delay-500"></div>
+        <div className="absolute top-20 left-10 w-16 h-16 md:w-32 md:h-32 border border-white/10 rounded-full animate-pulse hidden md:block"></div>
+        <div className="absolute bottom-20 right-10 w-12 h-12 md:w-24 md:h-24 border border-white/10 rounded-full animate-pulse delay-1000 hidden md:block"></div>
 
         <div className="container mx-auto px-4 text-center relative z-10 flex flex-col items-center justify-center">
-          <div className="flex justify-center mb-8 md:mb-10">
-            <div className="relative h-20 w-20 sm:h-24 sm:w-24 md:h-28 md:w-28 rounded-full p-2 shadow-2xl gentle-sway bg-white/15 backdrop-blur-md border border-white/30 ring-2 ring-white/10">
+          <div className="flex justify-center mb-6 md:mb-10">
+            <div className="relative h-16 w-16 sm:h-20 sm:w-20 md:h-28 md:w-28 rounded-full p-2 shadow-2xl gentle-sway bg-white/15 backdrop-blur-md border border-white/30 ring-2 ring-white/10">
               <Image src="/images/logo.png" alt="Sthavishtah Logo" fill className="object-contain" priority />
               <div className="absolute -inset-1 bg-gradient-to-r from-green-400/20 to-emerald-400/20 rounded-full blur-lg animate-pulse"></div>
             </div>
           </div>
 
           <div className="staggered-fade-in">
-            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-6 md:mb-8 text-white drop-shadow-2xl">
+            <h1 className="text-2xl sm:text-3xl md:text-5xl lg:text-6xl font-bold mb-4 md:mb-8 text-white drop-shadow-2xl">
               <span className="bg-clip-text text-transparent bg-gradient-to-r from-white via-green-100 to-emerald-100">
                 STHAVISHTAH
               </span>
-              <br className="hidden md:block" />
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-emerald-100 via-green-100 to-white">
+              <br />
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-emerald-100 via-green-100 to-white text-lg sm:text-xl md:text-4xl lg:text-5xl">
                 YOGA AND WELLNESS
               </span>
             </h1>
 
-            <p className="text-lg sm:text-xl md:text-2xl mb-5 md:mb-7 max-w-3xl mx-auto text-white/95 font-light drop-shadow-lg">
+            <p className="text-base sm:text-lg md:text-2xl mb-3 md:mb-7 max-w-3xl mx-auto text-white/95 font-light drop-shadow-lg">
               Find your inner peace through mindful practice
             </p>
 
-            <p className="text-base md:text-lg mb-10 md:mb-12 max-w-2xl mx-auto text-white/85 drop-shadow-md">
+            <p className="text-sm md:text-lg mb-6 md:mb-12 max-w-2xl mx-auto text-white/85 drop-shadow-md">
               Join our serene community and embark on a journey of self-discovery and natural wellness.
             </p>
           </div>
 
-          {/* Floating elements */}
-          <div className="absolute top-1/4 left-1/4 animate-float-slow">
+          <div className="absolute top-1/4 left-1/4 animate-float-slow hidden md:block">
             <Star className="h-6 w-6 text-white/30" />
           </div>
-          <div className="absolute top-1/3 right-1/3 animate-float-slow delay-1000">
+          <div className="absolute top-1/3 right-1/3 animate-float-slow delay-1000 hidden md:block">
             <Sparkles className="h-8 w-8 text-white/25" />
           </div>
-          <div className="absolute bottom-1/4 left-1/3 animate-float-slow delay-2000">
-            <Leaf className="h-7 w-7 text-white/30" />
+
+          <div className="absolute bottom-4 right-4 md:bottom-8 md:right-8 flex items-center gap-2 bg-white/15 backdrop-blur-sm px-2 py-1 md:px-3 md:py-2 rounded-full animate-pulse hover:bg-white/25 transition-colors cursor-pointer border border-white/20">
+            <span className="text-white/80 text-xs md:text-sm">Explore</span>
+            <ChevronRight className="h-4 w-4 md:h-5 md:w-5 text-white/80 transform rotate-90" />
           </div>
 
-          {/* Explore indicator */}
-          <div className="absolute bottom-6 right-6 sm:bottom-8 sm:right-8 flex items-center gap-2 bg-white/15 backdrop-blur-sm px-3 py-2 rounded-full animate-pulse hover:bg-white/25 transition-colors cursor-pointer border border-white/20">
-            <span className="text-white/80 text-sm">Explore</span>
-            <ChevronRight className="h-5 w-5 text-white/80 transform rotate-90" />
-          </div>
-
-          <div className="absolute bottom-0 left-0 w-full h-16 bg-gradient-to-t from-white/10 to-transparent"></div>
+          <div className="absolute bottom-0 left-0 w-full h-8 md:h-16 bg-gradient-to-t from-white/10 to-transparent"></div>
         </div>
       </section>
 
       {/* Buttons Section - Enhanced with better gradients */}
-      <section className="py-10 bg-gradient-to-br from-green-50 via-emerald-50/50 to-green-100 relative overflow-hidden">
-        {/* Background decorations */}
-        <div className="absolute top-0 left-0 w-96 h-96 bg-gradient-to-br from-green-200/20 to-emerald-200/20 rounded-full -translate-x-1/2 -translate-y-1/2 blur-3xl"></div>
-        <div className="absolute bottom-0 right-0 w-96 h-96 bg-gradient-to-tl from-green-200/20 to-emerald-200/20 rounded-full translate-x-1/2 translate-y-1/2 blur-3xl"></div>
+      <section className="py-6 md:py-10 bg-gradient-to-br from-green-50 via-emerald-50/50 to-green-100 relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-48 h-48 md:w-96 md:h-96 bg-gradient-to-br from-green-200/20 to-emerald-200/20 rounded-full -translate-x-1/2 -translate-y-1/2 blur-3xl"></div>
+        <div className="absolute bottom-0 right-0 w-48 h-48 md:w-96 md:h-96 bg-gradient-to-tl from-green-200/20 to-emerald-200/20 rounded-full translate-x-1/2 translate-y-1/2 blur-3xl"></div>
 
         <div className="container mx-auto px-4 relative">
-          <div className="flex flex-col sm:flex-row justify-center gap-4 sm:gap-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-center sm:gap-5">
             <Link
               href="/user/register"
-              className="group inline-flex items-center justify-center whitespace-nowrap rounded-md text-base font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-12 px-8 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold shadow-lg transition-all duration-300 hover:shadow-xl hover:translate-y-[-2px] w-full sm:w-auto relative overflow-hidden"
+              className="group inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm md:text-base font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-10 md:h-12 px-6 md:px-8 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold shadow-lg transition-all duration-300 hover:shadow-xl hover:translate-y-[-2px] w-full sm:w-auto relative overflow-hidden"
             >
               <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
               <span className="relative z-10">Join Our Journey</span>
@@ -277,7 +266,7 @@ export default function Home() {
             </Link>
             <Link
               href="/user/login"
-              className="group inline-flex items-center justify-center whitespace-nowrap rounded-md text-base font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-12 px-8 bg-white/90 backdrop-blur-sm text-green-700 border border-green-200 hover:bg-white hover:border-green-300 transition-all duration-300 w-full sm:w-auto hover:shadow-md relative overflow-hidden"
+              className="group inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm md:text-base font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-10 md:h-12 px-6 md:px-8 bg-white/90 backdrop-blur-sm text-green-700 border border-green-200 hover:bg-white hover:border-green-300 transition-all duration-300 w-full sm:w-auto hover:shadow-md relative overflow-hidden"
             >
               <div className="absolute inset-0 bg-gradient-to-r from-green-50/0 via-green-50/50 to-green-50/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
               <span className="relative z-10">Login</span>
@@ -287,7 +276,7 @@ export default function Home() {
       </section>
 
       {/* Tagline Section - Enhanced with subtle animations */}
-      <section className="py-10 md:py-14 bg-gradient-to-br from-green-50 via-white to-emerald-50/30 relative overflow-hidden">
+      <section className="py-6 md:py-14 bg-gradient-to-br from-green-50 via-white to-emerald-50/30 relative overflow-hidden">
         <div className="absolute inset-0 opacity-5 -z-10">
           <Image
             src="/images/forest-pattern-bg.jpg"
@@ -298,202 +287,37 @@ export default function Home() {
           />
         </div>
 
-        {/* Floating geometric shapes */}
-        <div className="absolute top-10 left-10 w-20 h-20 border-2 border-green-200/30 rounded-full animate-spin-slow"></div>
-        <div className="absolute bottom-10 right-10 w-16 h-16 border-2 border-emerald-200/30 rotate-45 animate-pulse"></div>
+        <div className="absolute top-10 left-10 w-20 h-20 border-2 border-green-200/30 rounded-full animate-spin-slow hidden md:block"></div>
+        <div className="absolute bottom-10 right-10 w-16 h-16 border-2 border-emerald-200/30 rotate-45 animate-pulse hidden md:block"></div>
 
         <div className="container mx-auto px-4 text-center relative">
-          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-green-800 via-emerald-700 to-green-600 animate-pulse">
+          <h2 className="text-xl sm:text-2xl md:text-4xl font-bold mb-3 md:mb-4 bg-clip-text text-transparent bg-gradient-to-r from-green-800 via-emerald-700 to-green-600 animate-pulse">
             BREATHE, BALANCE, BECOME
           </h2>
           <div className="flex items-center justify-center">
-            <div className="h-px w-12 sm:w-20 bg-gradient-to-r from-transparent via-green-400 to-emerald-400"></div>
-            <div className="mx-4 p-2 bg-white/80 backdrop-blur-sm rounded-full shadow-md">
-              <Sparkles className="h-5 w-5 text-green-600 animate-pulse" />
+            <div className="h-px w-8 sm:w-12 md:w-20 bg-gradient-to-r from-transparent via-green-400 to-emerald-400"></div>
+            <div className="mx-2 md:mx-4 p-1 md:p-2 bg-white/80 backdrop-blur-sm rounded-full shadow-md">
+              <Sparkles className="h-4 w-4 md:h-5 md:w-5 text-green-600 animate-pulse" />
             </div>
-            <div className="h-px w-12 sm:w-20 bg-gradient-to-r from-emerald-400 via-green-400 to-transparent"></div>
+            <div className="h-px w-8 sm:w-12 md:w-20 bg-gradient-to-r from-emerald-400 via-green-400 to-transparent"></div>
           </div>
-          <p className="text-base sm:text-lg md:text-xl text-green-700 font-semibold px-3 sm:px-5 mt-3">
+          <p className="text-sm sm:text-base md:text-xl text-green-700 font-semibold px-3 sm:px-5 mt-2 md:mt-3">
             Sessions starting from August 1, 2025
           </p>
         </div>
       </section>
 
-      {/* Krishna Janmashtami Special Section */}
-      <section className="py-16 md:py-20 bg-gradient-to-br from-yellow-50/30 via-orange-50/20 to-purple-50/30 relative overflow-hidden">
-        {/* Background decorations */}
-        <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-yellow-300 via-orange-400 to-purple-400"></div>
-        <div className="absolute top-0 right-0 w-64 h-64 bg-yellow-100/30 rounded-full -translate-y-1/2 translate-x-1/2 opacity-50 blur-3xl"></div>
-        <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-100/30 rounded-full translate-y-1/2 -translate-x-1/2 opacity-50 blur-3xl"></div>
-
-        {/* Floating divine elements */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          {[...Array(12)].map((_, i) => (
-            <div
-              key={i}
-              className="absolute animate-float-slow"
-              style={{
-                top: `${Math.random() * 100}%`,
-                left: `${Math.random() * 100}%`,
-                animationDuration: `${Math.random() * 20 + 15}s`,
-                animationDelay: `${Math.random() * 5}s`,
-              }}
-            >
-              {i % 4 === 0 && <Star className="h-4 w-4 text-yellow-400/30" />}
-              {i % 4 === 1 && <Sparkles className="h-5 w-5 text-orange-400/30" />}
-              {i % 4 === 2 && <Crown className="h-4 w-4 text-purple-400/30" />}
-              {i % 4 === 3 && <Music className="h-4 w-4 text-pink-400/30" />}
-            </div>
-          ))}
-        </div>
-
-        <div className="container mx-auto px-4 relative">
-          {/* Header */}
-          <div className="text-center mb-12 md:mb-16">
-            <h2 className="text-4xl sm:text-5xl md:text-6xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-yellow-500 via-orange-500 to-yellow-600 drop-shadow-lg">
-              Divine Blessings Await
-            </h2>
-            <p className="text-xl sm:text-2xl md:text-3xl text-green-700 font-semibold max-w-4xl mx-auto">
-              Celebrate Krishna Janmashtami with us and receive the divine gift of wellness
-            </p>
-          </div>
-
-          {/* Main Content */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 md:gap-16 items-center max-w-6xl mx-auto">
-            {/* Left side - Krishna Image */}
-            <div className="flex justify-center lg:justify-end">
-              <div className="relative">
-                {/* Decorative music note */}
-                <div className="absolute -top-8 -left-8 text-orange-400/60 animate-bounce">
-                  <Music className="h-8 w-8" />
-                </div>
-
-                {/* Main Krishna Image */}
-                <div className="relative w-80 h-80 sm:w-96 sm:h-96 rounded-full overflow-hidden border-8 border-gradient-to-r from-yellow-400 via-orange-400 to-purple-400 shadow-2xl">
-                  <Image
-                    src="/images/krishna-radha-divine.jpg"
-                    alt="Lord Krishna and Radha - Divine Love and Devotion"
-                    fill
-                    className="object-cover"
-                    sizes="(max-width: 640px) 320px, 384px"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-transparent via-transparent to-yellow-200/10"></div>
-                </div>
-
-                {/* Glowing effect */}
-                <div className="absolute -inset-4 bg-gradient-to-r from-yellow-400/20 via-orange-400/20 to-purple-400/20 rounded-full blur-2xl animate-pulse"></div>
-              </div>
-            </div>
-
-            {/* Right side - Content */}
-            <div className="space-y-8">
-              {/* Main Offer Card */}
-              <Card className="overflow-hidden shadow-xl border-0 bg-gradient-to-br from-purple-100 via-pink-50 to-purple-100">
-                <div className="h-2 bg-gradient-to-r from-purple-500 to-pink-500"></div>
-                <CardContent className="p-8">
-                  <div className="text-center mb-6">
-                    <div className="inline-flex items-center gap-2 mb-4">
-                      <Crown className="h-6 w-6 text-purple-600" />
-                      <span className="text-2xl sm:text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-pink-600">
-                        DIVINE GIFT OFFERING - 0
-                      </span>
-                      <Crown className="h-6 w-6 text-purple-600" />
-                    </div>
-                  </div>
-
-                  <div className="space-y-4 text-center">
-                    <div className="flex items-center justify-center gap-2 text-purple-700">
-                      <Calendar className="h-5 w-5" />
-                      <span className="font-semibold">Starting from August 15, 2025</span>
-                    </div>
-                    <div className="flex items-center justify-center gap-2 text-purple-700">
-                      <Crown className="h-5 w-5" />
-                      <span className="font-semibold">Krishna's Divine Blessings</span>
-                    </div>
-                    <div className="flex items-center justify-center gap-2 text-purple-700">
-                      <Heart className="h-5 w-5" />
-                      <span className="font-semibold">Complete Wellness Journey</span>
-                    </div>
-                    <div className="flex items-center justify-center gap-2 text-purple-700">
-                      <Users className="h-5 w-5" />
-                      <span className="font-semibold">Join Our Spiritual Community</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Special Features */}
-              <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-green-200 shadow-lg">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-2 mb-4">
-                    <Crown className="h-5 w-5 text-green-600" />
-                    <h3 className="text-lg font-bold text-green-800">Special Krishna Janmashtami Features:</h3>
-                  </div>
-                  <ul className="space-y-3 text-green-700">
-                    <li className="flex items-center gap-2">
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      <span>Mantra Jap sessions for spiritual awakening</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      <span>Bhajan Kirtan for devotional practice</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      <span>Yoga sessions 4 days a week</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      <span>Fitness training in natural harmony</span>
-                    </li>
-                  </ul>
-                </CardContent>
-              </Card>
-
-              {/* CTA Buttons */}
-              <div className="flex flex-col sm:flex-row gap-4">
-                <Link href="/user/register" className="flex-1">
-                  <Button className="w-full h-12 bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white font-bold text-lg shadow-lg hover:shadow-xl transition-all duration-300 group">
-                    <Crown className="mr-2 h-5 w-5 group-hover:animate-bounce" />
-                    Join Divine Journey
-                  </Button>
-                </Link>
-                <Link href="/user/login" className="flex-1">
-                  <Button
-                    variant="outline"
-                    className="w-full h-12 border-2 border-yellow-400 text-yellow-700 hover:bg-yellow-50 font-semibold text-lg transition-all duration-300 bg-transparent"
-                  >
-                    Login
-                  </Button>
-                </Link>
-              </div>
-            </div>
-          </div>
-
-          {/* Sanskrit Quote */}
-          <div className="text-center mt-16 md:mt-20">
-            <div className="inline-block bg-white/90 backdrop-blur-sm py-6 px-8 rounded-xl shadow-lg border border-green-200">
-              <p className="text-xl sm:text-2xl font-bold text-green-700 mb-2">
-                "योग: कर्मसु कौशलम्" - <span className="italic">Yoga is skill in action</span>
-              </p>
-              <p className="text-green-600 font-medium">- Bhagavad Gita 2.50</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* Batch Schedule Section - Enhanced with better cards and animations */}
-      <section className="py-14 md:py-20 bg-white relative overflow-hidden">
+      <section className="py-8 md:py-20 bg-white relative overflow-hidden">
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-green-200 via-yellow-300 to-indigo-300"></div>
-        <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-yellow-100/30 to-orange-100/30 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
-        <div className="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-tr from-indigo-100/30 to-purple-100/30 rounded-full translate-y-1/2 -translate-x-1/2 blur-3xl"></div>
+        <div className="absolute top-0 right-0 w-32 h-32 md:w-64 md:h-64 bg-gradient-to-bl from-yellow-100/30 to-orange-100/30 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
+        <div className="absolute bottom-0 left-0 w-48 h-48 md:w-96 md:h-96 bg-gradient-to-tr from-indigo-100/30 to-purple-100/30 rounded-full translate-y-1/2 -translate-x-1/2 blur-3xl"></div>
 
-        {/* Floating leaves decoration */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          {[...Array(8)].map((_, i) => (
+          {[...Array(4)].map((_, i) => (
             <div
               key={i}
-              className="absolute text-green-500/15 animate-float-slow"
+              className="absolute text-green-500/15 animate-float-slow hidden md:block"
               style={{
                 top: `${Math.random() * 100}%`,
                 left: `${Math.random() * 100}%`,
@@ -502,39 +326,39 @@ export default function Home() {
                 transform: `rotate(${Math.random() * 360}deg) scale(${Math.random() * 0.5 + 0.5})`,
               }}
             >
-              <Leaf className="h-12 w-12 md:h-16 md:w-16" />
+              <Leaf className="h-8 w-8 md:h-16 md:w-16" />
             </div>
           ))}
         </div>
 
         <div className="container mx-auto px-4 relative">
-          <div className="text-center mb-10 md:mb-14">
-            <span className="inline-block px-4 py-1 rounded-full bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 text-sm font-medium mb-4 shadow-md">
-              <Calendar className="inline-block mr-1 h-4 w-4" />
+          <div className="text-center mb-6 md:mb-14">
+            <span className="inline-block px-3 py-1 md:px-4 md:py-1 rounded-full bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 text-xs md:text-sm font-medium mb-3 md:mb-4 shadow-md">
+              <Calendar className="inline-block mr-1 h-3 w-3 md:h-4 md:w-4" />
               Our Schedule
             </span>
-            <h2 className="text-2xl sm:text-3xl font-bold mb-3 md:mb-4 bg-clip-text text-transparent bg-gradient-to-r from-green-800 to-emerald-700">
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-bold mb-2 md:mb-4 bg-clip-text text-transparent bg-gradient-to-r from-green-800 to-emerald-700">
               Flexible Batches
             </h2>
-            <p className="text-center text-gray-600 max-w-2xl mx-auto">
+            <p className="text-center text-gray-600 max-w-2xl mx-auto text-sm md:text-base">
               Choose from our flexible schedule designed to harmonize with your natural rhythms.
             </p>
           </div>
 
-          <div className="grid sm:grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 max-w-4xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8 max-w-4xl mx-auto">
             {/* Morning Batches */}
             <Card className="nature-card overflow-hidden group shadow-lg hover:shadow-xl transition-all duration-500 border-0">
               <div className="h-2 bg-gradient-to-r from-yellow-400 to-yellow-600 transition-all duration-500 group-hover:h-3"></div>
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-center mb-5">
-                  <div className="p-3 rounded-full bg-gradient-to-br from-yellow-100 to-orange-100 mr-3 group-hover:from-yellow-200 group-hover:to-orange-200 transition-colors shadow-md">
-                    <Sun className="h-6 w-6 sm:h-7 sm:w-7 text-yellow-500" />
+              <CardContent className="pt-4 md:pt-6 pb-4 md:pb-6">
+                <div className="flex items-center justify-center mb-4 md:mb-5">
+                  <div className="p-2 md:p-3 rounded-full bg-gradient-to-br from-yellow-100 to-orange-100 mr-2 md:mr-3 group-hover:from-yellow-200 group-hover:to-orange-200 transition-colors shadow-md">
+                    <Sun className="h-5 w-5 md:h-7 md:w-7 text-yellow-500" />
                   </div>
-                  <h3 className="text-xl sm:text-2xl font-bold text-center bg-clip-text text-transparent bg-gradient-to-r from-green-700 to-emerald-700 transition-colors">
+                  <h3 className="text-lg md:text-2xl font-bold text-center bg-clip-text text-transparent bg-gradient-to-r from-green-700 to-emerald-700 transition-colors">
                     Morning Batch
                   </h3>
                 </div>
-                <div className="space-y-3 md:space-y-4">
+                <div className="space-y-2 md:space-y-4">
                   <BatchTime number="1" time="5:30 - 6:30" isNew={true} />
                   <BatchTime number="2" time="6:40 - 7:40" />
                   <BatchTime number="3" time="7:50 - 8:50" />
@@ -545,16 +369,16 @@ export default function Home() {
             {/* Evening Batches */}
             <Card className="nature-card overflow-hidden group shadow-lg hover:shadow-xl transition-all duration-500 border-0">
               <div className="h-2 bg-gradient-to-r from-indigo-400 to-purple-500 transition-all duration-500 group-hover:h-3"></div>
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-center mb-5">
-                  <div className="p-3 rounded-full bg-gradient-to-br from-indigo-100 to-purple-100 mr-3 group-hover:from-indigo-200 group-hover:to-purple-200 transition-colors shadow-md">
-                    <Moon className="h-6 w-6 sm:h-7 sm:w-7 text-indigo-500" />
+              <CardContent className="pt-4 md:pt-6 pb-4 md:pb-6">
+                <div className="flex items-center justify-center mb-4 md:mb-5">
+                  <div className="p-2 md:p-3 rounded-full bg-gradient-to-br from-indigo-100 to-purple-100 mr-2 md:mr-3 group-hover:from-indigo-200 group-hover:to-purple-200 transition-colors shadow-md">
+                    <Moon className="h-5 w-5 md:h-7 md:w-7 text-indigo-500" />
                   </div>
-                  <h3 className="text-xl sm:text-2xl font-bold text-center bg-clip-text text-transparent bg-gradient-to-r from-green-700 to-emerald-700 transition-colors">
+                  <h3 className="text-lg md:text-2xl font-bold text-center bg-clip-text text-transparent bg-gradient-to-r from-green-700 to-emerald-700 transition-colors">
                     Evening Batch
                   </h3>
                 </div>
-                <div className="space-y-3 md:space-y-4">
+                <div className="space-y-2 md:space-y-4">
                   <BatchTime number="4" time="5:30 - 6:30" />
                   <BatchTime number="5" time="6:40 - 7:40" isNew={true} />
                   <BatchTime number="6" time="7:50 - 8:50" />
@@ -638,19 +462,17 @@ export default function Home() {
       </section>
 
       {/* Explore Our Subscription Programs Section */}
-      <section className="py-16 md:py-24 bg-gradient-to-br from-white via-purple-50/20 to-emerald-50/20 relative overflow-hidden">
+      <section className="py-10 md:py-24 bg-gradient-to-br from-white via-purple-50/20 to-emerald-50/20 relative overflow-hidden">
         <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-green-200 via-purple-300 to-green-200"></div>
 
-        {/* Background decorations */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-purple-100/30 rounded-full -translate-y-1/2 translate-x-1/2 opacity-30 blur-3xl"></div>
-        <div className="absolute bottom-0 left-0 w-96 h-96 bg-green-100/30 rounded-full translate-y-1/2 -translate-x-1/2 opacity-30 blur-3xl"></div>
+        <div className="absolute top-0 right-0 w-32 h-32 md:w-64 md:h-64 bg-purple-100/30 rounded-full -translate-y-1/2 translate-x-1/2 opacity-30 blur-3xl"></div>
+        <div className="absolute bottom-0 left-0 w-48 h-48 md:w-96 md:h-96 bg-green-100/30 rounded-full translate-y-1/2 -translate-x-1/2 opacity-30 blur-3xl"></div>
 
-        {/* Floating elements */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          {[...Array(10)].map((_, i) => (
+          {[...Array(5)].map((_, i) => (
             <div
               key={i}
-              className="absolute animate-float-slow"
+              className="absolute animate-float-slow hidden md:block"
               style={{
                 top: `${Math.random() * 100}%`,
                 left: `${Math.random() * 100}%`,
@@ -666,30 +488,29 @@ export default function Home() {
         </div>
 
         <div className="container mx-auto px-4 relative">
-          <div className="text-center mb-12 md:mb-16">
-            <div className="inline-block px-4 py-1 rounded-full bg-gradient-to-r from-purple-100 to-pink-100 text-purple-800 text-sm font-medium mb-4 shadow-md">
-              <Package className="inline-block mr-1 h-4 w-4" />
+          <div className="text-center mb-8 md:mb-16">
+            <div className="inline-block px-3 py-1 md:px-4 md:py-1 rounded-full bg-gradient-to-r from-purple-100 to-pink-100 text-purple-800 text-xs md:text-sm font-medium mb-3 md:mb-4 shadow-md">
+              <Package className="inline-block mr-1 h-3 w-3 md:h-4 md:w-4" />
               Wellness Programs
             </div>
-            <h2 className="text-3xl sm:text-4xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-gray-900 via-purple-800 to-emerald-800">
+            <h2 className="text-xl sm:text-2xl md:text-4xl font-bold mb-3 md:mb-4 bg-clip-text text-transparent bg-gradient-to-r from-gray-900 via-purple-800 to-emerald-800">
               Discover Our Transformative Programs
             </h2>
-            <p className="text-center text-gray-600 max-w-2xl mx-auto">
+            <p className="text-center text-gray-600 max-w-2xl mx-auto text-sm md:text-base">
               Explore our carefully crafted subscription programs designed to nurture your mind, body, and spirit on
               your wellness journey.
             </p>
           </div>
 
-          {/* Dynamic Program Cards - ONLY SHOW AVAILABLE ONES */}
           {subscriptionPages.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8 mb-8 md:mb-12">
               {subscriptionPages.map((page, index) => (
                 <Card
                   key={page.id}
                   className="overflow-hidden group hover:shadow-xl transition-all duration-300 border-0 shadow-md bg-white/90 backdrop-blur-sm"
                 >
                   <div
-                    className="h-48 bg-cover bg-center relative"
+                    className="h-32 md:h-48 bg-cover bg-center relative"
                     style={{
                       backgroundImage: page.hero_image_url
                         ? `url('${page.hero_image_url}')`
@@ -698,20 +519,20 @@ export default function Home() {
                   >
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent group-hover:from-black/70 transition-all duration-300"></div>
                     <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20 group-hover:from-purple-500/30 group-hover:to-pink-500/30 transition-all duration-300"></div>
-                    <div className="absolute bottom-4 left-4 text-white">
-                      <Badge className="bg-gradient-to-r from-purple-500/90 to-pink-500/90 backdrop-blur-sm mb-2 text-white border-0 shadow-md">
+                    <div className="absolute bottom-2 md:bottom-4 left-2 md:left-4 text-white">
+                      <Badge className="bg-gradient-to-r from-purple-500/90 to-pink-500/90 backdrop-blur-sm mb-1 md:mb-2 text-white border-0 shadow-md text-xs">
                         Available Now
                       </Badge>
-                      <h3 className="text-xl font-bold drop-shadow-lg">{page.title}</h3>
+                      <h3 className="text-sm md:text-xl font-bold drop-shadow-lg">{page.title}</h3>
                     </div>
                   </div>
-                  <CardContent className="p-6">
-                    <p className="text-gray-600 mb-6 line-clamp-2">{page.subtitle}</p>
+                  <CardContent className="p-3 md:p-6">
+                    <p className="text-gray-600 mb-3 md:mb-6 line-clamp-2 text-xs md:text-base">{page.subtitle}</p>
                     <div className="flex justify-center">
                       <Link href={`/user/subscription-categories/${page.slug}`}>
-                        <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold px-6 py-2 shadow-md hover:shadow-lg transition-all duration-300">
+                        <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold px-4 py-2 md:px-6 md:py-2 shadow-md hover:shadow-lg transition-all duration-300 text-xs md:text-sm">
                           Explore Program
-                          <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                          <ArrowRight className="ml-1 md:ml-2 h-3 w-3 md:h-4 md:w-4 group-hover:translate-x-1 transition-transform" />
                         </Button>
                       </Link>
                     </div>
@@ -720,31 +541,31 @@ export default function Home() {
               ))}
             </div>
           ) : (
-            // Fallback static cards if no dynamic data
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8 mb-8 md:mb-12">
+              {/* Fallback cards with mobile optimizations */}
               <Card className="overflow-hidden group hover:shadow-xl transition-all duration-300 border-0 shadow-md bg-white/90 backdrop-blur-sm">
                 <div
-                  className="h-48 bg-cover bg-center relative"
+                  className="h-32 md:h-48 bg-cover bg-center relative"
                   style={{ backgroundImage: "url('/images/serene-forest-meditation.jpg')" }}
                 >
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent group-hover:from-black/70 transition-all duration-300"></div>
                   <div className="absolute inset-0 bg-gradient-to-br from-green-500/20 to-emerald-500/20 group-hover:from-green-500/30 group-hover:to-emerald-500/30 transition-all duration-300"></div>
-                  <div className="absolute bottom-4 left-4 text-white">
-                    <Badge className="bg-green-500/90 backdrop-blur-sm mb-2 text-white border-0 shadow-md">
+                  <div className="absolute bottom-2 md:bottom-4 left-2 md:left-4 text-white">
+                    <Badge className="bg-green-500/90 backdrop-blur-sm mb-1 md:mb-2 text-white border-0 shadow-md text-xs">
                       Beginner Friendly
                     </Badge>
-                    <h3 className="text-xl font-bold drop-shadow-lg">Yoga Basics</h3>
+                    <h3 className="text-sm md:text-xl font-bold drop-shadow-lg">Yoga Basics</h3>
                   </div>
                 </div>
-                <CardContent className="p-6">
-                  <p className="text-gray-600 mb-6">
+                <CardContent className="p-3 md:p-6">
+                  <p className="text-gray-600 mb-3 md:mb-6 text-xs md:text-base">
                     Perfect for beginners starting their yoga journey with gentle poses and breathing techniques.
                   </p>
                   <div className="flex justify-center">
                     <Link href="/user/subscription-categories/yoga-basics">
-                      <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold px-6 py-2 shadow-md hover:shadow-lg transition-all duration-300">
+                      <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold px-4 py-2 md:px-6 md:py-2 shadow-md hover:shadow-lg transition-all duration-300 text-xs md:text-sm">
                         Explore Program
-                        <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                        <ArrowRight className="ml-1 md:ml-2 h-3 w-3 md:h-4 md:w-4 group-hover:translate-x-1 transition-transform" />
                       </Button>
                     </Link>
                   </div>
@@ -753,27 +574,27 @@ export default function Home() {
 
               <Card className="overflow-hidden group hover:shadow-xl transition-all duration-300 border-0 shadow-md bg-white/90 backdrop-blur-sm">
                 <div
-                  className="h-48 bg-cover bg-center relative"
+                  className="h-32 md:h-48 bg-cover bg-center relative"
                   style={{ backgroundImage: "url('/images/traditional-yoga-mudras.jpg')" }}
                 >
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent group-hover:from-black/70 transition-all duration-300"></div>
                   <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/20 to-orange-500/20 group-hover:from-yellow-500/30 group-hover:to-orange-500/30 transition-all duration-300"></div>
-                  <div className="absolute bottom-4 left-4 text-white">
-                    <Badge className="bg-yellow-500/90 backdrop-blur-sm mb-2 text-white border-0 shadow-md">
+                  <div className="absolute bottom-2 md:bottom-4 left-2 md:left-4 text-white">
+                    <Badge className="bg-yellow-500/90 backdrop-blur-sm mb-1 md:mb-2 text-white border-0 shadow-md text-xs">
                       Intermediate
                     </Badge>
-                    <h3 className="text-xl font-bold drop-shadow-lg">Mindful Meditation</h3>
+                    <h3 className="text-sm md:text-xl font-bold drop-shadow-lg">Mindful Meditation</h3>
                   </div>
                 </div>
-                <CardContent className="p-6">
-                  <p className="text-gray-600 mb-6">
+                <CardContent className="p-3 md:p-6">
+                  <p className="text-gray-600 mb-3 md:mb-6 text-xs md:text-base">
                     Deepen your practice with guided meditation sessions for mental clarity and inner peace.
                   </p>
                   <div className="flex justify-center">
                     <Link href="/user/subscription-categories/mindful-meditation">
-                      <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold px-6 py-2 shadow-md hover:shadow-lg transition-all duration-300">
+                      <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold px-4 py-2 md:px-6 md:py-2 shadow-md hover:shadow-lg transition-all duration-300 text-xs md:text-sm">
                         Explore Program
-                        <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                        <ArrowRight className="ml-1 md:ml-2 h-3 w-3 md:h-4 md:w-4 group-hover:translate-x-1 transition-transform" />
                       </Button>
                     </Link>
                   </div>
@@ -782,27 +603,27 @@ export default function Home() {
 
               <Card className="overflow-hidden group hover:shadow-xl transition-all duration-300 border-0 shadow-md bg-white/90 backdrop-blur-sm">
                 <div
-                  className="h-48 bg-cover bg-center relative"
+                  className="h-32 md:h-48 bg-cover bg-center relative"
                   style={{ backgroundImage: "url('/images/riverside-yoga.jpg')" }}
                 >
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent group-hover:from-black/70 transition-all duration-300"></div>
                   <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20 group-hover:from-purple-500/30 group-hover:to-pink-500/30 transition-all duration-300"></div>
-                  <div className="absolute bottom-4 left-4 text-white">
-                    <Badge className="bg-purple-500/90 backdrop-blur-sm mb-2 text-white border-0 shadow-md">
+                  <div className="absolute bottom-2 md:bottom-4 left-2 md:left-4 text-white">
+                    <Badge className="bg-purple-500/90 backdrop-blur-sm mb-1 md:mb-2 text-white border-0 shadow-md text-xs">
                       Holistic
                     </Badge>
-                    <h3 className="text-xl font-bold drop-shadow-lg">Complete Wellness</h3>
+                    <h3 className="text-sm md:text-xl font-bold drop-shadow-lg">Complete Wellness</h3>
                   </div>
                 </div>
-                <CardContent className="p-6">
-                  <p className="text-gray-600 mb-6">
+                <CardContent className="p-3 md:p-6">
+                  <p className="text-gray-600 mb-3 md:mb-6 text-xs md:text-base">
                     A comprehensive program combining yoga, meditation, and nutrition for total well-being.
                   </p>
                   <div className="flex justify-center">
                     <Link href="/user/subscription-categories/complete-wellness">
-                      <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold px-6 py-2 shadow-md hover:shadow-lg transition-all duration-300">
+                      <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold px-4 py-2 md:px-6 md:py-2 shadow-md hover:shadow-lg transition-all duration-300 text-xs md:text-sm">
                         Explore Program
-                        <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                        <ArrowRight className="ml-1 md:ml-2 h-3 w-3 md:h-4 md:w-4 group-hover:translate-x-1 transition-transform" />
                       </Button>
                     </Link>
                   </div>
@@ -816,14 +637,14 @@ export default function Home() {
             <Link href="/plans">
               <Button
                 size="lg"
-                className="group bg-gradient-to-r from-green-600 to-purple-600 hover:from-green-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-8 relative overflow-hidden"
+                className="group bg-gradient-to-r from-green-600 to-purple-600 hover:from-green-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-6 md:px-8 relative overflow-hidden text-sm md:text-base"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
                 <span className="relative z-10">Explore All Programs</span>
-                <ExternalLink className="ml-2 h-5 w-5 relative z-10" />
+                <ExternalLink className="ml-2 h-4 w-4 md:h-5 md:w-5 relative z-10" />
               </Button>
             </Link>
-            <p className="text-sm text-gray-500 mt-4">
+            <p className="text-xs md:text-sm text-gray-500 mt-3 md:mt-4">
               Browse all programs without signing up. Login or register when you're ready to subscribe.
             </p>
           </div>
@@ -865,7 +686,7 @@ export default function Home() {
       </section>
 
       {/* Promotion Section with Forest Background Image - Enhanced with better visuals */}
-      <section className="relative py-16 md:py-24 overflow-hidden">
+      <section className="relative py-10 md:py-24 overflow-hidden">
         {/* Background Image with Overlay */}
         <div className="absolute inset-0 -z-10">
           <Image
@@ -881,12 +702,11 @@ export default function Home() {
         {/* Decorative Pattern Overlay */}
         <div className="absolute inset-0 opacity-10 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgdmlld0JveD0iMCAwIDYwIDYwIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMSI+PHBhdGggZD0iTTM2IDM0di00aC0ydjRoLTR2Mmg0djRoMnYtNGg0di0yaHQtNHptMC0zMFYwaC0ydjRoLTR2MmgtNHY0aDJWNmg0VjRoLTR6TTYgMzR2LTRINHY0SDB2Mmg0djRoMnYtNGg0di0ySDZ6TTYgNFYwSDR2NEgwdjJoNHY0aDJWNmg0VjRINnoiLz48L2c+PC9nPjwvc3ZnPg==')] -z-10"></div>
 
-        {/* Floating particles effect */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          {[...Array(15)].map((_, i) => (
+          {[...Array(8)].map((_, i) => (
             <div
               key={i}
-              className="absolute rounded-full bg-white/20 animate-float"
+              className="absolute rounded-full bg-white/20 animate-float hidden md:block"
               style={{
                 width: `${Math.random() * 8 + 3}px`,
                 height: `${Math.random() * 8 + 3}px`,
@@ -900,31 +720,31 @@ export default function Home() {
         </div>
 
         <div className="container mx-auto px-4 text-center">
-          <div className="inline-block mb-6 md:mb-8 px-5 py-2 sm:px-6 sm:py-2 bg-white/15 backdrop-blur-sm rounded-full text-white font-medium border border-white/20 shadow-lg">
-            <Sparkles className="inline-block h-4 w-4 sm:h-5 sm:w-5 mr-2 animate-pulse" />
+          <div className="inline-block mb-4 md:mb-8 px-4 py-1 md:px-6 md:py-2 bg-white/15 backdrop-blur-sm rounded-full text-white font-medium border border-white/20 shadow-lg text-sm md:text-base">
+            <Sparkles className="inline-block h-4 w-4 md:h-5 md:w-5 mr-2 animate-pulse" />
             Limited Time Offer
           </div>
 
-          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-5 md:mb-7 text-white drop-shadow-lg">
+          <h2 className="text-lg sm:text-xl md:text-4xl font-bold mb-3 md:mb-7 text-white drop-shadow-lg">
             JOIN NOW FOR FREE SESSIONS FOR 1 MONTH
           </h2>
 
-          <p className="text-xl md:text-2xl mb-8 md:mb-10 text-white/90 drop-shadow-lg max-w-2xl mx-auto">
+          <p className="text-base md:text-2xl mb-6 md:mb-10 text-white/90 drop-shadow-lg max-w-2xl mx-auto">
             Sessions starting from August 1, 2025.
           </p>
 
-          <div className="flex justify-center mb-8 md:mb-10">
-            <div className="bg-white/95 backdrop-blur-sm p-5 sm:p-6 rounded-xl shadow-2xl flex flex-col items-center transform transition-transform hover:scale-105 duration-300 border border-white/20">
-              <div className="text-green-800 font-bold mb-3 sm:mb-4 text-center text-sm sm:text-base">
+          <div className="flex justify-center mb-6 md:mb-10">
+            <div className="bg-white/95 backdrop-blur-sm p-3 md:p-6 rounded-xl shadow-2xl flex flex-col items-center transform transition-transform hover:scale-105 duration-300 border border-white/20">
+              <div className="text-green-800 font-bold mb-2 md:mb-4 text-center text-xs md:text-base">
                 SCAN FOR WHATSAPP CHANNEL
               </div>
-              <div className="h-36 w-36 sm:h-48 sm:w-48 relative rounded-lg overflow-hidden shadow-inner">
+              <div className="h-24 w-24 sm:h-32 sm:w-32 md:h-48 md:w-48 relative rounded-lg overflow-hidden shadow-inner">
                 <Image src="/images/whatsapp-qr.png" alt="WhatsApp Channel QR Code" fill className="object-contain" />
               </div>
             </div>
           </div>
 
-          <p className="text-base md:text-lg text-white/90 mb-6 md:mb-8">
+          <p className="text-sm md:text-lg text-white/90 mb-4 md:mb-8">
             Quiet your mind, strengthen your body, awaken your spirit. Start your yoga journey today!
           </p>
         </div>
