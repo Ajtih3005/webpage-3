@@ -21,7 +21,6 @@ import {
   X,
   ChevronRight,
   Heart,
-  Wind,
   Sparkles,
   BookOpen,
   Package,
@@ -183,7 +182,7 @@ export default function Home() {
         </div>
 
         {/* Enhanced Decorative Pattern Overlay */}
-        <div className="absolute inset-0 opacity-10 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgdmlld0JveD0iMCAwIDYwIDYwIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48cGF0aCBkPSJNMzYgMzR2LTRoLTJ2NGgtNHYyaDR2NGgydi00aDR2LTJoLTR6bTAtMzBWMGgtMnY0aC00djJoNHY0aDJWNmg0VjRoLTR6TTYgMzR2LTRINHY0SDB2Mmg0djRoMnYtNGg0di0ySDZ6TTYgNFYwSDR2NEgwdjJoNHY0aDJWNmg0VjRINnoiLz48L2c+PC9nPjwvc3ZnPg==')] -z-10"></div>
+        <div className="absolute inset-0 opacity-10 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgdmlld0JveD0iMCAwIDYwIDYwIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48cGF0aCBkPSJNMzYgMzR2LTRoLTJ2NGgtNHYyaDR2NHgydi00aDR2LTJoLTR6bTAtMzBWMGgtMnY0aC00djJoNHY0aDJWNmg0VjRoLTR6TTYgMzR2LTRINHY0SDB2Mmg0djRoMnYtNGg0di0ySDZ6TTYgNFYwSDR2NEgwdjJoNHY0aDJWNmg0VjRINnoiLz48L2c+PC9nPjwvc3ZnPg==')] -z-10"></div>
 
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           {[...Array(10)].map((_, i) => (
@@ -651,7 +650,100 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Testimonials Section - Enhanced with better styling */}
+      {/* Features Grid - Enhanced with better cards */}
+      <section className="py-14 md:py-20 bg-white relative overflow-hidden">
+        <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-green-200 to-transparent"></div>
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-green-50 rounded-full opacity-70"></div>
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-green-50 rounded-full opacity-70"></div>
+
+        <div className="container mx-auto px-4 relative">
+          <div className="text-center mb-12">
+            <span className="inline-block px-4 py-1 rounded-full bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 text-sm font-medium mb-4 shadow-md">
+              <Heart className="inline-block mr-1 h-4 w-4" />
+              Our Approach
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-bold mb-3 md:mb-4 bg-clip-text text-transparent bg-gradient-to-r from-green-800 to-emerald-700">
+              The True Essence of Yoga
+            </h2>
+          </div>
+
+          <div className="max-w-4xl mx-auto">
+            <div className="bg-gradient-to-br from-green-50 via-white to-emerald-50 p-8 md:p-12 rounded-2xl shadow-lg border border-green-100">
+              <div className="text-center mb-8">
+                <h3 className="text-xl md:text-2xl font-bold text-green-800 mb-4 italic">"योगश्चित्तवृत्तिनिरोधः"</h3>
+                <p className="text-lg md:text-xl text-green-700 font-semibold mb-6">"Yoga is Chitta Vritti Nirodha"</p>
+                <p className="text-sm md:text-base text-gray-600 mb-8">- Patanjali's Yoga Sutras (1.2)</p>
+              </div>
+
+              <div className="prose prose-green max-w-none text-center">
+                <p className="text-base md:text-lg text-gray-700 leading-relaxed mb-6">
+                  At Sthavishtah, we honor this timeless wisdom that defines yoga as the cessation of mental
+                  fluctuations. Our platform is unique because we don't just teach physical postures - we guide you
+                  toward the true purpose of yoga: achieving a state of inner stillness and self-realization.
+                </p>
+
+                <p className="text-base md:text-lg text-gray-700 leading-relaxed mb-6">
+                  Unlike modern fitness-focused approaches, we embrace yoga's authentic spiritual dimension. Through
+                  traditional practices, Bhagavad Gita study, and mindful living, we help you transcend the constant
+                  chatter of the mind and discover your true nature.
+                </p>
+
+                <p className="text-base md:text-lg text-gray-700 leading-relaxed">
+                  Our revolutionary approach combines ancient wisdom with modern accessibility, creating transformative
+                  experiences that awaken your highest potential. We don't just practice yoga - we live it, breathe it,
+                  and embody the true essence of yoga as a complete way of life. This is not just exercise - this is the
+                  path to liberation, exactly as the great sages intended.
+                </p>
+              </div>
+
+              <div className="flex justify-center mt-8">
+                <div className="flex items-center gap-2 text-green-600">
+                  <Leaf className="h-5 w-5" />
+                  <span className="text-sm font-medium">Authentic • Traditional • Transformative</span>
+                  <Leaf className="h-5 w-5" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="relative py-6 md:py-12 overflow-hidden">
+        {/* Background Image with Overlay */}
+        <div className="absolute inset-0 -z-10">
+          <Image
+            src="/images/forest-yoga-bg.jpg"
+            alt="Forest Yoga Background"
+            fill
+            className="object-cover object-center"
+            sizes="100vw"
+          />
+          <div className="absolute inset-0 bg-gradient-to-br from-green-900/80 to-green-800/80"></div>
+        </div>
+
+        {/* Decorative Pattern Overlay */}
+        <div className="absolute inset-0 opacity-10 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgdmlld0JveD0iMCAwIDYwIDYwIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMSI+PHBhdGggZD0iTTM2IDM0di00aC0ydjRoLTR2Mmg0djRoMnYtNGg0di0yaHQtNHptMC0zMFYwaC0ydjRoLTR2MmgtNHY0aDJWNmg0VjRoLTR6TTYgMzR2LTRINHY0SDB2Mmg0djRoMnYtNGg0di0ySDZ6TTYgNFYwSDR2NEgwdjJoNHY0aDJWNmg0VjRINnoiLz48L2c+PC9nPjwvc3ZnPg==')] -z-10"></div>
+
+        <div className="container mx-auto px-4 text-center">
+          <div className="inline-block mb-3 md:mb-4 px-3 py-1 md:px-4 md:py-1 bg-white/15 backdrop-blur-sm rounded-full text-white font-medium border border-white/20 shadow-lg text-xs md:text-sm">
+            <Star className="inline-block h-3 w-3 md:h-4 md:w-4 mr-1 animate-pulse" />
+            What Our Students Say
+          </div>
+
+          <h2 className="text-base sm:text-lg md:text-2xl font-bold mb-2 md:mb-4 text-white drop-shadow-lg">
+            Transformative Experiences from Our Community
+          </h2>
+
+          <p className="text-sm md:text-lg mb-4 md:mb-6 text-white/90 drop-shadow-lg max-w-xl mx-auto">
+            Discover how our practices have changed lives.
+          </p>
+
+          <div className="max-w-6xl mx-auto">
+            <ReviewCarousel />
+          </div>
+        </div>
+      </section>
+
       <section className="py-14 md:py-20 bg-gradient-to-r from-green-50 to-green-100/50 relative overflow-hidden">
         <div className="absolute inset-0 opacity-5 -z-10">
           <Image
@@ -668,124 +760,60 @@ export default function Home() {
         <div className="container mx-auto px-4 relative">
           <div className="text-center mb-12">
             <span className="inline-block px-4 py-1 rounded-full bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 text-sm font-medium mb-4 shadow-md">
-              <Star className="inline-block mr-1 h-4 w-4" />
-              Testimonials
+              <Users className="inline-block mr-1 h-4 w-4" />
+              Connect with Us
             </span>
             <h2 className="text-2xl sm:text-3xl font-bold mb-3 md:mb-4 bg-clip-text text-transparent bg-gradient-to-r from-green-800 to-emerald-700">
-              What Our Students Say
+              Join Our Wellness Community
             </h2>
-            <p className="text-gray-600 max-w-2xl mx-auto">
-              Discover how our practices have transformed the lives of our community members.
+            <p className="text-gray-600 max-w-2xl mx-auto mb-8">
+              Connect with like-minded souls on a journey of self-discovery and natural wellness.
             </p>
           </div>
 
-          <div className="max-w-6xl mx-auto">
-            <ReviewCarousel />
-          </div>
-        </div>
-      </section>
+          <div className="max-w-4xl mx-auto text-center">
+            <div className="bg-gradient-to-br from-green-50 via-white to-emerald-50 p-8 md:p-12 rounded-2xl shadow-lg border border-green-100 mb-8">
+              <p className="text-base md:text-lg text-gray-700 leading-relaxed mb-6">
+                Join our WhatsApp community for daily updates, motivation, and direct connection with instructors and
+                fellow practitioners.
+              </p>
 
-      {/* Promotion Section with Forest Background Image - Enhanced with better visuals */}
-      <section className="relative py-10 md:py-24 overflow-hidden">
-        {/* Background Image with Overlay */}
-        <div className="absolute inset-0 -z-10">
-          <Image
-            src="/images/forest-yoga-bg.jpg"
-            alt="Forest Yoga Background"
-            fill
-            className="object-cover object-center"
-            sizes="100vw"
-          />
-          <div className="absolute inset-0 bg-gradient-to-br from-green-900/80 to-green-800/80"></div>
-        </div>
-
-        {/* Decorative Pattern Overlay */}
-        <div className="absolute inset-0 opacity-10 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgdmlld0JveD0iMCAwIDYwIDYwIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMSI+PHBhdGggZD0iTTM2IDM0di00aC0ydjRoLTR2Mmg0djRoMnYtNGg0di0yaHQtNHptMC0zMFYwaC0ydjRoLTR2MmgtNHY0aDJWNmg0VjRoLTR6TTYgMzR2LTRINHY0SDB2Mmg0djRoMnYtNGg0di0ySDZ6TTYgNFYwSDR2NEgwdjJoNHY0aDJWNmg0VjRINnoiLz48L2c+PC9nPjwvc3ZnPg==')] -z-10"></div>
-
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          {[...Array(8)].map((_, i) => (
-            <div
-              key={i}
-              className="absolute rounded-full bg-white/20 animate-float hidden md:block"
-              style={{
-                width: `${Math.random() * 8 + 3}px`,
-                height: `${Math.random() * 8 + 3}px`,
-                top: `${Math.random() * 100}%`,
-                left: `${Math.random() * 100}%`,
-                animationDuration: `${Math.random() * 10 + 10}s`,
-                animationDelay: `${Math.random() * 5}s`,
-              }}
-            />
-          ))}
-        </div>
-
-        <div className="container mx-auto px-4 text-center">
-          <div className="inline-block mb-4 md:mb-8 px-4 py-1 md:px-6 md:py-2 bg-white/15 backdrop-blur-sm rounded-full text-white font-medium border border-white/20 shadow-lg text-sm md:text-base">
-            <Sparkles className="inline-block h-4 w-4 md:h-5 md:w-5 mr-2 animate-pulse" />
-            Limited Time Offer
-          </div>
-
-          <h2 className="text-lg sm:text-xl md:text-4xl font-bold mb-3 md:mb-7 text-white drop-shadow-lg">
-            JOIN NOW FOR FREE SESSIONS FOR 1 MONTH
-          </h2>
-
-          <p className="text-base md:text-2xl mb-6 md:mb-10 text-white/90 drop-shadow-lg max-w-2xl mx-auto">
-            Sessions starting from August 1, 2025.
-          </p>
-
-          <div className="flex justify-center mb-6 md:mb-10">
-            <div className="bg-white/95 backdrop-blur-sm p-3 md:p-6 rounded-xl shadow-2xl flex flex-col items-center transform transition-transform hover:scale-105 duration-300 border border-white/20">
-              <div className="text-green-800 font-bold mb-2 md:mb-4 text-center text-xs md:text-base">
-                SCAN FOR WHATSAPP CHANNEL
+              <div className="flex justify-center mb-6">
+                <div className="bg-white p-4 rounded-lg shadow-lg flex flex-col items-center transform transition-transform hover:scale-105 duration-300 border border-green-100">
+                  <div className="text-green-800 font-bold mb-2 text-center text-sm">SCAN FOR WHATSAPP CHANNEL</div>
+                  <div className="h-24 w-24 md:h-32 md:w-32 relative rounded-lg overflow-hidden shadow-inner">
+                    <Image
+                      src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/wpqr1.jpg-7DSQJ8nXyLPXFRzqTX3ZLU425VLrWf.jpeg"
+                      alt="WhatsApp Channel QR Code"
+                      fill
+                      className="object-contain"
+                    />
+                  </div>
+                </div>
               </div>
-              <div className="h-24 w-24 sm:h-32 sm:w-32 md:h-48 md:w-48 relative rounded-lg overflow-hidden shadow-inner">
-                <Image src="/images/whatsapp-qr.png" alt="WhatsApp Channel QR Code" fill className="object-contain" />
+
+              <p className="text-sm md:text-base text-gray-600 mb-6">
+                Quiet your mind, strengthen your body, awaken your spirit. Start your yoga journey today!
+              </p>
+
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <Link
+                  href="/user/register"
+                  className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-300"
+                >
+                  Join Our Journey
+                  <Leaf className="ml-2 h-4 w-4" />
+                </Link>
+                <Link
+                  href="https://chat.whatsapp.com/G68uJzPssx1CZE2WphRmzP"
+                  target="_blank"
+                  className="inline-flex items-center justify-center px-6 py-3 bg-white text-green-700 border border-green-200 hover:bg-green-50 hover:border-green-300 font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-300"
+                >
+                  Join WhatsApp
+                  <ExternalLink className="ml-2 h-4 w-4" />
+                </Link>
               </div>
             </div>
-          </div>
-
-          <p className="text-sm md:text-lg text-white/90 mb-4 md:mb-8">
-            Quiet your mind, strengthen your body, awaken your spirit. Start your yoga journey today!
-          </p>
-        </div>
-      </section>
-
-      {/* Features Grid - Enhanced with better cards */}
-      <section className="py-14 md:py-20 bg-white relative overflow-hidden">
-        <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-green-200 to-transparent"></div>
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-green-50 rounded-full opacity-70"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-green-50 rounded-full opacity-70"></div>
-
-        <div className="container mx-auto px-4 relative">
-          <div className="text-center mb-12">
-            <span className="inline-block px-4 py-1 rounded-full bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 text-sm font-medium mb-4 shadow-md">
-              <Heart className="inline-block mr-1 h-4 w-4" />
-              Our Approach
-            </span>
-            <h2 className="text-2xl sm:text-3xl font-bold mb-3 md:mb-4 bg-clip-text text-transparent bg-gradient-to-r from-green-800 to-emerald-700">
-              PHYSICAL AND MENTAL WELLNESS
-            </h2>
-            <p className="text-center text-gray-600 mb-8 md:mb-12 max-w-2xl mx-auto">
-              Our holistic approach nurtures both body and mind in harmony with nature.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 max-w-5xl mx-auto">
-            <WellnessCard
-              icon={<Utensils className="h-8 w-8 text-green-600" />}
-              title="NATURAL NUTRITION"
-              content="Our mindful eating plans are designed to nourish your body with seasonal, whole foods. We focus on sustainable nutrition that supports your yoga practice, enhances your energy levels, and promotes overall wellbeing."
-            />
-            <WellnessCard
-              icon={<Wind className="h-8 w-8 text-green-600" />}
-              title="MINDFUL MOVEMENT"
-              content="Our approach to physical wellness combines gentle yoga poses, mindful breathing, and natural movement patterns. We help you develop strength, flexibility, and balance in a way that honors your body's wisdom."
-            />
-            <WellnessCard
-              icon={<Heart className="h-8 w-8 text-green-600" />}
-              title="FOREST MEDITATION"
-              content="Our meditation practices draw inspiration from the tranquility of forests. Learn techniques to quiet the mind, cultivate presence, and develop a deeper connection with yourself and the natural world around you."
-            />
           </div>
         </div>
       </section>
