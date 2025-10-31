@@ -25,6 +25,7 @@ import {
   Star,
   Grid3X3,
   X,
+  Brain,
 } from "lucide-react"
 
 interface AdminLayoutProps {
@@ -142,6 +143,18 @@ function AdminLayout({ children }: AdminLayoutProps) {
       href: "/admin/instructors",
       icon: UserCheck,
       active: pathname.startsWith("/admin/instructors"),
+    },
+    {
+      title: "Team Management",
+      href: "/admin/team",
+      icon: Users,
+      active: pathname.startsWith("/admin/team"),
+    },
+    {
+      title: "AI Management",
+      href: "/admin/ai-management",
+      icon: Brain,
+      active: pathname.startsWith("/admin/ai-management"),
     },
     {
       title: "Subscriptions",

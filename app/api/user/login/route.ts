@@ -11,6 +11,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Phone and password are required" }, { status: 400 })
     }
 
+    console.log("[v0] Using main Supabase database for login")
     const supabase = getSupabaseServerClient()
 
     // Clean phone number
@@ -31,11 +32,17 @@ export async function POST(request: Request) {
     let user = null
 
     for (const phoneVariant of phoneVariants) {
+      console.log("[v0] Querying users table with phone variant:", phoneVariant)
       const { data: userData, error } = await supabase
         .from("users")
         .select("id, user_id, name, email, phone_number, phone, whatsapp_number, password")
         .or(`phone_number.eq.${phoneVariant},phone.eq.${phoneVariant},whatsapp_number.eq.${phoneVariant}`)
         .limit(1)
+
+      if (error) {
+        console.error("[v0] Database query error:", error)
+        continue
+      }
 
       if (userData && userData.length > 0) {
         user = userData[0]
@@ -70,7 +77,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid phone number or password" }, { status: 401 })
     }
 
-    // 🚨 ONLY SET COOKIE AFTER SUCCESSFUL LOGIN
     console.log("✅ Login successful - setting userId cookie")
 
     const response = NextResponse.json({
@@ -91,7 +97,7 @@ export async function POST(request: Request) {
       value: user.id.toString(),
       path: "/",
       maxAge: 60 * 60 * 24 * 7, // 7 days
-      httpOnly: false, // Allow JavaScript access for logout
+      httpOnly: false,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
     })
@@ -112,6 +118,10 @@ export async function POST(request: Request) {
     return response
   } catch (error) {
     console.error("❌ Login error:", error)
-    return NextResponse.json({ error: "An error occurred while logging in" }, { status: 500 })
+    console.error("[v0] Full error details:", JSON.stringify(error, null, 2))
+    return NextResponse.json(
+      { error: "An error occurred while logging in. Please check server logs." },
+      { status: 500 },
+    )
   }
 }

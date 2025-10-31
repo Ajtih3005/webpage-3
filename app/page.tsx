@@ -45,6 +45,8 @@ export default function Home() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const [subscriptionPages, setSubscriptionPages] = useState<SubscriptionPage[]>([])
+  const [teamMembers, setTeamMembers] = useState<any[]>([])
+  const [showTeamSection, setShowTeamSection] = useState(true)
 
   // Add scroll effect for header
   useEffect(() => {
@@ -58,6 +60,7 @@ export default function Home() {
   // Fetch subscription pages
   useEffect(() => {
     fetchSubscriptionPages()
+    fetchTeamData()
   }, [])
 
   const fetchSubscriptionPages = async () => {
@@ -74,6 +77,35 @@ export default function Home() {
       }
     } catch (error) {
       console.error("Error fetching subscription pages:", error)
+    }
+  }
+
+  const fetchTeamData = async () => {
+    const supabase = getSupabaseBrowserClient()
+    try {
+      // Fetch team members
+      const { data: members, error: membersError } = await supabase
+        .from("team_members")
+        .select("*")
+        .eq("is_active", true)
+        .order("display_order", { ascending: true })
+
+      if (!membersError && members) {
+        setTeamMembers(members)
+      }
+
+      // Fetch visibility setting
+      const { data: setting, error: settingError } = await supabase
+        .from("site_settings")
+        .select("setting_value")
+        .eq("setting_key", "show_our_team_section")
+        .single()
+
+      if (!settingError && setting) {
+        setShowTeamSection(setting.setting_value)
+      }
+    } catch (error) {
+      console.error("Error fetching team data:", error)
     }
   }
 
@@ -301,7 +333,7 @@ export default function Home() {
             <div className="h-px w-8 sm:w-12 md:w-20 bg-gradient-to-r from-emerald-400 via-green-400 to-transparent"></div>
           </div>
           <p className="text-sm sm:text-base md:text-xl text-green-700 font-semibold px-3 sm:px-5 mt-2 md:mt-3">
-            Sessions starting from August 1, 2025
+            Next batch starting from November 15, 2025
           </p>
         </div>
       </section>
@@ -403,7 +435,7 @@ export default function Home() {
         </div>
 
         {/* Light Pattern Overlay */}
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgdmlld0JveD0iMCAwIDYwIDYwIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiMwNDdBMzgiIGZpbGwtb3BhY2l0eT0iMC4wMyI+PHBhdGggZD0iTTM2IDM0di00aC0ydjRoLTR2Mmg0djRoMnYtNGg0di0yaC00em0wLTMwVjBoLTJ2NGgtNHYyaDR2NGgyVjZoNFY0aC00ek02IDM0di00SDR2NEgwdjJoNHY0aDJ2LTRoNHYtMkg2ek02IDRWMEg0djRIMHYyaDR2NGgyVjZoNFY0SDZ6Ii8+PC9nPjwvc3ZnPg==')] opacity-50 -z-10"></div>
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgdmlld0JveD0iMCAwIDYwIDYwIj48ZyBmaWxsPSJub25lIiBBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiMwNDdBMzgiIGZpbGwtb3BhY2l0eT0iMC4wMyI+PHBhdGggZD0iTTM2IDM0di00aC0ydjRoLTR2Mmg0djRoMnYtNGg0di0ySDZ6TT0iLz48L2c+PC9nPjwvc3ZnPg==')] opacity-50 -z-10"></div>
 
         <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-green-200 to-transparent"></div>
 
@@ -465,7 +497,6 @@ export default function Home() {
         <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-green-200 via-purple-300 to-green-200"></div>
 
         <div className="absolute top-0 right-0 w-32 h-32 md:w-64 md:h-64 bg-purple-100/30 rounded-full -translate-y-1/2 translate-x-1/2 opacity-30 blur-3xl"></div>
-        <div className="absolute bottom-0 left-0 w-48 h-48 md:w-96 md:h-96 bg-green-100/30 rounded-full translate-y-1/2 -translate-x-1/2 opacity-30 blur-3xl"></div>
 
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           {[...Array(5)].map((_, i) => (
@@ -676,24 +707,58 @@ export default function Home() {
               </div>
 
               <div className="prose prose-green max-w-none text-center">
-                <p className="text-base md:text-lg text-gray-700 leading-relaxed mb-6">
-                  At Sthavishtah, we honor this timeless wisdom that defines yoga as the cessation of mental
-                  fluctuations. Our platform is unique because we don't just teach physical postures - we guide you
-                  toward the true purpose of yoga: achieving a state of inner stillness and self-realization.
-                </p>
+                {/* Desktop view - full content */}
+                <div className="hidden md:block">
+                  <p className="text-base md:text-lg text-gray-700 leading-relaxed mb-6">
+                    At Sthavishtah, we honor this timeless wisdom that defines yoga as the cessation of mental
+                    fluctuations. Our platform is unique because we don't just teach physical postures - we guide you
+                    toward the true purpose of yoga: achieving a state of inner stillness and self-realization.
+                  </p>
 
-                <p className="text-base md:text-lg text-gray-700 leading-relaxed mb-6">
-                  Unlike modern fitness-focused approaches, we embrace yoga's authentic spiritual dimension. Through
-                  traditional practices, Bhagavad Gita study, and mindful living, we help you transcend the constant
-                  chatter of the mind and discover your true nature.
-                </p>
+                  <p className="text-base md:text-lg text-gray-700 leading-relaxed mb-6">
+                    Unlike modern fitness-focused approaches, we embrace yoga's authentic spiritual dimension. Through
+                    traditional practices, Bhagavad Gita study, and mindful living, we help you transcend the constant
+                    chatter of the mind and discover your true nature.
+                  </p>
 
-                <p className="text-base md:text-lg text-gray-700 leading-relaxed">
-                  Our revolutionary approach combines ancient wisdom with modern accessibility, creating transformative
-                  experiences that awaken your highest potential. We don't just practice yoga - we live it, breathe it,
-                  and embody the true essence of yoga as a complete way of life. This is not just exercise - this is the
-                  path to liberation, exactly as the great sages intended.
-                </p>
+                  <p className="text-base md:text-lg text-gray-700 leading-relaxed">
+                    Our revolutionary approach combines ancient wisdom with modern accessibility, creating
+                    transformative experiences that awaken your highest potential. We don't just practice yoga - we live
+                    it, breathe it, and embody the true essence of yoga as a complete way of life. This is not just
+                    exercise - this is the path to liberation, exactly as the great sages intended.
+                  </p>
+                </div>
+
+                {/* Mobile view - sliding content */}
+                <div className="md:hidden">
+                  <div className="overflow-x-auto scrollbar-hide">
+                    <div className="flex gap-4 pb-4" style={{ width: "calc(300% + 2rem)" }}>
+                      <div className="flex-shrink-0 w-full bg-white/50 p-4 rounded-lg border border-green-100">
+                        <p className="text-sm text-gray-700 leading-relaxed">
+                          At Sthavishtah, we honor the timeless wisdom that defines yoga as the cessation of mental
+                          fluctuations. We guide you toward achieving inner stillness and self-realization.
+                        </p>
+                      </div>
+                      <div className="flex-shrink-0 w-full bg-white/50 p-4 rounded-lg border border-green-100">
+                        <p className="text-sm text-gray-700 leading-relaxed">
+                          Unlike modern fitness approaches, we embrace yoga's authentic spiritual dimension through
+                          traditional practices, Bhagavad Gita study, and mindful living.
+                        </p>
+                      </div>
+                      <div className="flex-shrink-0 w-full bg-white/50 p-4 rounded-lg border border-green-100">
+                        <p className="text-sm text-gray-700 leading-relaxed">
+                          Our revolutionary approach combines ancient wisdom with modern accessibility, creating
+                          transformative experiences. This is the path to liberation as the great sages intended.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex justify-center mt-4 gap-2">
+                    <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                    <div className="w-2 h-2 bg-green-200 rounded-full"></div>
+                    <div className="w-2 h-2 bg-green-200 rounded-full"></div>
+                  </div>
+                </div>
               </div>
 
               <div className="flex justify-center mt-8">
@@ -707,6 +772,114 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* Our Team Section */}
+      {showTeamSection && teamMembers.length > 0 && (
+        <section className="py-14 md:py-20 relative overflow-hidden">
+          {/* Background Image with Overlay */}
+          <div className="absolute inset-0 -z-10">
+            <Image
+              src="/yoga-studio-peaceful-atmosphere.jpg"
+              alt="Team Background"
+              fill
+              className="object-cover object-center"
+              sizes="100vw"
+            />
+            <div className="absolute inset-0 bg-gradient-to-br from-emerald-900/90 via-green-800/85 to-teal-800/90"></div>
+          </div>
+
+          {/* Decorative Pattern Overlay */}
+          <div className="absolute inset-0 opacity-10 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgdmlld0JveD0iMCAwIDYwIDYwIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMSI+PHBhdGggZD0iTTM2IDM0di00aC0ydjRoLTR2Mmg0djRoMnYtNGg0di0yaHQtNHptMC0zMFYwaC0ydjRoLTR2MmgtNHY0aDJWNmg0VjRoLTR6TTYgMzR2LTRINHY0SDB2Mmg0djRoMnYtNGg0di0ySDZ6TTYgNFYwSDR2NEgwdjJoNHY0aDJWNmg0VjRINnoiLz48L2c+PC9nPjwvc3ZnPg==')] -z-10"></div>
+
+          <div className="container mx-auto px-4 relative">
+            <div className="text-center mb-12">
+              <span className="inline-block px-4 py-1 rounded-full bg-white/15 backdrop-blur-sm text-white text-sm font-medium mb-4 shadow-md border border-white/20">
+                <Users className="inline-block mr-1 h-4 w-4" />
+                Our Team
+              </span>
+              <h2 className="text-2xl sm:text-3xl font-bold mb-3 md:mb-4 text-white drop-shadow-lg">
+                Meet Our Dedicated Instructors
+              </h2>
+              <p className="text-white/90 max-w-2xl mx-auto drop-shadow-md mb-6">
+                Experienced practitioners committed to guiding your wellness journey with wisdom and compassion.
+              </p>
+            </div>
+
+            {/* Desktop view - show first 6 members */}
+            <div className="hidden lg:block relative">
+              <div className="grid lg:grid-cols-6 gap-6 max-w-6xl mx-auto">
+                {teamMembers.slice(0, 6).map((member, index) => (
+                  <div key={member.id} className="cursor-pointer relative z-10">
+                    <div className="transition-all duration-200 hover:scale-105 hover:shadow-lg hover:shadow-white/20">
+                      <div className="relative mb-4">
+                        <div className="w-28 h-28 mx-auto rounded-full overflow-hidden border-4 border-white/30 shadow-xl hover:border-white/50 transition-all duration-200">
+                          <Image
+                            src={member.image_url || "/placeholder.svg"}
+                            alt={member.name}
+                            fill
+                            className="object-cover"
+                          />
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <h3 className="text-white font-semibold text-base drop-shadow-md">{member.name}</h3>
+                        <p className="text-white/80 text-sm mt-1 drop-shadow-sm">{member.role}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Mobile and Tablet view - show first 4 members */}
+            <div className="lg:hidden">
+              <div className="overflow-x-auto scrollbar-hide">
+                <div className="flex gap-6 pb-4 md:gap-8" style={{ width: "calc(400% + 1.5rem)" }}>
+                  {teamMembers.slice(0, 4).map((member) => (
+                    <div key={member.id} className="flex-shrink-0 w-full text-center cursor-pointer relative">
+                      <div className="transition-all duration-200 hover:scale-105">
+                        <div className="relative mb-4">
+                          <div className="w-20 h-20 md:w-24 md:h-24 mx-auto rounded-full overflow-hidden border-4 border-white/30 shadow-xl hover:border-white/50 transition-all duration-200">
+                            <Image
+                              src={member.image_url || "/placeholder.svg"}
+                              alt={member.name}
+                              fill
+                              className="object-cover"
+                            />
+                          </div>
+                        </div>
+                        <div className="text-center">
+                          <h3 className="text-white font-semibold text-sm md:text-base drop-shadow-md">
+                            {member.name}
+                          </h3>
+                          <p className="text-white/80 text-xs md:text-sm mt-1 drop-shadow-sm">{member.role}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="flex justify-center mt-4 gap-2">
+                {[0, 1, 2, 3].map((i) => (
+                  <div key={i} className={`w-2 h-2 rounded-full ${i === 0 ? "bg-white/60" : "bg-white/30"}`}></div>
+                ))}
+              </div>
+            </div>
+
+            <div className="text-center mt-12">
+              <Link href="/our-team">
+                <Button
+                  size="lg"
+                  className="bg-white/15 backdrop-blur-sm hover:bg-white/25 text-white border-2 border-white/30 hover:border-white/50 shadow-lg hover:shadow-xl transition-all duration-300 px-8"
+                >
+                  Explore Our Team
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
 
       <section className="relative py-6 md:py-12 overflow-hidden">
         {/* Background Image with Overlay */}

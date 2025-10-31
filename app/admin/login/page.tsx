@@ -1,14 +1,13 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Shield } from "lucide-react"
+import { Shield, Home } from "lucide-react"
 import Image from "next/image"
 
 export default function AdminLogin() {
@@ -95,6 +94,16 @@ export default function AdminLogin() {
               disabled={loading || !password}
             >
               {loading ? "Logging in..." : "Login to Admin Panel"}
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full border-gray-300 hover:bg-gray-50 bg-transparent"
+              onClick={() => router.push("/")}
+            >
+              <Home className="h-4 w-4 mr-2" />
+              Back to Home
             </Button>
           </form>
 

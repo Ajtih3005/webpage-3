@@ -4,10 +4,12 @@ import { useEffect, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { extractYoutubeVideoId } from "@/lib/utils"
-import { Loader2, ArrowLeft, Lock, Camera, X, Video, VideoOff, CameraOff } from "lucide-react"
+import { ArrowLeft, Camera, X, Video, VideoOff, CameraOff, Brain } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
 import CameraPermission from "./camera-permission"
+
+import AIEnhancedPlayer from "./ai-enhanced-player"
 
 interface CourseDetails {
   id: number
@@ -44,9 +46,9 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null)
   const [currentTimePosition, setCurrentTimePosition] = useState(0)
-  const [fullscreenBlocked, setFullscreenBlocked] = useState(false)
-  const [fullscreenAttempts, setFullscreenAttempts] = useState(0)
-  const [showFullscreenWarning, setShowFullscreenWarning] = useState(false)
+  // const [fullscreenBlocked, setFullscreenBlocked] = useState(false)
+  // const [fullscreenAttempts, setFullscreenAttempts] = useState(0)
+  // const [showFullscreenWarning, setShowFullscreenWarning] = useState(false)
 
   // Camera states
   const [showCameraPreview, setShowCameraPreview] = useState(false)
@@ -54,13 +56,15 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null)
   const [cameraError, setCameraError] = useState<string | null>(null)
 
+  const [aiAnalysisEnabled, setAiAnalysisEnabled] = useState(false)
+
   const youtubePlayer = useRef<any>(null)
   const playerContainerRef = useRef<HTMLDivElement | null>(null)
   const videoTimer = useRef<NodeJS.Timeout | null>(null)
   const startVideoTimeout = useRef<NodeJS.Timeout | null>(null)
   const sessionCheckInterval = useRef<NodeJS.Timeout | null>(null)
-  const fullscreenCheckInterval = useRef<NodeJS.Timeout | null>(null)
-  const fullscreenRetryTimeout = useRef<NodeJS.Timeout | null>(null)
+  // const fullscreenCheckInterval = useRef<NodeJS.Timeout | null>(null)
+  // const fullscreenRetryTimeout = useRef<NodeJS.Timeout | null>(null)
   const isMounted = useRef(true)
   const videoWrapperRef = useRef<HTMLDivElement | null>(null)
   const fullscreenOverlayRef = useRef<HTMLDivElement | null>(null)
@@ -193,18 +197,32 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
   const handleCameraPermissionGranted = () => {
     setCameraPermissionGranted(true)
     setShowCameraPermission(false)
-
     // Auto-enter fullscreen after camera permission
-    setTimeout(() => {
-      if (document.documentElement) {
-        requestFullscreen(document.documentElement)
-      }
-    }, 500)
+    // setTimeout(() => {
+    //   if (document.documentElement) {
+    //     requestFullscreen(document.documentElement)
+    //   }
+    // }, 500)
   }
 
   const handleSkipCamera = () => {
     setCameraPermissionGranted(false)
     setShowCameraPermission(false)
+  }
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement && playerContainerRef.current) {
+      playerContainerRef.current.requestFullscreen().catch((err) => {
+        console.error(`Error attempting to enable fullscreen: ${err.message}`)
+        toast({
+          title: "Fullscreen Error",
+          description: "Unable to enter fullscreen mode. This may be due to browser restrictions.",
+          variant: "destructive",
+        })
+      })
+    } else if (document.fullscreenElement) {
+      document.exitFullscreen()
+    }
   }
 
   // Function to request fullscreen with all possible methods
@@ -236,58 +254,18 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
     )
   }
 
-  // Function to enforce fullscreen
-  const enforceFullscreen = () => {
-    if (!isInFullscreen()) {
-      setIsFullscreen(false)
-      setShowFullscreenWarning(true)
-
-      // Increment attempt counter
-      setFullscreenAttempts((prev) => {
-        const newCount = prev + 1
-
-        // If too many attempts, block fullscreen and redirect
-        if (newCount > 5) {
-          setFullscreenBlocked(true)
-          toast({
-            title: "Session Terminated",
-            description: "Too many fullscreen exits detected. Session has been terminated.",
-            variant: "destructive",
-          })
-
-          // Redirect after a short delay
-          setTimeout(() => {
-            router.push("/user/access-course")
-          }, 3000)
-          return newCount
-        }
-
-        return newCount
-      })
-
-      // Try to re-enter fullscreen after a short delay
-      if (fullscreenRetryTimeout.current) {
-        clearTimeout(fullscreenRetryTimeout.current)
-      }
-
-      fullscreenRetryTimeout.current = setTimeout(() => {
-        if (document.documentElement) {
-          requestFullscreen(document.documentElement)
-          setShowFullscreenWarning(false)
-        }
-      }, 1500)
-    } else {
-      setIsFullscreen(true)
-      setShowFullscreenWarning(false)
-    }
-  }
-
   useEffect(() => {
     // Set mounted flag
     isMounted.current = true
 
     // Add class to body to prevent scrolling and selection
     document.body.classList.add("video-playing")
+
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement)
+    }
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange)
 
     // Add animation class for emoji reactions
     const style = document.createElement("style")
@@ -315,19 +293,19 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
       setTimeout(enterFullscreen, 1000)
 
       // Add fullscreen change event listeners for all browser variants
-      const handleFullscreenChange = () => {
-        enforceFullscreen()
-      }
+      // const handleFullscreenChange = () => {
+      //   enforceFullscreen()
+      // }
 
-      document.addEventListener("fullscreenchange", handleFullscreenChange)
-      document.addEventListener("webkitfullscreenchange", handleFullscreenChange)
-      document.addEventListener("mozfullscreenchange", handleFullscreenChange)
-      document.addEventListener("MSFullscreenChange", handleFullscreenChange)
+      // document.addEventListener("fullscreenchange", handleFullscreenChange)
+      // document.addEventListener("webkitfullscreenchange", handleFullscreenChange)
+      // document.addEventListener("mozfullscreenchange", handleFullscreenChange)
+      // document.addEventListener("MSFullscreenChange", handleFullscreenChange)
 
       // Start interval to continuously check fullscreen status
-      fullscreenCheckInterval.current = setInterval(() => {
-        enforceFullscreen()
-      }, 1000)
+      // fullscreenCheckInterval.current = setInterval(() => {
+      //   enforceFullscreen()
+      // }, 1000)
 
       // Prevent keyboard shortcuts
       const handleKeyDown = (e: KeyboardEvent) => {
@@ -435,6 +413,8 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
 
       // Cleanup on unmount
       return () => {
+        document.removeEventListener("fullscreenchange", handleFullscreenChange)
+
         isMounted.current = false
 
         // Force stop camera on cleanup
@@ -460,8 +440,8 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
         if (videoTimer.current) clearInterval(videoTimer.current)
         if (startVideoTimeout.current) clearTimeout(startVideoTimeout.current)
         if (sessionCheckInterval.current) clearInterval(sessionCheckInterval.current)
-        if (fullscreenCheckInterval.current) clearInterval(fullscreenCheckInterval.current)
-        if (fullscreenRetryTimeout.current) clearTimeout(fullscreenRetryTimeout.current)
+        // if (fullscreenCheckInterval.current) clearInterval(fullscreenCheckInterval.current)
+        // if (fullscreenRetryTimeout.current) clearTimeout(fullscreenRetryTimeout.current)
         if (cursorTimeout) clearTimeout(cursorTimeout)
 
         // Exit fullscreen on unmount
@@ -476,10 +456,10 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
         }
 
         // Remove event listeners
-        document.removeEventListener("fullscreenchange", handleFullscreenChange)
-        document.removeEventListener("webkitfullscreenchange", handleFullscreenChange)
-        document.removeEventListener("mozfullscreenchange", handleFullscreenChange)
-        document.removeEventListener("MSFullscreenChange", handleFullscreenChange)
+        // document.removeEventListener("fullscreenchange", handleFullscreenChange)
+        // document.removeEventListener("webkitfullscreenchange", handleFullscreenChange)
+        // document.removeEventListener("mozfullscreenchange", handleFullscreenChange)
+        // document.removeEventListener("MSFullscreenChange", handleFullscreenChange)
         window.removeEventListener("keydown", handleKeyDown, true)
         document.removeEventListener("contextmenu", handleContextMenu)
         document.removeEventListener("enterpictureinpicture", handlePictureInPicture)
@@ -505,7 +485,7 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
         }
       }
     }
-  }, [params.courseId, router, showCameraPermission])
+  }, [])
 
   // Effect to initialize YouTube player when API is loaded and video ID is set
   useEffect(() => {
@@ -1212,6 +1192,8 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
       document.exitFullscreen().catch((err) => console.error("Error exiting fullscreen:", err))
     } else if ((document as any).webkitExitFullscreen) {
       ;(document as any).webkitExitFullscreen()
+    } else if ((document as any).mozCancelFullScreen) {
+      ;(document as any).mozCancelFullScreen()
     } else if ((document as any).msExitFullscreen) {
       ;(document as any).msExitFullscreen()
     }
@@ -1219,267 +1201,302 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
     router.push("/user/access-course")
   }
 
-  // Show camera permission screen first
-  if (showCameraPermission) {
-    return <CameraPermission onPermissionGranted={handleCameraPermissionGranted} onSkip={handleSkipCamera} />
-  }
-
-  if (loading) {
-    return (
-      <div className="fixed inset-0 flex items-center justify-center bg-black">
-        <div className="text-center">
-          <Loader2 className="h-12 w-12 animate-spin text-white mx-auto mb-4" />
-          <p className="text-white text-lg">Loading video session...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (!sessionActive) {
-    return (
-      <div className="fixed inset-0 flex items-center justify-center bg-black">
-        <div className="text-center p-6 bg-gray-800 rounded-lg max-w-md">
-          <h2 className="text-white text-xl font-bold mb-4">Session Not Active</h2>
-          <p className="text-gray-300 mb-6">This session is no longer active. Please return to the course list.</p>
-          <Button onClick={handleExitClick}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Courses
-          </Button>
-        </div>
-      </div>
-    )
-  }
-
-  if (fullscreenBlocked) {
-    return (
-      <div className="fixed inset-0 flex items-center justify-center bg-black">
-        <div className="text-center p-6 bg-gray-800 rounded-lg max-w-md">
-          <h2 className="text-white text-xl font-bold mb-4">Session Terminated</h2>
-          <p className="text-gray-300 mb-6">
-            This session has been terminated due to multiple fullscreen exits. Please return to the course list.
-          </p>
-          <Button onClick={handleExitClick}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Courses
-          </Button>
-        </div>
-      </div>
-    )
-  }
-
   return (
-    <div className="fixed inset-0 bg-black flex flex-col w-screen h-screen overflow-hidden" ref={videoWrapperRef}>
-      {/* Video Container */}
-      <div
-        className="absolute inset-0 w-screen h-screen flex items-center justify-center overflow-hidden"
-        ref={playerContainerRef}
-      >
-        {/* Camera Preview goes HERE - inside the video container */}
-        {showCameraPreview && (
-          <div className="absolute top-4 right-4 z-50 bg-black rounded-lg border-2 border-white overflow-hidden shadow-2xl">
-            <div className="relative">
-              <video
-                ref={cameraVideoRef}
-                autoPlay
-                muted
-                playsInline
-                className="w-48 h-36 object-cover bg-gray-800"
-                style={{ transform: "scaleX(-1)" }} // Mirror the video like a selfie
-              />
-              <button
-                onClick={() => setShowCameraPreview(false)}
-                className="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white rounded-full p-1 transition-colors"
-              >
-                <X className="h-3 w-3" />
-              </button>
-              {/* Camera Status Indicator */}
-              <div className="absolute top-2 left-2 bg-green-600 text-white text-xs px-2 py-1 rounded flex items-center">
-                <div className="w-2 h-2 bg-white rounded-full mr-1 animate-pulse"></div>
-                {cameraOn ? "LIVE" : "OFF"}
-              </div>
-              {/* Show message when camera is off */}
-              {!cameraOn && (
-                <div className="absolute inset-0 bg-gray-800 flex items-center justify-center">
-                  <div className="text-white text-center">
-                    <CameraOff className="h-8 w-8 mx-auto mb-2" />
-                    <p className="text-xs">Camera Off</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* LIVE Indicator */}
-      <div className="absolute top-2 left-2 z-50 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-md flex items-center">
-        <span className="animate-pulse mr-1 h-2 w-2 rounded-full bg-white inline-block"></span>
-        LIVE
-      </div>
-
-      {/* Fullscreen Warning Overlay */}
-      {showFullscreenWarning && (
-        <div
-          className="absolute inset-0 z-50 bg-black/90 flex flex-col items-center justify-center"
-          ref={fullscreenOverlayRef}
-        >
-          <div className="text-center p-6 max-w-md">
-            <Lock className="h-16 w-16 text-red-500 mx-auto mb-4" />
-            <h2 className="text-white text-2xl font-bold mb-4">Fullscreen Required</h2>
-            <p className="text-gray-300 mb-6">
-              This video must be viewed in fullscreen mode. Please click the button below to continue.
-            </p>
-            <p className="text-yellow-400 text-sm mb-6">
-              Warning: Exiting fullscreen {fullscreenAttempts > 1 ? `${fullscreenAttempts} times` : "repeatedly"} will
-              terminate your session.
-            </p>
-            <Button
-              onClick={() => {
-                if (document.documentElement) {
-                  requestFullscreen(document.documentElement)
-                  setShowFullscreenWarning(false)
-                }
-              }}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              Enter Fullscreen
-            </Button>
-          </div>
-        </div>
+    <div className="min-h-screen bg-black text-white relative overflow-hidden">
+      {showCameraPermission && (
+        <CameraPermission onPermissionGranted={handleCameraPermissionGranted} onSkip={handleSkipCamera} />
       )}
 
-      {/* NEW SIMPLIFIED CONTROLS BAR */}
-      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 text-white z-10">
-        <div className="flex justify-between items-center mb-2">
-          {courseDetails?.title && <h1 className="text-xl font-bold">{courseDetails.title}</h1>}
-        </div>
-
-        {attendanceError && <div className="text-red-400 text-sm mt-2">{attendanceError}</div>}
-
-        {hasCompletedVideo && (
-          <div className="text-green-400 text-sm mt-2">Video completed! Returning to course list...</div>
-        )}
-
-        {/* NEW CONTROL BAR WITH CAMERA TOGGLE */}
-        <div className="flex items-center justify-between mt-4 bg-black/50 rounded-lg p-3">
-          {/* Camera Controls */}
-          <div className="flex items-center gap-2">
-            {/* Camera ON/OFF Toggle */}
-            {cameraPermissionGranted && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={toggleCamera}
-                className={`text-white hover:bg-white/20 flex items-center gap-2 ${
-                  cameraOn ? "bg-green-600/20" : "bg-gray-600/20"
-                }`}
+      {!showCameraPermission && (
+        <>
+          {aiAnalysisEnabled ? (
+            <AIEnhancedPlayer
+              courseId={params.courseId}
+              userId={userDbId || 0}
+              youtubeVideoId={youtubeVideoId}
+              activityType={
+                courseDetails?.title?.toLowerCase().includes("fitness")
+                  ? "fitness"
+                  : courseDetails?.title?.toLowerCase().includes("singing")
+                    ? "singing"
+                    : courseDetails?.title?.toLowerCase().includes("dance")
+                      ? "dance"
+                      : "yoga"
+              }
+            />
+          ) : (
+            <>
+              {/* Existing video player implementation */}
+              {/* <div
+                className="fixed inset-0 bg-black flex flex-col w-screen h-screen overflow-hidden"
+                ref={videoWrapperRef}
+              > */}
+              {/* Video Container */}
+              <div
+                ref={playerContainerRef}
+                className={`relative w-full h-screen flex items-center justify-center ${isFullscreen ? "fixed inset-0 z-50" : ""}`}
               >
-                {cameraOn ? <Video className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}
-                {cameraOn ? "Camera ON" : "Camera OFF"}
-              </Button>
-            )}
+                {/* Camera Preview goes HERE - inside the video container */}
+                {showCameraPreview && (
+                  <div className="absolute top-4 right-4 z-50 bg-black rounded-lg border-2 border-white overflow-hidden shadow-2xl">
+                    <div className="relative">
+                      <video
+                        ref={cameraVideoRef}
+                        autoPlay
+                        muted
+                        playsInline
+                        className="w-48 h-36 object-cover bg-gray-800"
+                        style={{ transform: "scaleX(-1)" }} // Mirror the video like a selfie
+                      />
+                      <button
+                        onClick={() => setShowCameraPreview(false)}
+                        className="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white rounded-full p-1 transition-colors"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                      {/* Camera Status Indicator */}
+                      <div className="absolute top-2 left-2 bg-green-600 text-white text-xs px-2 py-1 rounded flex items-center">
+                        <div className="w-2 h-2 bg-white rounded-full mr-1 animate-pulse"></div>
+                        {cameraOn ? "LIVE" : "OFF"}
+                      </div>
+                      {/* Show message when camera is off */}
+                      {!cameraOn && (
+                        <div className="absolute inset-0 bg-gray-800 flex items-center justify-center">
+                          <div className="text-white text-center">
+                            <CameraOff className="h-8 w-8 mx-auto mb-2" />
+                            <p className="text-xs">Camera Off</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
-            {/* Video Preview Toggle */}
+                {/* LIVE Indicator */}
+                <div className="absolute top-2 left-2 z-50 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-md flex items-center">
+                  <span className="animate-pulse mr-1 h-2 w-2 rounded-full bg-white inline-block"></span>
+                  LIVE
+                </div>
+
+                {/* Fullscreen Warning Overlay */}
+                {/* {showFullscreenWarning && (
+                  <div
+                    className="absolute inset-0 z-50 bg-black/90 flex flex-col items-center justify-center"
+                    ref={fullscreenOverlayRef}
+                  >
+                    <div className="text-center p-6 max-w-md">
+                      <Lock className="h-16 w-16 text-red-500 mx-auto mb-4" />
+                      <h2 className="text-white text-2xl font-bold mb-4">Fullscreen Required</h2>
+                      <p className="text-gray-300 mb-6">
+                        This video must be viewed in fullscreen mode. Please click the button below to continue.
+                      </p>
+                      <p className="text-yellow-400 text-sm mb-6">
+                        Warning: Exiting fullscreen{" "}
+                        {fullscreenAttempts > 1 ? `${fullscreenAttempts} times` : "repeatedly"} will terminate your
+                        session.
+                      </p>
+                      <Button
+                        onClick={() => {
+                          if (document.documentElement) {
+                            requestFullscreen(document.documentElement)
+                            setShowFullscreenWarning(false)
+                          }
+                        }}
+                        className="bg-red-600 hover:bg-red-700"
+                      >
+                        Enter Fullscreen
+                      </Button>
+                    </div>
+                  </div>
+                )} */}
+
+                {/* NEW SIMPLIFIED CONTROLS BAR */}
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 text-white z-10">
+                  <div className="flex justify-between items-center mb-2">
+                    {courseDetails?.title && <h1 className="text-xl font-bold">{courseDetails.title}</h1>}
+                  </div>
+
+                  {attendanceError && <div className="text-red-400 text-sm mt-2">{attendanceError}</div>}
+
+                  {hasCompletedVideo && (
+                    <div className="text-green-400 text-sm mt-2">Video completed! Returning to course list...</div>
+                  )}
+
+                  {/* NEW CONTROL BAR WITH CAMERA TOGGLE */}
+                  <div className="flex items-center justify-between mt-4 bg-black/50 rounded-lg p-3">
+                    {/* Camera Controls */}
+                    <div className="flex items-center gap-2">
+                      {/* Camera ON/OFF Toggle */}
+                      {cameraPermissionGranted && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={toggleCamera}
+                          className={`text-white hover:bg-white/20 flex items-center gap-2 ${
+                            cameraOn ? "bg-green-600/20" : "bg-gray-600/20"
+                          }`}
+                        >
+                          {cameraOn ? <Video className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}
+                          {cameraOn ? "Camera ON" : "Camera OFF"}
+                        </Button>
+                      )}
+
+                      {/* Video Preview Toggle */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={toggleCameraPreview}
+                        disabled={!cameraPermissionGranted}
+                        className={`text-white hover:bg-white/20 flex items-center gap-2 ${
+                          showCameraPreview ? "bg-blue-600/20" : "bg-gray-600/20"
+                        }`}
+                      >
+                        <Camera className="h-4 w-4" />
+                        {showCameraPreview ? "Hide Preview" : "Show Preview"}
+                      </Button>
+                    </div>
+
+                    {/* Emoji Reaction Bar */}
+                    <div className="flex items-center space-x-3">
+                      <button
+                        className="emoji-btn p-2 rounded-full hover:bg-white/20 transition-colors"
+                        onClick={() => {
+                          const btn = document.createElement("div")
+                          btn.className = "absolute animate-emoji text-2xl"
+                          btn.textContent = "✋"
+                          btn.style.bottom = "20%"
+                          btn.style.left = `${Math.random() * 80 + 10}%`
+                          if (videoWrapperRef.current) videoWrapperRef.current.appendChild(btn)
+                          setTimeout(() => btn.remove(), 2000)
+                        }}
+                      >
+                        <span className="text-xl">✋</span>
+                      </button>
+                      <button
+                        className="emoji-btn p-2 rounded-full hover:bg-white/20 transition-colors"
+                        onClick={() => {
+                          const btn = document.createElement("div")
+                          btn.className = "absolute animate-emoji text-2xl"
+                          btn.textContent = "❤️"
+                          btn.style.bottom = "20%"
+                          btn.style.left = `${Math.random() * 80 + 10}%`
+                          if (videoWrapperRef.current) videoWrapperRef.current.appendChild(btn)
+                          setTimeout(() => btn.remove(), 2000)
+                        }}
+                      >
+                        <span className="text-xl">❤️</span>
+                      </button>
+                      <button
+                        className="emoji-btn p-2 rounded-full hover:bg-white/20 transition-colors"
+                        onClick={() => {
+                          const btn = document.createElement("div")
+                          btn.className = "absolute animate-emoji text-2xl"
+                          btn.textContent = "👍"
+                          btn.style.bottom = "20%"
+                          btn.style.left = `${Math.random() * 80 + 10}%`
+                          if (videoWrapperRef.current) videoWrapperRef.current.appendChild(btn)
+                          setTimeout(() => btn.remove(), 2000)
+                        }}
+                      >
+                        <span className="text-xl">👍</span>
+                      </button>
+                      <button
+                        className="emoji-btn p-2 rounded-full hover:bg-white/20 transition-colors"
+                        onClick={() => {
+                          const btn = document.createElement("div")
+                          btn.className = "absolute animate-emoji text-2xl"
+                          btn.textContent = "😊"
+                          btn.style.bottom = "20%"
+                          btn.style.left = `${Math.random() * 80 + 10}%`
+                          if (videoWrapperRef.current) videoWrapperRef.current.appendChild(btn)
+                          setTimeout(() => btn.remove(), 2000)
+                        }}
+                      >
+                        <span className="text-xl">😊</span>
+                      </button>
+                      <button
+                        className="emoji-btn p-2 rounded-full hover:bg-white/20 transition-colors"
+                        onClick={() => {
+                          const btn = document.createElement("div")
+                          btn.className = "absolute animate-emoji text-2xl"
+                          btn.textContent = "👏"
+                          btn.style.bottom = "20%"
+                          btn.style.left = `${Math.random() * 80 + 10}%`
+                          if (videoWrapperRef.current) videoWrapperRef.current.appendChild(btn)
+                          setTimeout(() => btn.remove(), 2000)
+                        }}
+                      >
+                        <span className="text-xl">👏</span>
+                      </button>
+                    </div>
+
+                    {/* Exit Button */}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleExitClick}
+                      className="text-white hover:bg-red-600/20 flex items-center gap-2"
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                      Exit
+                    </Button>
+                  </div>
+                </div>
+              </div>
+              {/* </div> */}
+            </>
+          )}
+
+          <div className="absolute top-4 right-4 z-30">
             <Button
-              variant="ghost"
-              size="sm"
-              onClick={toggleCameraPreview}
-              disabled={!cameraPermissionGranted}
-              className={`text-white hover:bg-white/20 flex items-center gap-2 ${
-                showCameraPreview ? "bg-blue-600/20" : "bg-gray-600/20"
-              }`}
+              onClick={() => setAiAnalysisEnabled(!aiAnalysisEnabled)}
+              className={`${aiAnalysisEnabled ? "bg-purple-600 hover:bg-purple-700" : "bg-gray-600 hover:bg-gray-700"} text-white`}
             >
-              <Camera className="h-4 w-4" />
-              {showCameraPreview ? "Hide Preview" : "Show Preview"}
+              <Brain className="w-4 h-4 mr-2" />
+              {aiAnalysisEnabled ? "Disable AI" : "Enable AI"}
             </Button>
           </div>
-
-          {/* Emoji Reaction Bar */}
-          <div className="flex items-center space-x-3">
-            <button
-              className="emoji-btn p-2 rounded-full hover:bg-white/20 transition-colors"
-              onClick={() => {
-                const btn = document.createElement("div")
-                btn.className = "absolute animate-emoji text-2xl"
-                btn.textContent = "✋"
-                btn.style.bottom = "20%"
-                btn.style.left = `${Math.random() * 80 + 10}%`
-                if (videoWrapperRef.current) videoWrapperRef.current.appendChild(btn)
-                setTimeout(() => btn.remove(), 2000)
-              }}
+          <div className="absolute top-4 right-4 z-20 flex gap-2">
+            <Button
+              variant="secondary"
+              size="icon"
+              className="bg-black/50 hover:bg-black/70 text-white"
+              onClick={toggleFullscreen}
+              title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
             >
-              <span className="text-xl">✋</span>
-            </button>
-            <button
-              className="emoji-btn p-2 rounded-full hover:bg-white/20 transition-colors"
-              onClick={() => {
-                const btn = document.createElement("div")
-                btn.className = "absolute animate-emoji text-2xl"
-                btn.textContent = "❤️"
-                btn.style.bottom = "20%"
-                btn.style.left = `${Math.random() * 80 + 10}%`
-                if (videoWrapperRef.current) videoWrapperRef.current.appendChild(btn)
-                setTimeout(() => btn.remove(), 2000)
-              }}
-            >
-              <span className="text-xl">❤️</span>
-            </button>
-            <button
-              className="emoji-btn p-2 rounded-full hover:bg-white/20 transition-colors"
-              onClick={() => {
-                const btn = document.createElement("div")
-                btn.className = "absolute animate-emoji text-2xl"
-                btn.textContent = "👍"
-                btn.style.bottom = "20%"
-                btn.style.left = `${Math.random() * 80 + 10}%`
-                if (videoWrapperRef.current) videoWrapperRef.current.appendChild(btn)
-                setTimeout(() => btn.remove(), 2000)
-              }}
-            >
-              <span className="text-xl">👍</span>
-            </button>
-            <button
-              className="emoji-btn p-2 rounded-full hover:bg-white/20 transition-colors"
-              onClick={() => {
-                const btn = document.createElement("div")
-                btn.className = "absolute animate-emoji text-2xl"
-                btn.textContent = "😊"
-                btn.style.bottom = "20%"
-                btn.style.left = `${Math.random() * 80 + 10}%`
-                if (videoWrapperRef.current) videoWrapperRef.current.appendChild(btn)
-                setTimeout(() => btn.remove(), 2000)
-              }}
-            >
-              <span className="text-xl">😊</span>
-            </button>
-            <button
-              className="emoji-btn p-2 rounded-full hover:bg-white/20 transition-colors"
-              onClick={() => {
-                const btn = document.createElement("div")
-                btn.className = "absolute animate-emoji text-2xl"
-                btn.textContent = "👏"
-                btn.style.bottom = "20%"
-                btn.style.left = `${Math.random() * 80 + 10}%`
-                if (videoWrapperRef.current) videoWrapperRef.current.appendChild(btn)
-                setTimeout(() => btn.remove(), 2000)
-              }}
-            >
-              <span className="text-xl">👏</span>
-            </button>
+              {isFullscreen ? (
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"></path>
+                </svg>
+              ) : (
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path>
+                </svg>
+              )}
+            </Button>
           </div>
-
-          {/* Exit Button */}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleExitClick}
-            className="text-white hover:bg-red-600/20 flex items-center gap-2"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Exit
-          </Button>
-        </div>
-      </div>
+        </>
+      )}
     </div>
   )
 }

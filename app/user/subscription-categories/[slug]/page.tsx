@@ -73,6 +73,20 @@ interface LinkedPlan {
   }
 }
 
+interface ComparisonFeature {
+  id: string
+  feature_name: string
+  feature_description: string | null
+  display_order: number
+}
+
+interface ComparisonValue {
+  feature_id: string
+  subscription_plan_id: string
+  is_included: boolean
+  custom_value: string | null
+}
+
 export default function SubscriptionCategoryPage({ params }: { params: { slug: string } }) {
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState<SubscriptionPage | null>(null)
@@ -80,6 +94,8 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
   const [contentSections, setContentSections] = useState<ContentSection[]>([])
   const [linkedPlans, setLinkedPlans] = useState<LinkedPlan[]>([])
   const [openSections, setOpenSections] = useState<string[]>([])
+  const [comparisonFeatures, setComparisonFeatures] = useState<ComparisonFeature[]>([])
+  const [comparisonValues, setComparisonValues] = useState<ComparisonValue[]>([])
 
   const searchParams = useSearchParams()
 
@@ -152,6 +168,26 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
         .order("display_order")
 
       setLinkedPlans(plansData || [])
+
+      const { data: featuresData } = await supabase
+        .from("plan_comparison_features")
+        .select("*")
+        .eq("subscription_page_id", pageData.id)
+        .order("display_order")
+
+      setComparisonFeatures(featuresData || [])
+
+      if (featuresData && featuresData.length > 0) {
+        const { data: valuesData } = await supabase
+          .from("plan_comparison_values")
+          .select("*")
+          .in(
+            "feature_id",
+            featuresData.map((f) => f.id),
+          )
+
+        setComparisonValues(valuesData || [])
+      }
     } catch (error) {
       console.error("Error fetching page data:", error)
       notFound()
@@ -216,6 +252,13 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
     if (fromPlans) return <ArrowLeft className="mr-2 h-4 w-4" />
     if (fromUserPlans) return <Users className="mr-2 h-4 w-4" />
     return <ArrowLeft className="mr-2 h-4 w-4" />
+  }
+
+  const planIncludesFeature = (featureId: string, subscriptionId: string) => {
+    const value = comparisonValues.find(
+      (v) => v.feature_id === featureId && String(v.subscription_plan_id) === subscriptionId,
+    )
+    return value
   }
 
   if (loading) {
@@ -490,6 +533,96 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
               ))}
             </div>
           </div>
+
+          {comparisonFeatures.length > 0 && linkedPlans.length > 0 && (
+            <div className="mt-16 mb-12">
+              <div className="text-center mb-8">
+                <div className="inline-flex items-center bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-4 py-2 rounded-full text-sm font-bold mb-4">
+                  <TrendingUp className="mr-2 h-4 w-4" />
+                  Compare Plans
+                </div>
+                <h2 className="text-3xl font-black text-gray-900 mb-2">Find Your Perfect Match</h2>
+                <p className="text-gray-600">Compare features across all plans to make the best choice</p>
+              </div>
+
+              <Card className="border-0 shadow-2xl bg-white/95 backdrop-blur-sm overflow-hidden">
+                <CardContent className="p-0">
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="bg-gradient-to-r from-purple-600 to-pink-600">
+                          <th className="text-left p-4 text-white font-bold text-sm sticky left-0 bg-gradient-to-r from-purple-600 to-pink-600 z-10">
+                            Features
+                          </th>
+                          {linkedPlans.map((plan) => (
+                            <th key={plan.id} className="text-center p-4 text-white font-bold text-sm min-w-[150px]">
+                              <div className="flex flex-col items-center">
+                                <span className="mb-1">{plan.subscriptions.name}</span>
+                                <span className="text-xs font-normal opacity-90">₹{plan.subscriptions.price}</span>
+                              </div>
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {comparisonFeatures.map((feature, index) => (
+                          <tr
+                            key={feature.id}
+                            className={`border-b border-gray-200 hover:bg-purple-50/50 transition-colors ${
+                              index % 2 === 0 ? "bg-gray-50/50" : "bg-white"
+                            }`}
+                          >
+                            <td className="p-4 font-medium text-gray-900 text-sm sticky left-0 bg-inherit z-10">
+                              <div>
+                                <div className="font-semibold">{feature.feature_name}</div>
+                                {feature.feature_description && (
+                                  <div className="text-xs text-gray-500 mt-1">{feature.feature_description}</div>
+                                )}
+                              </div>
+                            </td>
+                            {linkedPlans.map((plan) => {
+                              const value = planIncludesFeature(feature.id, plan.subscriptions.id)
+                              return (
+                                <td key={plan.id} className="p-4 text-center">
+                                  {value?.custom_value ? (
+                                    <span className="text-sm font-semibold text-purple-600">{value.custom_value}</span>
+                                  ) : value?.is_included ? (
+                                    <div className="flex justify-center">
+                                      <div className="w-6 h-6 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-full flex items-center justify-center">
+                                        <CheckCircle className="h-4 w-4 text-white" />
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="flex justify-center">
+                                      <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center">
+                                        <span className="text-gray-400 text-lg">×</span>
+                                      </div>
+                                    </div>
+                                  )}
+                                </td>
+                              )
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* CTA Section */}
+              <div className="text-center mt-8">
+                <p className="text-gray-600 mb-4">Ready to start your transformation?</p>
+                <Button
+                  size="lg"
+                  className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold px-8 py-4 h-auto shadow-lg"
+                >
+                  <Zap className="mr-2 h-5 w-5" />
+                  Choose Your Plan Now
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

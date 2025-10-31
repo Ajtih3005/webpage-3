@@ -42,6 +42,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1.0, user-scalable=yes, minimum-scale=0.5, maximum-scale=3.0"
+        />
         <meta property="fb:app_id" content="924180826548374" />
         <meta property="og:title" content="Sthavishtah Yoga and Wellness" />
         <meta property="og:description" content="Yoga and wellness platform for holistic health" />

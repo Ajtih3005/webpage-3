@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Switch } from "@/components/ui/switch"
 import {
   Dialog,
   DialogContent,
@@ -73,6 +74,21 @@ interface Subscription {
   duration_days: number
 }
 
+interface ComparisonFeature {
+  id: string
+  feature_name: string
+  feature_description: string | null
+  display_order: number
+}
+
+interface ComparisonValue {
+  id: string
+  feature_id: string
+  subscription_plan_id: string
+  is_included: boolean
+  custom_value: string | null
+}
+
 export default function EditSubscriptionPage({ params }: { params: { id: string } }) {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
@@ -84,16 +100,18 @@ export default function EditSubscriptionPage({ params }: { params: { id: string 
   const [availableSubscriptions, setAvailableSubscriptions] = useState<Subscription[]>([])
   const [loadingSubscriptions, setLoadingSubscriptions] = useState(false)
   const [subscriptionError, setSubscriptionError] = useState<string | null>(null)
+  const [comparisonFeatures, setComparisonFeatures] = useState<ComparisonFeature[]>([])
+  const [comparisonValues, setComparisonValues] = useState<ComparisonValue[]>([])
 
-  // Dialog states
   const [cardDialogOpen, setCardDialogOpen] = useState(false)
   const [sectionDialogOpen, setSectionDialogOpen] = useState(false)
   const [planDialogOpen, setPlanDialogOpen] = useState(false)
+  const [featureDialogOpen, setFeatureDialogOpen] = useState(false)
 
-  // Form states
   const [newCard, setNewCard] = useState({ title: "", value: "", icon: "star", card_type: "info" })
   const [newSection, setNewSection] = useState({ title: "", content: "" })
   const [selectedPlanId, setSelectedPlanId] = useState("")
+  const [newFeature, setNewFeature] = useState({ feature_name: "", feature_description: "" })
 
   useEffect(() => {
     fetchPageData()
@@ -103,7 +121,6 @@ export default function EditSubscriptionPage({ params }: { params: { id: string 
   const fetchPageData = async () => {
     const supabase = getSupabaseBrowserClient()
     try {
-      // Fetch page details
       const { data: pageData, error: pageError } = await supabase
         .from("subscription_pages")
         .select("*")
@@ -113,7 +130,6 @@ export default function EditSubscriptionPage({ params }: { params: { id: string 
       if (pageError) throw pageError
       setPage(pageData)
 
-      // Fetch info cards
       const { data: cardsData, error: cardsError } = await supabase
         .from("subscription_page_cards")
         .select("*")
@@ -123,7 +139,6 @@ export default function EditSubscriptionPage({ params }: { params: { id: string 
       if (cardsError) throw cardsError
       setInfoCards(cardsData || [])
 
-      // Fetch content sections
       const { data: sectionsData, error: sectionsError } = await supabase
         .from("subscription_page_sections")
         .select("*")
@@ -133,7 +148,6 @@ export default function EditSubscriptionPage({ params }: { params: { id: string 
       if (sectionsError) throw sectionsError
       setContentSections(sectionsData || [])
 
-      // Fetch linked plans
       const { data: plansData, error: plansError } = await supabase
         .from("subscription_page_plans")
         .select(`
@@ -153,6 +167,28 @@ export default function EditSubscriptionPage({ params }: { params: { id: string 
 
       if (plansError) throw plansError
       setLinkedPlans(plansData || [])
+
+      const { data: featuresData, error: featuresError } = await supabase
+        .from("plan_comparison_features")
+        .select("*")
+        .eq("subscription_page_id", params.id)
+        .order("display_order")
+
+      if (featuresError) console.error("Error fetching features:", featuresError)
+      setComparisonFeatures(featuresData || [])
+
+      if (featuresData && featuresData.length > 0) {
+        const { data: valuesData, error: valuesError } = await supabase
+          .from("plan_comparison_values")
+          .select("*")
+          .in(
+            "feature_id",
+            featuresData.map((f) => f.id),
+          )
+
+        if (valuesError) console.error("Error fetching values:", valuesError)
+        setComparisonValues(valuesData || [])
+      }
     } catch (error) {
       console.error("Error fetching page data:", error)
     } finally {
@@ -166,7 +202,6 @@ export default function EditSubscriptionPage({ params }: { params: { id: string 
     const supabase = getSupabaseBrowserClient()
 
     try {
-      // Get all active subscriptions
       const { data, error } = await supabase
         .from("subscriptions")
         .select("id, name, description, price, duration_days")
@@ -235,7 +270,7 @@ export default function EditSubscriptionPage({ params }: { params: { id: string 
 
       setNewCard({ title: "", value: "", icon: "star", card_type: "info" })
       setCardDialogOpen(false)
-      fetchPageData() // Refresh data
+      fetchPageData()
     } catch (error) {
       console.error("Error adding card:", error)
       alert("Error adding card. Please try again.")
@@ -256,7 +291,7 @@ export default function EditSubscriptionPage({ params }: { params: { id: string 
 
       setNewSection({ title: "", content: "" })
       setSectionDialogOpen(false)
-      fetchPageData() // Refresh data
+      fetchPageData()
     } catch (error) {
       console.error("Error adding section:", error)
       alert("Error adding section. Please try again.")
@@ -278,7 +313,7 @@ export default function EditSubscriptionPage({ params }: { params: { id: string 
 
       setSelectedPlanId("")
       setPlanDialogOpen(false)
-      fetchPageData() // Refresh data
+      fetchPageData()
     } catch (error) {
       console.error("Error linking plan:", error)
       alert("Error linking plan. Please try again.")
@@ -291,7 +326,7 @@ export default function EditSubscriptionPage({ params }: { params: { id: string 
       const { error } = await supabase.from("subscription_page_cards").delete().eq("id", cardId)
 
       if (error) throw error
-      fetchPageData() // Refresh data
+      fetchPageData()
     } catch (error) {
       console.error("Error deleting card:", error)
     }
@@ -303,7 +338,7 @@ export default function EditSubscriptionPage({ params }: { params: { id: string 
       const { error } = await supabase.from("subscription_page_sections").delete().eq("id", sectionId)
 
       if (error) throw error
-      fetchPageData() // Refresh data
+      fetchPageData()
     } catch (error) {
       console.error("Error deleting section:", error)
     }
@@ -315,16 +350,98 @@ export default function EditSubscriptionPage({ params }: { params: { id: string 
       const { error } = await supabase.from("subscription_page_plans").delete().eq("id", linkId)
 
       if (error) throw error
-      fetchPageData() // Refresh data
+      fetchPageData()
     } catch (error) {
       console.error("Error unlinking plan:", error)
     }
   }
 
-  // Get list of subscription IDs that are already linked
-  const alreadyLinkedIds = linkedPlans.map((plan) => plan.subscription_id)
+  const handleAddFeature = async () => {
+    const supabase = getSupabaseBrowserClient()
+    try {
+      const { data, error } = await supabase
+        .from("plan_comparison_features")
+        .insert({
+          subscription_page_id: params.id,
+          feature_name: newFeature.feature_name,
+          feature_description: newFeature.feature_description || null,
+          display_order: comparisonFeatures.length + 1,
+        })
+        .select()
+        .single()
 
-  // Filter available subscriptions to only show ones that aren't already linked
+      if (error) throw error
+
+      if (linkedPlans.length > 0) {
+        const defaultValues = linkedPlans.map((plan) => ({
+          feature_id: data.id,
+          subscription_plan_id: plan.subscription_id,
+          is_included: false,
+          custom_value: null,
+        }))
+
+        await supabase.from("plan_comparison_values").insert(defaultValues)
+      }
+
+      setNewFeature({ feature_name: "", feature_description: "" })
+      setFeatureDialogOpen(false)
+      fetchPageData()
+    } catch (error) {
+      console.error("Error adding feature:", error)
+      alert("Error adding feature. Please try again.")
+    }
+  }
+
+  const handleDeleteFeature = async (featureId: string) => {
+    if (!confirm("Are you sure you want to delete this comparison feature?")) return
+
+    const supabase = getSupabaseBrowserClient()
+    try {
+      const { error } = await supabase.from("plan_comparison_features").delete().eq("id", featureId)
+
+      if (error) throw error
+      fetchPageData()
+    } catch (error) {
+      console.error("Error deleting feature:", error)
+    }
+  }
+
+  const handleToggleFeatureValue = async (featureId: string, subscriptionPlanId: string, currentValue: boolean) => {
+    const supabase = getSupabaseBrowserClient()
+    try {
+      const existingValue = comparisonValues.find(
+        (v) => v.feature_id === featureId && v.subscription_plan_id === subscriptionPlanId,
+      )
+
+      if (existingValue) {
+        const { error } = await supabase
+          .from("plan_comparison_values")
+          .update({ is_included: !currentValue })
+          .eq("id", existingValue.id)
+
+        if (error) throw error
+      } else {
+        const { error } = await supabase.from("plan_comparison_values").insert({
+          feature_id: featureId,
+          subscription_plan_id: subscriptionPlanId,
+          is_included: true,
+          custom_value: null,
+        })
+
+        if (error) throw error
+      }
+
+      fetchPageData()
+    } catch (error) {
+      console.error("Error toggling feature value:", error)
+    }
+  }
+
+  const getFeatureValue = (featureId: string, subscriptionPlanId: string) => {
+    return comparisonValues.find((v) => v.feature_id === featureId && v.subscription_plan_id === subscriptionPlanId)
+  }
+
+  const alreadyLinkedIds = linkedPlans.map((plan) => plan.subscription_id)
   const unlinkedSubscriptions = availableSubscriptions.filter((sub) => !alreadyLinkedIds.includes(sub.id))
 
   if (loading) {
@@ -391,6 +508,7 @@ export default function EditSubscriptionPage({ params }: { params: { id: string 
             <TabsTrigger value="cards">Info Cards ({infoCards.length})</TabsTrigger>
             <TabsTrigger value="sections">Content Sections ({contentSections.length})</TabsTrigger>
             <TabsTrigger value="plans">Linked Plans ({linkedPlans.length})</TabsTrigger>
+            <TabsTrigger value="comparison">Plan Comparison ({comparisonFeatures.length})</TabsTrigger>
           </TabsList>
 
           <TabsContent value="basic" className="space-y-6">
@@ -759,6 +877,136 @@ export default function EditSubscriptionPage({ params }: { params: { id: string 
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="comparison" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <CardTitle>Plan Comparison Features</CardTitle>
+                    <CardDescription>Manage features that will be compared across subscription plans</CardDescription>
+                  </div>
+                  <Dialog open={featureDialogOpen} onOpenChange={setFeatureDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button size="sm">
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add Feature
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Add Comparison Feature</DialogTitle>
+                        <DialogDescription>Create a new feature to compare across plans</DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="feature-name">Feature Name</Label>
+                          <Input
+                            id="feature-name"
+                            value={newFeature.feature_name}
+                            onChange={(e) => setNewFeature({ ...newFeature, feature_name: e.target.value })}
+                            placeholder="e.g., AI Analysis, HD Videos"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="feature-description">Description (Optional)</Label>
+                          <Textarea
+                            id="feature-description"
+                            value={newFeature.feature_description}
+                            onChange={(e) => setNewFeature({ ...newFeature, feature_description: e.target.value })}
+                            placeholder="Brief description of this feature"
+                            rows={2}
+                          />
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setFeatureDialogOpen(false)}>
+                          Cancel
+                        </Button>
+                        <Button onClick={handleAddFeature} disabled={!newFeature.feature_name}>
+                          Add Feature
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {linkedPlans.length === 0 ? (
+                  <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      Please link subscription plans first before adding comparison features.
+                    </AlertDescription>
+                  </Alert>
+                ) : comparisonFeatures.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    No comparison features yet. Add your first feature to get started.
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {comparisonFeatures.map((feature) => (
+                      <Card key={feature.id} className="border-2">
+                        <CardHeader className="pb-3">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <CardTitle className="text-base">{feature.feature_name}</CardTitle>
+                              {feature.feature_description && (
+                                <CardDescription className="text-sm mt-1">
+                                  {feature.feature_description}
+                                </CardDescription>
+                              )}
+                            </div>
+                            <Button variant="outline" size="sm" onClick={() => handleDeleteFeature(feature.id)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-3">
+                            <div className="text-sm font-medium text-gray-700 mb-2">
+                              Select which plans include this feature:
+                            </div>
+                            {linkedPlans.map((plan) => {
+                              const value = getFeatureValue(feature.id, plan.subscription_id)
+                              return (
+                                <div
+                                  key={plan.id}
+                                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                                >
+                                  <div className="flex-1">
+                                    <div className="font-medium text-sm">{plan.subscriptions.name}</div>
+                                    <div className="text-xs text-gray-500">
+                                      ₹{plan.subscriptions.price} • {plan.subscriptions.duration_days} days
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm text-gray-600">
+                                      {value?.is_included ? "Included" : "Not Included"}
+                                    </span>
+                                    <Switch
+                                      checked={value?.is_included || false}
+                                      onCheckedChange={() =>
+                                        handleToggleFeatureValue(
+                                          feature.id,
+                                          plan.subscription_id,
+                                          value?.is_included || false,
+                                        )
+                                      }
+                                    />
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </CardContent>
+                      </Card>
                     ))}
                   </div>
                 )}
