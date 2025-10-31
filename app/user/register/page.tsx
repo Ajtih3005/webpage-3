@@ -176,6 +176,14 @@ export default function UserRegister() {
       localStorage.setItem("userPhone", data[0].phone_number || "")
       document.cookie = `userId=${data[0].id}; path=/; max-age=86400`
 
+      const pendingPlan = sessionStorage.getItem("pendingSubscriptionPlan")
+      if (pendingPlan) {
+        sessionStorage.removeItem("pendingSubscriptionPlan")
+        // For subscription plans, skip WhatsApp dialog and go directly to payment
+        router.push(`/user/subscribe?plan=${pendingPlan}`)
+        return
+      }
+
       // Handle post-registration flow based on link type
       if (redirectUrl) {
         if (isWhatsAppLink) {

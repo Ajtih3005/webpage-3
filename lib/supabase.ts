@@ -24,7 +24,10 @@ export const getSupabaseServerClient = () => {
   console.log("[v0] Server Supabase Key:", supabaseAnonKey ? "✅ Set" : "❌ Missing")
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error("Main Supabase URL and anon key must be defined for server operations")
+    const missingVars = []
+    if (!supabaseUrl) missingVars.push("SUPABASE_URL or NEXT_PUBLIC_SUPABASE_URL")
+    if (!supabaseAnonKey) missingVars.push("SUPABASE_ANON_KEY or NEXT_PUBLIC_SUPABASE_ANON_KEY")
+    throw new Error(`Missing environment variables: ${missingVars.join(", ")}`)
   }
 
   return supabaseCreateClient(supabaseUrl, supabaseAnonKey)

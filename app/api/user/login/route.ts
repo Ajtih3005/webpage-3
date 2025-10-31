@@ -11,8 +11,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Phone and password are required" }, { status: 400 })
     }
 
-    console.log("[v0] Using main Supabase database for login")
-    const supabase = getSupabaseServerClient()
+    let supabase
+    try {
+      console.log("[v0] Using main Supabase database for login")
+      supabase = getSupabaseServerClient()
+    } catch (supabaseError) {
+      console.error("❌ Supabase client creation failed:", supabaseError)
+      return NextResponse.json(
+        {
+          error: "Database connection error. Please contact support.",
+          details: supabaseError instanceof Error ? supabaseError.message : "Unknown error",
+        },
+        { status: 500 },
+      )
+    }
 
     // Clean phone number
     const cleanPhone = phone.replace(/\s+|-|$$|$$|\+|\./g, "")
@@ -41,7 +53,13 @@ export async function POST(request: Request) {
 
       if (error) {
         console.error("[v0] Database query error:", error)
-        continue
+        return NextResponse.json(
+          {
+            error: "Database query failed. Please try again.",
+            details: error.message,
+          },
+          { status: 500 },
+        )
       }
 
       if (userData && userData.length > 0) {
@@ -120,7 +138,10 @@ export async function POST(request: Request) {
     console.error("❌ Login error:", error)
     console.error("[v0] Full error details:", JSON.stringify(error, null, 2))
     return NextResponse.json(
-      { error: "An error occurred while logging in. Please check server logs." },
+      {
+        error: "Server error during login. Please try again or contact support.",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
       { status: 500 },
     )
   }

@@ -10,6 +10,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2, ArrowLeft, Phone, Lock, Leaf, User } from "lucide-react"
 import Image from "next/image"
 import { isUserLoggedIn } from "@/lib/auth-client"
+import { getSupabaseBrowserClient } from "@/lib/supabase"
+import bcrypt from "bcryptjs"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -22,16 +24,13 @@ export default function LoginPage() {
   const [error, setError] = useState("")
   const [checkingAuth, setCheckingAuth] = useState(true)
 
-  // Show redirect info if coming from a link
   const isFromLink = redirectUrl?.startsWith("/l/")
 
-  // 🔍 CHECK IF ALREADY LOGGED IN
   useEffect(() => {
     const checkExistingAuth = () => {
       if (isUserLoggedIn()) {
         console.log("✅ User already logged in, redirecting...")
 
-        // Auto-redirect if already authenticated
         if (redirectUrl) {
           window.location.href = redirectUrl
         } else {
@@ -51,67 +50,166 @@ export default function LoginPage() {
     setError("")
 
     try {
-      const response = await fetch("/api/user/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone, password }),
-      })
+      console.log("[v0] ===== LOGIN ATTEMPT START =====")
+      console.log("[v0] Login attempt for phone:", phone)
 
-      if (!response.ok) {
-        let errorMessage = "Login failed"
-        try {
-          const contentType = response.headers.get("content-type")
-          if (contentType && contentType.includes("application/json")) {
-            const errorData = await response.json()
-            errorMessage = errorData.error || errorMessage
-          } else {
-            const errorText = await response.text()
-            errorMessage = errorText.includes("Internal") ? "Server error. Please try again." : errorMessage
-          }
-        } catch (parseError) {
-          console.error("Error parsing error response:", parseError)
-        }
-        setError(errorMessage)
+      if (!phone || !password) {
+        console.log("[v0] Missing phone or password")
+        setError("Please enter both phone number and password")
+        setLoading(false)
         return
       }
 
-      const data = await response.json()
+      console.log("[v0] Getting Supabase client...")
+      const supabase = getSupabaseBrowserClient()
+      console.log("[v0] Supabase client obtained")
 
-      if (data.success) {
-        // ✅ SECURE: Store only necessary data
-        localStorage.setItem("userId", data.user.id.toString())
-        localStorage.setItem("userAuthenticated", "true")
-        localStorage.setItem("userName", data.user.name || "User")
-        localStorage.setItem("userEmail", data.user.email || "")
-        localStorage.setItem("userPhone", data.user.phone_number || "")
+      // Clean phone number
+      const cleanPhone = phone.replace(/\s+|-|$$|$$|\+|\./g, "")
+      console.log("[v0] Cleaned phone:", cleanPhone)
 
-        // Set secure cookie
-        document.cookie = `userId=${data.user.id}; path=/; max-age=86400; secure; samesite=strict`
+      // Try different phone formats
+      const phoneVariants = [
+        phone,
+        cleanPhone,
+        `+91${cleanPhone}`,
+        `91${cleanPhone}`,
+        cleanPhone.startsWith("91") ? cleanPhone.substring(2) : cleanPhone,
+      ]
 
-        console.log("✅ Login successful, redirecting...")
+      console.log("[v0] Trying phone variants:", phoneVariants)
 
-        // Clear form data
-        setPhone("")
-        setPassword("")
+      let user = null
 
-        // Redirect
-        if (redirectUrl) {
-          window.location.href = redirectUrl
-        } else {
-          window.location.href = "/user/dashboard"
+      for (const phoneVariant of phoneVariants) {
+        console.log("[v0] Querying database for phone variant:", phoneVariant)
+
+        const { data: userData, error: queryError } = await supabase
+          .from("users")
+          .select("id, user_id, name, email, phone_number, phone, whatsapp_number, password")
+          .or(`phone_number.eq.${phoneVariant},phone.eq.${phoneVariant},whatsapp_number.eq.${phoneVariant}`)
+          .limit(1)
+
+        console.log("[v0] Query result:", { userData, queryError })
+
+        if (queryError) {
+          console.error("[v0] Database query error:", queryError)
+          setError("Database error. Please try again.")
+          setLoading(false)
+          return
+        }
+
+        if (userData && userData.length > 0) {
+          user = userData[0]
+          console.log("[v0] User found with phone variant:", phoneVariant)
+          console.log("[v0] User data (password hidden):", { ...user, password: user.password ? "***" : "null" })
+          break
+        }
+      }
+
+      if (!user) {
+        console.log("[v0] No user found for any phone variant")
+        setError("Invalid phone number or password")
+        setLoading(false)
+        return
+      }
+
+      console.log("[v0] Starting password verification...")
+      console.log("[v0] Password exists:", !!user.password)
+      console.log("[v0] Password starts with $2:", user.password?.startsWith("$2"))
+
+      // Verify password
+      let isValidPassword = false
+
+      if (user.password) {
+        try {
+          if (user.password.startsWith("$2")) {
+            console.log("[v0] Using bcrypt comparison...")
+            isValidPassword = await bcrypt.compare(password, user.password)
+            console.log("[v0] Bcrypt comparison result:", isValidPassword)
+          } else {
+            console.log("[v0] Using plain text comparison...")
+            isValidPassword = password === user.password
+            console.log("[v0] Plain text comparison result:", isValidPassword)
+          }
+        } catch (passwordError) {
+          console.error("[v0] Password comparison error:", passwordError)
+          console.log("[v0] Falling back to plain text comparison...")
+          isValidPassword = password === user.password
+          console.log("[v0] Fallback comparison result:", isValidPassword)
         }
       } else {
-        setError(data.error || "Login failed")
+        console.log("[v0] No password stored for user")
       }
+
+      if (!isValidPassword) {
+        console.log("[v0] Password validation failed")
+        setError("Invalid phone number or password")
+        setLoading(false)
+        return
+      }
+
+      console.log("[v0] Login successful! Setting up session...")
+
+      // Store user data
+      localStorage.setItem("userId", user.id.toString())
+      localStorage.setItem("userAuthenticated", "true")
+      localStorage.setItem("userName", user.name || "User")
+      localStorage.setItem("userEmail", user.email || "")
+      localStorage.setItem("userPhone", user.phone_number || user.phone || user.whatsapp_number || "")
+
+      console.log("[v0] LocalStorage set")
+
+      // Set cookie
+      document.cookie = `userId=${user.id}; path=/; max-age=604800; ${
+        process.env.NODE_ENV === "production" ? "secure;" : ""
+      } samesite=lax`
+
+      console.log("[v0] Cookie set")
+
+      // Log successful login
+      try {
+        await supabase.from("auth_logs").insert({
+          event_type: "user_login_success",
+          user_id: user.id,
+          success: true,
+        })
+        console.log("[v0] Auth log inserted")
+      } catch (logErr) {
+        console.warn("[v0] Auth logging error:", logErr)
+      }
+
+      // Clear form
+      setPhone("")
+      setPassword("")
+
+      const pendingPlan = sessionStorage.getItem("pendingSubscriptionPlan")
+      if (pendingPlan) {
+        sessionStorage.removeItem("pendingSubscriptionPlan")
+        console.log("[v0] Redirecting to payment for plan:", pendingPlan)
+        window.location.href = `/user/subscribe?plan=${pendingPlan}`
+        return
+      }
+
+      console.log("[v0] Redirecting to:", redirectUrl || "/user/dashboard")
+
+      // Redirect
+      if (redirectUrl) {
+        window.location.href = redirectUrl
+      } else {
+        window.location.href = "/user/dashboard"
+      }
+
+      console.log("[v0] ===== LOGIN ATTEMPT END =====")
     } catch (err) {
-      console.error("Login error:", err)
-      setError("Network error. Please check your connection and try again.")
+      console.error("[v0] Login error:", err)
+      console.error("[v0] Error stack:", err instanceof Error ? err.stack : "No stack trace")
+      setError("An error occurred during login. Please try again.")
     } finally {
       setLoading(false)
     }
   }
 
-  // Show loading while checking authentication
   if (checkingAuth) {
     return (
       <div className="h-screen flex items-center justify-center p-4 forest-bg">

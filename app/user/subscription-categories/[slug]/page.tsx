@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { notFound, useSearchParams } from "next/navigation"
+import { notFound, useSearchParams, useRouter } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -28,9 +28,11 @@ import {
   TrendingUp,
   Home,
   FileText,
+  User,
 } from "lucide-react"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { Logo } from "@/components/logo"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 interface SubscriptionPage {
   id: string
@@ -96,8 +98,11 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
   const [openSections, setOpenSections] = useState<string[]>([])
   const [comparisonFeatures, setComparisonFeatures] = useState<ComparisonFeature[]>([])
   const [comparisonValues, setComparisonValues] = useState<ComparisonValue[]>([])
+  const [showAuthModal, setShowAuthModal] = useState(false)
+  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null)
 
   const searchParams = useSearchParams()
+  const router = useRouter()
 
   // Get the 'from' parameter to determine where user came from
   const fromUpdates = searchParams.get("from") === "updates"
@@ -259,6 +264,35 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
       (v) => v.feature_id === featureId && String(v.subscription_plan_id) === subscriptionId,
     )
     return value
+  }
+
+  const handleSubscribeClick = (planId: string) => {
+    // Check if user is logged in
+    const isLoggedIn = localStorage.getItem("userAuthenticated") === "true"
+
+    if (isLoggedIn) {
+      // User is logged in, go directly to payment
+      router.push(`/user/subscribe?plan=${planId}`)
+    } else {
+      // User not logged in, show auth modal
+      setSelectedPlanId(planId)
+      setShowAuthModal(true)
+    }
+  }
+
+  const handleAuthChoice = (choice: "login" | "register") => {
+    if (selectedPlanId) {
+      // Store the plan ID they want to subscribe to
+      sessionStorage.setItem("pendingSubscriptionPlan", selectedPlanId)
+
+      // Redirect to login or register with return URL
+      const returnUrl = `/user/subscribe?plan=${selectedPlanId}`
+      if (choice === "login") {
+        router.push(`/user/login?redirect=${encodeURIComponent(returnUrl)}`)
+      } else {
+        router.push(`/user/register?redirect=${encodeURIComponent(returnUrl)}`)
+      }
+    }
   }
 
   if (loading) {
@@ -522,12 +556,13 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
                       </div>
                     )}
 
-                    <Link href={`/user/subscribe?plan=${linkedPlan.subscriptions.id}`}>
-                      <Button className="w-full h-10 text-sm font-bold bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white shadow-md hover:shadow-lg transition-all duration-300">
-                        <Zap className="mr-2 h-4 w-4" />
-                        Choose Plan
-                      </Button>
-                    </Link>
+                    <Button
+                      onClick={() => handleSubscribeClick(linkedPlan.subscriptions.id)}
+                      className="w-full h-10 text-sm font-bold bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white shadow-md hover:shadow-lg transition-all duration-300"
+                    >
+                      <Zap className="mr-2 h-4 w-4" />
+                      Choose Plan
+                    </Button>
                   </CardContent>
                 </Card>
               ))}
@@ -615,9 +650,13 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
                 <p className="text-gray-600 mb-4">Ready to start your transformation?</p>
                 <Button
                   size="lg"
+                  onClick={() => {
+                    const plansSection = document.querySelector(".space-y-5")
+                    plansSection?.scrollIntoView({ behavior: "smooth", block: "center" })
+                  }}
                   className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold px-8 py-4 h-auto shadow-lg"
                 >
-                  <Zap className="mr-2 h-5 w-5" />
+                  <Zap className="mr-2 h-4 w-4" />
                   Choose Your Plan Now
                 </Button>
               </div>
@@ -625,6 +664,46 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
           )}
         </div>
       </div>
+
+      {/* Authentication Modal */}
+      <Dialog open={showAuthModal} onOpenChange={setShowAuthModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-center">Welcome to Your Journey</DialogTitle>
+            <DialogDescription className="text-center pt-2">
+              To subscribe to this plan, please choose an option below
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-6">
+            <Button
+              onClick={() => handleAuthChoice("register")}
+              className="w-full h-14 text-lg font-bold bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-lg"
+            >
+              <Users className="mr-2 h-5 w-5" />
+              Join Your Journey
+            </Button>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-gray-300" />
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="bg-white px-4 text-gray-500">Already have an account?</span>
+              </div>
+            </div>
+
+            <Button
+              onClick={() => handleAuthChoice("login")}
+              variant="outline"
+              className="w-full h-14 text-lg font-bold border-2 border-purple-600 text-purple-600 hover:bg-purple-50"
+            >
+              <User className="mr-2 h-5 w-5" />
+              Login
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
