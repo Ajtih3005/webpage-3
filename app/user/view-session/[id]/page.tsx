@@ -1,267 +1,216 @@
 "use client"
 
 import { useEffect, useState, useRef } from "react"
-import { useRouter } from "next/navigation"
-import { UserLayout } from "@/components/user-layout"
+import { useParams, useRouter } from "next/navigation"
+import { createBrowserClient } from "@supabase/ssr"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { getSupabaseBrowserClient } from "@/lib/supabase"
-import { formatDate, getBatchLabel } from "@/lib/utils"
 import { ArrowLeft, Maximize, Minimize } from "lucide-react"
+import { Card, CardContent } from "@/components/ui/card"
 
-interface Course {
-  id: number
-  title: string
-  description: string | null
-  youtube_link: string
-  scheduled_date: string
-  is_predefined_batch: boolean
-  batch_number: string | null
-  custom_batch_time: string | null
+declare global {
+  interface Window {
+    YT: any
+    onYouTubeIframeAPIReady: () => void
+  }
 }
 
-export default function ViewPreviousSession({ params }: { params: { id: string } }) {
+export default function ViewSessionPage() {
+  const params = useParams()
   const router = useRouter()
-  const courseId = Number.parseInt(params.id)
-  const [course, setCourse] = useState<Course | null>(null)
+  const sessionId = params.id as string
+
+  const [session, setSession] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState("")
   const [isFullscreen, setIsFullscreen] = useState(false)
+
+  const playerRef = useRef<any>(null)
   const videoContainerRef = useRef<HTMLDivElement>(null)
 
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  )
+
+  const getYouTubeVideoId = (url: string) => {
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/
+    const match = url.match(regExp)
+    return match && match[2].length === 11 ? match[2] : null
+  }
+
   useEffect(() => {
-    fetchCourseDetails()
-  }, [courseId])
+    if (!window.YT) {
+      const tag = document.createElement("script")
+      tag.src = "https://www.youtube.com/iframe_api"
+      const firstScriptTag = document.getElementsByTagName("script")[0]
+      firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag)
+    }
+  }, [])
 
-  // Update the fetchCourseDetails function to be more permissive
-  async function fetchCourseDetails() {
-    try {
-      setLoading(true)
-      setError(null)
+  useEffect(() => {
+    const fetchSession = async () => {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
+        if (!user) {
+          router.push("/user/login")
+          return
+        }
 
-      const userId = localStorage.getItem("userId")
-      if (!userId) {
-        throw new Error("User ID not found")
+        const { data: courseData, error: courseError } = await supabase
+          .from("courses")
+          .select("*")
+          .eq("id", sessionId)
+          .single()
+
+        if (courseError) throw courseError
+
+        setSession(courseData)
+        setLoading(false)
+
+        if (courseData.youtube_link) {
+          initializePlayer(courseData.youtube_link)
+        }
+      } catch (err: any) {
+        console.error("[v0] Error fetching session:", err)
+        setError(err.message)
+        setLoading(false)
       }
+    }
 
-      const supabase = getSupabaseBrowserClient()
+    fetchSession()
+  }, [sessionId])
 
-      // Get course details first without checking attendance
-      const { data: courseData, error: courseError } = await supabase
-        .from("courses")
-        .select("*")
-        .eq("id", courseId)
-        .single()
+  const initializePlayer = (videoUrl: string) => {
+    const videoId = getYouTubeVideoId(videoUrl)
+    if (!videoId) {
+      setError("Invalid YouTube URL")
+      return
+    }
 
-      if (courseError) {
-        throw new Error("Course not found. Please check the course ID.")
-      }
-
-      // Set the course data immediately
-      setCourse(courseData)
-
-      // Check if the user has attended this course
-      const { data: attendance, error: attendanceError } = await supabase
-        .from("user_courses")
-        .select("*")
-        .eq("user_id", userId)
-        .eq("course_id", courseId)
-        .single()
-
-      // If there's no attendance record, create one to allow access
-      if (attendanceError) {
-        console.log("No attendance record found, creating one to allow access")
-
-        // Create an attendance record to allow access
-        await supabase.from("user_courses").insert([
-          {
-            user_id: userId,
-            course_id: courseId,
-            attended: true,
-            attended_at: new Date().toISOString(),
+    const initPlayer = () => {
+      if (window.YT && window.YT.Player) {
+        playerRef.current = new window.YT.Player("youtube-player-replay", {
+          videoId: videoId,
+          playerVars: {
+            autoplay: 0,
+            controls: 1,
+            modestbranding: 1,
+            rel: 0,
+            showinfo: 0,
           },
-        ])
-      } else if (!attendance.attended) {
-        // Update the attendance record if it exists but attended is false
-        await supabase
-          .from("user_courses")
-          .update({ attended: true, attended_at: new Date().toISOString() })
-          .eq("id", attendance.id)
+          events: {
+            onReady: (event: any) => {
+              console.log("[v0] YouTube player ready for replay")
+            },
+            onError: (event: any) => {
+              console.error("[v0] YouTube player error:", event.data)
+              setError("Failed to load video")
+            },
+          },
+        })
       }
-    } catch (error: any) {
-      console.error("Error fetching course details:", error)
-      setError(error.message || "Failed to load the session")
-    } finally {
-      setLoading(false)
+    }
+
+    if (window.YT && window.YT.Player) {
+      initPlayer()
+    } else {
+      window.onYouTubeIframeAPIReady = initPlayer
     }
   }
 
   const toggleFullscreen = () => {
-    if (!videoContainerRef.current) return
-
-    try {
-      if (!document.fullscreenElement) {
-        // Enter fullscreen
-        if (videoContainerRef.current.requestFullscreen) {
-          videoContainerRef.current.requestFullscreen()
-        } else if ((videoContainerRef.current as any).mozRequestFullScreen) {
-          ;(videoContainerRef.current as any).mozRequestFullScreen()
-        } else if ((videoContainerRef.current as any).webkitRequestFullscreen) {
-          ;(videoContainerRef.current as any).webkitRequestFullscreen()
-        } else if ((videoContainerRef.current as any).msRequestFullscreen) {
-          ;(videoContainerRef.current as any).msRequestFullscreen()
-        }
-        setIsFullscreen(true)
-
-        // For mobile: force landscape orientation if supported
-        if (screen.orientation && screen.orientation.lock) {
-          screen.orientation.lock("landscape").catch((err) => {
-            console.log("Orientation lock failed:", err)
-          })
-        }
-      } else {
-        // Exit fullscreen
-        if (document.exitFullscreen) {
-          document.exitFullscreen()
-        } else if ((document as any).mozCancelFullScreen) {
-          ;(document as any).mozCancelFullScreen()
-        } else if ((document as any).webkitExitFullscreen) {
-          ;(document as any).webkitExitFullscreen()
-        } else if ((document as any).msExitFullscreen) {
-          ;(document as any).msExitFullscreen()
-        }
-        setIsFullscreen(false)
-      }
-    } catch (err) {
-      console.error("Fullscreen error:", err)
+    if (!document.fullscreenElement) {
+      videoContainerRef.current?.requestFullscreen()
+      setIsFullscreen(true)
+    } else {
+      document.exitFullscreen()
+      setIsFullscreen(false)
     }
   }
 
-  const getYoutubePreviousSessionUrl = (youtubeLink: string) => {
-    // Extract video ID from various YouTube URL formats
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/
-    const match = youtubeLink.match(regExp)
-
-    if (!match || match[2].length !== 11) {
-      console.error("Invalid YouTube URL:", youtubeLink)
-      return youtubeLink
-    }
-
-    const videoId = match[2]
-
-    // For previous sessions: autoplay with basic controls (play/pause, seek, volume)
-    return `https://www.youtube.com/embed/${videoId}?autoplay=1&controls=1&rel=0&modestbranding=1&playsinline=1&mute=0`
-  }
-
-  useEffect(() => {
-    const handleOrientationChange = () => {
-      if (document.fullscreenElement && window.innerHeight > window.innerWidth) {
-        // If we're in fullscreen but in portrait mode, this might be causing issues
-        // Try to exit and re-enter fullscreen
-        document
-          .exitFullscreen()
-          .then(() => {
-            if (videoContainerRef.current) {
-              videoContainerRef.current.requestFullscreen().catch((err) => {
-                console.error("Error attempting to re-enter fullscreen:", err)
-              })
-            }
-          })
-          .catch((err) => {
-            console.error("Error exiting fullscreen:", err)
-          })
-      }
-    }
-
-    // Add event listener for orientation changes
-    window.addEventListener("orientationchange", handleOrientationChange)
-
-    // Add event listener for fullscreen changes
-    document.addEventListener("fullscreenchange", () => {
-      setIsFullscreen(!!document.fullscreenElement)
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     })
+  }
 
-    return () => {
-      window.removeEventListener("orientationchange", handleOrientationChange)
-      document.removeEventListener("fullscreenchange", () => {
-        setIsFullscreen(!!document.fullscreenElement)
-      })
-    }
-  }, [])
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black flex items-center justify-center">
+        <div className="text-white text-xl">Loading session...</div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-red-500 text-xl mb-4">{error}</div>
+          <Button onClick={() => router.push("/user/previous-sessions")}>Back to Previous Sessions</Button>
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <UserLayout>
-      <div className="space-y-6">
-        <div className="flex items-center">
-          <Button variant="outline" size="sm" onClick={() => router.back()} className="mr-4">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black">
+      <div className="bg-black/50 backdrop-blur-sm border-b border-white/10 p-4">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <Button
+            onClick={() => router.push("/user/previous-sessions")}
+            variant="ghost"
+            className="text-white hover:bg-white/10"
+          >
+            <ArrowLeft className="w-5 h-5 mr-2" />
+            Back to Previous Sessions
           </Button>
-          <h1 className="text-3xl font-bold">Previous Session</h1>
+          <h1 className="text-white text-xl font-semibold">Previous Session Recording</h1>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto p-4 lg:p-8">
+        <Card className="mb-6 bg-white/5 border-white/10">
+          <CardContent className="p-6">
+            <h2 className="text-white text-2xl font-bold mb-2">{session?.title}</h2>
+            <div className="flex items-center gap-4 text-gray-400">
+              <span>📅 {formatDate(session?.scheduled_date)}</span>
+            </div>
+            {session?.description && <p className="text-gray-300 mt-4">{session.description}</p>}
+          </CardContent>
+        </Card>
+
+        <div ref={videoContainerRef} className="relative rounded-lg overflow-hidden shadow-2xl bg-black">
+          <div className="absolute top-4 right-4 z-20">
+            <Button
+              onClick={toggleFullscreen}
+              variant="outline"
+              size="icon"
+              className="bg-black/50 border-white/20 hover:bg-black/70"
+            >
+              {isFullscreen ? <Minimize className="w-5 h-5 text-white" /> : <Maximize className="w-5 h-5 text-white" />}
+            </Button>
+          </div>
+
+          <div className="relative aspect-video w-full">
+            <div id="youtube-player-replay" className="absolute inset-0 w-full h-full"></div>
+          </div>
         </div>
 
-        {loading ? (
-          <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-          </div>
-        ) : error ? (
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        ) : course ? (
-          <Card>
-            <CardHeader>
-              <CardTitle>{course.title}</CardTitle>
-              <CardDescription>
-                {formatDate(course.scheduled_date)} •{" "}
-                {course.is_predefined_batch && course.batch_number
-                  ? getBatchLabel(course.batch_number)
-                  : course.custom_batch_time}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {course.description && <p>{course.description}</p>}
-
-              <div className="relative" ref={videoContainerRef}>
-                {/* Custom video controls */}
-                <div className="absolute top-2 right-2 z-10 flex space-x-2">
-                  <Button
-                    variant="secondary"
-                    size="icon"
-                    className="bg-black/50 hover:bg-black/70 text-white"
-                    onClick={toggleFullscreen}
-                  >
-                    {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
-                  </Button>
-                </div>
-
-                <div
-                  className={`aspect-video rounded-md overflow-hidden bg-gray-100 relative ${isFullscreen ? "fixed inset-0 z-50 bg-black" : ""}`}
-                >
-                  <iframe
-                    src={getYoutubePreviousSessionUrl(course.youtube_link)}
-                    className={`w-full h-full ${isFullscreen ? "absolute inset-0" : ""}`}
-                    title={course.title}
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                    frameBorder="0"
-                  ></iframe>
-                </div>
-              </div>
-
-              <div className="text-sm text-gray-500">
-                <p>This is a recording of a previous session you attended.</p>
-                <p>You can rewatch this session at any time.</p>
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <Alert>
-            <AlertDescription>Session not found.</AlertDescription>
-          </Alert>
-        )}
+        <Card className="mt-6 bg-blue-500/10 border-blue-500/20">
+          <CardContent className="p-4">
+            <p className="text-blue-300 text-center">
+              📼 This is a recording of a previous session. You can rewatch it anytime.
+            </p>
+          </CardContent>
+        </Card>
       </div>
-    </UserLayout>
+    </div>
   )
 }

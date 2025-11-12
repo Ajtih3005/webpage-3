@@ -1,15 +1,19 @@
 "use client"
 
 import { useEffect, useState, useRef } from "react"
-import { useRouter } from "next/navigation"
-import { getSupabaseBrowserClient } from "@/lib/supabase"
-import { extractYoutubeVideoId } from "@/lib/utils"
-import { ArrowLeft, Camera, X, Video, VideoOff, CameraOff, Brain } from "lucide-react"
-import { toast } from "@/hooks/use-toast"
+import { useParams, useRouter } from "next/navigation"
+import { createBrowserClient } from "@supabase/ssr"
 import { Button } from "@/components/ui/button"
-import CameraPermission from "./camera-permission"
+import { Maximize, Minimize, Video, VideoOff, LogOut, Camera, X } from "lucide-react"
+import { toast } from "@/hooks/use-toast" // Assuming this is still needed for some toasts
 
-import AIEnhancedPlayer from "./ai-enhanced-player"
+// Declare global for YouTube API
+declare global {
+  interface Window {
+    YT: any
+    onYouTubeIframeAPIReady: () => void
+  }
+}
 
 interface CourseDetails {
   id: number
@@ -28,558 +32,366 @@ interface CourseDetails {
   batch_times?: string | null
 }
 
-export default function VideoPlayer({ params }: { params: { courseId: string } }) {
+export default function AccessCoursePage() {
+  const params = useParams()
   const router = useRouter()
+  const searchParams = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "")
+  const courseId = params.courseId as string
+  const skipCamera = searchParams.get("skipCamera") === "true"
+
+  // State Management (Simplified from original)
+  const [course, setCourse] = useState<CourseDetails | null>(null)
   const [loading, setLoading] = useState(true)
-  const [showCameraPermission, setShowCameraPermission] = useState(true)
-  const [cameraPermissionGranted, setCameraPermissionGranted] = useState(false)
-  const [courseDetails, setCourseDetails] = useState<CourseDetails | null>(null)
-  const [elapsedTime, setElapsedTime] = useState(0)
-  const [userDbId, setUserDbId] = useState<number | null>(null)
-  const [youtubeVideoId, setYoutubeVideoId] = useState<string>("")
-  const [ytApiLoaded, setYtApiLoaded] = useState(false)
-  const [hasCompletedVideo, setHasCompletedVideo] = useState(false)
-  const [markingAttendance, setMarkingAttendance] = useState(false)
-  const [attendanceError, setAttendanceError] = useState<string | null>(null)
-  const [sessionActive, setSessionActive] = useState(true)
-  const [actualVideoDuration, setActualVideoDuration] = useState<number | null>(null)
+  const [error, setError] = useState<string | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
-  const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null)
-  const [currentTimePosition, setCurrentTimePosition] = useState(0)
-  // const [fullscreenBlocked, setFullscreenBlocked] = useState(false)
-  // const [fullscreenAttempts, setFullscreenAttempts] = useState(0)
-  // const [showFullscreenWarning, setShowFullscreenWarning] = useState(false)
-
-  // Camera states
+  const [cameraEnabled, setCameraEnabled] = useState(false)
   const [showCameraPreview, setShowCameraPreview] = useState(false)
-  const [cameraOn, setCameraOn] = useState(false)
-  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null)
-  const [cameraError, setCameraError] = useState<string | null>(null)
+  const [cameraPermissionGranted, setCameraPermissionGranted] = useState(false) // Added for camera permission flow
+  const [watchTime, setWatchTime] = useState(0)
+  const [attendanceMarked, setAttendanceMarked] = useState(false)
+  const [actualVideoDuration, setActualVideoDuration] = useState<number | null>(null) // From original
+  const [currentTimePosition, setCurrentTimePosition] = useState(0) // From original
+  const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null) // From original
+  const [sessionActive, setSessionActive] = useState(true) // From original
+  const [showCameraPermission, setShowCameraPermission] = useState(true) // Declared for camera permission prompt
 
-  const [aiAnalysisEnabled, setAiAnalysisEnabled] = useState(false)
+  // Refs
+  const playerRef = useRef<any>(null) // YouTube player instance
+  const videoContainerRef = useRef<HTMLDivElement>(null) // Main video container for fullscreen
+  const cameraVideoRef = useRef<HTMLVideoElement>(null) // Reference for the camera feed video element
+  const watchTimerRef = useRef<NodeJS.Timeout | null>(null) // Timer for tracking watch time
 
-  const youtubePlayer = useRef<any>(null)
-  const playerContainerRef = useRef<HTMLDivElement | null>(null)
-  const videoTimer = useRef<NodeJS.Timeout | null>(null)
-  const startVideoTimeout = useRef<NodeJS.Timeout | null>(null)
-  const sessionCheckInterval = useRef<NodeJS.Timeout | null>(null)
-  // const fullscreenCheckInterval = useRef<NodeJS.Timeout | null>(null)
-  // const fullscreenRetryTimeout = useRef<NodeJS.Timeout | null>(null)
-  const isMounted = useRef(true)
-  const videoWrapperRef = useRef<HTMLDivElement | null>(null)
-  const fullscreenOverlayRef = useRef<HTMLDivElement | null>(null)
-  const cameraVideoRef = useRef<HTMLVideoElement | null>(null)
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  )
 
-  // Camera functions
-  const startCamera = async () => {
-    if (!cameraPermissionGranted) {
-      toast({
-        title: "Camera Permission Required",
-        description: "Please refresh and allow camera access first.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    try {
-      console.log("🎥 Starting camera...")
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          width: { ideal: 320 },
-          height: { ideal: 240 },
-          facingMode: "user",
-        },
-        audio: false,
-      })
-
-      console.log("🎥 Camera stream obtained:", stream)
-      setCameraStream(stream)
-      setCameraOn(true)
-      setCameraError(null)
-
-      // FIXED: Ensure video element exists and set stream properly
-      if (cameraVideoRef.current) {
-        console.log("🎥 Setting video source...")
-
-        // Clear any existing source first
-        cameraVideoRef.current.srcObject = null
-
-        // Set the new stream
-        cameraVideoRef.current.srcObject = stream
-
-        // Ensure the video element properties are set correctly
-        cameraVideoRef.current.autoplay = true
-        cameraVideoRef.current.muted = true
-        cameraVideoRef.current.playsInline = true
-
-        // Force load and play
-        cameraVideoRef.current.load()
-
-        cameraVideoRef.current.addEventListener("loadedmetadata", () => {
-          console.log("🎥 Video metadata loaded, forcing play...")
-          if (cameraVideoRef.current) {
-            cameraVideoRef.current
-              .play()
-              .then(() => console.log("🎥 Video playing successfully!"))
-              .catch((error) => console.error("🎥 Play failed:", error))
-          }
-        })
-
-        // Also try immediate play
-        cameraVideoRef.current
-          .play()
-          .then(() => console.log("🎥 Immediate play successful!"))
-          .catch((error) => {
-            console.error("🎥 Immediate play failed:", error)
-            // Try again after a delay
-            setTimeout(() => {
-              if (cameraVideoRef.current) {
-                cameraVideoRef.current.play().catch(console.error)
-              }
-            }, 500)
-          })
-      } else {
-        console.error("🎥 Camera video ref not available!")
-      }
-
-      toast({
-        title: "Camera Started",
-        description: "Your camera is now active.",
-      })
-    } catch (error) {
-      console.error("❌ Error accessing camera:", error)
-      setCameraError("Camera access failed")
-      setCameraOn(false)
-      toast({
-        title: "Camera Error",
-        description: "Could not access camera. Please check permissions.",
-        variant: "destructive",
-      })
-    }
-  }
-
-  const stopCamera = () => {
-    console.log("🎥 Stopping camera...")
-    if (cameraStream) {
-      cameraStream.getTracks().forEach((track) => {
-        console.log("🎥 Stopping track:", track.kind)
-        track.stop()
-      })
-      setCameraStream(null)
-    }
-
-    if (cameraVideoRef.current) {
-      cameraVideoRef.current.srcObject = null
-    }
-
-    setCameraOn(false)
-    setCameraError(null)
-
-    toast({
-      title: "Camera Stopped",
-      description: "Your camera has been turned off.",
-    })
-  }
-
-  const toggleCameraPreview = () => {
-    setShowCameraPreview(!showCameraPreview)
-  }
-
-  const toggleCamera = () => {
-    if (cameraOn) {
-      stopCamera()
-    } else {
-      startCamera()
-    }
-  }
-
-  // Handle camera permission
-  const handleCameraPermissionGranted = () => {
-    setCameraPermissionGranted(true)
-    setShowCameraPermission(false)
-    // Auto-enter fullscreen after camera permission
-    // setTimeout(() => {
-    //   if (document.documentElement) {
-    //     requestFullscreen(document.documentElement)
-    //   }
-    // }, 500)
-  }
-
-  const handleSkipCamera = () => {
-    setCameraPermissionGranted(false)
-    setShowCameraPermission(false)
-  }
-
-  const toggleFullscreen = () => {
-    if (!document.fullscreenElement && playerContainerRef.current) {
-      playerContainerRef.current.requestFullscreen().catch((err) => {
-        console.error(`Error attempting to enable fullscreen: ${err.message}`)
-        toast({
-          title: "Fullscreen Error",
-          description: "Unable to enter fullscreen mode. This may be due to browser restrictions.",
-          variant: "destructive",
-        })
-      })
-    } else if (document.fullscreenElement) {
-      document.exitFullscreen()
-    }
-  }
-
-  // Function to request fullscreen with all possible methods
-  const requestFullscreen = (element: HTMLElement) => {
-    if (element.requestFullscreen) {
-      element.requestFullscreen().catch((err) => console.error("Error attempting to enable fullscreen:", err))
-    } else if ((element as any).mozRequestFullScreen) {
-      ;(element as any)
-        .mozRequestFullScreen()
-        .catch((err) => console.error("Error attempting to enable fullscreen:", err))
-    } else if ((element as any).webkitRequestFullscreen) {
-      ;(element as any)
-        .webkitRequestFullscreen()
-        .catch((err) => console.error("Error attempting to enable fullscreen:", err))
-    } else if ((element as any).msRequestFullscreen) {
-      ;(element as any)
-        .msRequestFullscreen()
-        .catch((err) => console.error("Error attempting to enable fullscreen:", err))
-    }
-  }
-
-  // Function to check if browser is in fullscreen mode
-  const isInFullscreen = () => {
-    return !!(
-      document.fullscreenElement ||
-      (document as any).webkitFullscreenElement ||
-      (document as any).mozFullScreenElement ||
-      (document as any).msFullscreenElement
-    )
+  // Helper to extract YouTube video ID
+  const getYouTubeVideoId = (url: string): string | null => {
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/
+    const match = url.match(regExp)
+    return match && match[2].length === 11 ? match[2] : null
   }
 
   useEffect(() => {
-    // Set mounted flag
-    isMounted.current = true
-
-    // Add class to body to prevent scrolling and selection
-    document.body.classList.add("video-playing")
-
-    const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement)
-    }
-
-    document.addEventListener("fullscreenchange", handleFullscreenChange)
-
-    // Add animation class for emoji reactions
-    const style = document.createElement("style")
-    style.textContent = `
-      @keyframes floatUp {
-        0% { transform: translateY(0); opacity: 1; }
-        100% { transform: translateY(-100px); opacity: 0; }
-      }
-      .animate-emoji {
-        animation: floatUp 2s ease-out forwards;
-      }
-    `
-    document.head.appendChild(style)
-
-    // Only proceed if camera permission check is done
-    if (!showCameraPermission) {
-      // Apply fullscreen on mount
-      const enterFullscreen = () => {
-        if (document.documentElement) {
-          requestFullscreen(document.documentElement)
-        }
-      }
-
-      // Try to enter fullscreen after a short delay
-      setTimeout(enterFullscreen, 1000)
-
-      // Add fullscreen change event listeners for all browser variants
-      // const handleFullscreenChange = () => {
-      //   enforceFullscreen()
-      // }
-
-      // document.addEventListener("fullscreenchange", handleFullscreenChange)
-      // document.addEventListener("webkitfullscreenchange", handleFullscreenChange)
-      // document.addEventListener("mozfullscreenchange", handleFullscreenChange)
-      // document.addEventListener("MSFullscreenChange", handleFullscreenChange)
-
-      // Start interval to continuously check fullscreen status
-      // fullscreenCheckInterval.current = setInterval(() => {
-      //   enforceFullscreen()
-      // }, 1000)
-
-      // Prevent keyboard shortcuts
-      const handleKeyDown = (e: KeyboardEvent) => {
-        // Allow only volume controls
-        if (!(e.key === "ArrowUp" || e.key === "ArrowDown")) {
-          e.preventDefault()
-          e.stopPropagation()
-          return false
-        }
-      }
-
-      window.addEventListener("keydown", handleKeyDown, true)
-
-      // Prevent right-click
-      const handleContextMenu = (e: MouseEvent) => {
-        e.preventDefault()
-        return false
-      }
-
-      document.addEventListener("contextmenu", handleContextMenu)
-
-      // Prevent picture-in-picture
-      const handlePictureInPicture = (e: Event) => {
-        e.preventDefault()
-        return false
-      }
-
-      document.addEventListener("enterpictureinpicture", handlePictureInPicture)
-
-      // Prevent copying
-      const handleCopy = (e: ClipboardEvent) => {
-        e.preventDefault()
-        return false
-      }
-
-      document.addEventListener("copy", handleCopy)
-
-      // Prevent selection
-      const handleSelectStart = (e: Event) => {
-        e.preventDefault()
-        return false
-      }
-
-      document.addEventListener("selectstart", handleSelectStart)
-
-      // Prevent drag
-      const handleDragStart = (e: DragEvent) => {
-        e.preventDefault()
-        return false
-      }
-
-      document.addEventListener("dragstart", handleDragStart)
-
-      // Prevent mouse wheel for zooming
-      const handleWheel = (e: WheelEvent) => {
-        if (e.ctrlKey) {
-          e.preventDefault()
-          return false
-        }
-      }
-
-      document.addEventListener("wheel", handleWheel, { passive: false })
-
-      // Hide cursor after inactivity
-      let cursorTimeout: NodeJS.Timeout | null = null
-      const handleMouseMove = () => {
-        document.body.classList.remove("inactive-cursor")
-
-        if (cursorTimeout) {
-          clearTimeout(cursorTimeout)
-        }
-
-        cursorTimeout = setTimeout(() => {
-          document.body.classList.add("inactive-cursor")
-        }, 3000)
-      }
-
-      document.addEventListener("mousemove", handleMouseMove)
-
-      // Initial cursor timeout
-      cursorTimeout = setTimeout(() => {
-        document.body.classList.add("inactive-cursor")
-      }, 3000)
-
-      fetchUserData()
-      fetchCourseDetails()
-
-      // Load YouTube API
-      if (!window.YT) {
-        const tag = document.createElement("script")
-        tag.src = "https://www.youtube.com/iframe_api"
-        const firstScriptTag = document.getElementsByTagName("script")[0]
-        firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag)
-
-        // Define the onYouTubeIframeAPIReady function
-        window.onYouTubeIframeAPIReady = () => {
-          console.log("YouTube API ready")
-          if (isMounted.current) {
-            setYtApiLoaded(true)
-          }
-        }
-      } else {
-        setYtApiLoaded(true)
-      }
-
-      // Cleanup on unmount
-      return () => {
-        document.removeEventListener("fullscreenchange", handleFullscreenChange)
-
-        isMounted.current = false
-
-        // Force stop camera on cleanup
-        console.log("🧹 Cleanup - force stopping camera...")
-        if (cameraStream) {
-          cameraStream.getTracks().forEach((track) => {
-            console.log("🎥 Force stopping track on cleanup:", track.kind)
-            track.stop()
-          })
-        }
-
-        if (cameraVideoRef.current) {
-          cameraVideoRef.current.srcObject = null
-        }
-
-        // Stop camera
-        stopCamera()
-
-        // Remove body class
-        document.body.classList.remove("video-playing")
-        document.body.classList.remove("inactive-cursor")
-
-        if (videoTimer.current) clearInterval(videoTimer.current)
-        if (startVideoTimeout.current) clearTimeout(startVideoTimeout.current)
-        if (sessionCheckInterval.current) clearInterval(sessionCheckInterval.current)
-        // if (fullscreenCheckInterval.current) clearInterval(fullscreenCheckInterval.current)
-        // if (fullscreenRetryTimeout.current) clearTimeout(fullscreenRetryTimeout.current)
-        if (cursorTimeout) clearTimeout(cursorTimeout)
-
-        // Exit fullscreen on unmount
-        if (document.fullscreenElement) {
-          document.exitFullscreen().catch((err) => console.error("Error exiting fullscreen:", err))
-        } else if ((document as any).webkitExitFullscreen) {
-          ;(document as any).webkitExitFullscreen()
-        } else if ((document as any).mozCancelFullScreen) {
-          ;(document as any).mozCancelFullScreen()
-        } else if ((document as any).msExitFullscreen) {
-          ;(document as any).msExitFullscreen()
-        }
-
-        // Remove event listeners
-        // document.removeEventListener("fullscreenchange", handleFullscreenChange)
-        // document.removeEventListener("webkitfullscreenchange", handleFullscreenChange)
-        // document.removeEventListener("mozfullscreenchange", handleFullscreenChange)
-        // document.removeEventListener("MSFullscreenChange", handleFullscreenChange)
-        window.removeEventListener("keydown", handleKeyDown, true)
-        document.removeEventListener("contextmenu", handleContextMenu)
-        document.removeEventListener("enterpictureinpicture", handlePictureInPicture)
-        document.removeEventListener("copy", handleCopy)
-        document.removeEventListener("selectstart", handleSelectStart)
-        document.removeEventListener("dragstart", handleDragStart)
-        document.removeEventListener("wheel", handleWheel)
-        document.removeEventListener("mousemove", handleMouseMove)
-
-        // Destroy YouTube player if it exists
-        if (youtubePlayer.current) {
-          try {
-            youtubePlayer.current.destroy()
-          } catch (error) {
-            console.error("Error destroying YouTube player:", error)
-          }
-        }
-
-        // Remove the added style element
-        const addedStyle = document.head.querySelector("style:last-child")
-        if (addedStyle) {
-          addedStyle.remove()
-        }
-      }
+    if (!window.YT) {
+      const tag = document.createElement("script")
+      tag.src = "https://www.youtube.com/iframe_api"
+      const firstScriptTag = document.getElementsByTagName("script")[0]
+      firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag)
     }
   }, [])
 
-  // Effect to initialize YouTube player when API is loaded and video ID is set
+  // Effect to fetch course data and initialize player
   useEffect(() => {
-    if (ytApiLoaded && youtubeVideoId && playerContainerRef.current && !showCameraPermission) {
-      initializeYouTubePlayer()
-    }
-  }, [ytApiLoaded, youtubeVideoId, showCameraPermission])
+    const fetchCourseAndInitialize = async () => {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
+        if (!user) {
+          toast({
+            title: "Authentication Required",
+            description: "Please log in to access courses.",
+            variant: "destructive",
+          })
+          router.push("/user/login")
+          return
+        }
 
-  // Effect to check if session is still active
-  useEffect(() => {
-    if (courseDetails && !showCameraPermission) {
-      // Start a timer to periodically check if the session is still active
-      sessionCheckInterval.current = setInterval(() => {
-        checkSessionStatus()
-      }, 30000) // Check every 30 seconds
+        const { data: courseData, error: courseError } = await supabase
+          .from("courses")
+          .select("*")
+          .eq("id", courseId)
+          .single()
 
-      // Initial check
-      checkSessionStatus()
+        if (courseError) throw courseError
+        if (!courseData) throw new Error("Course not found")
 
-      return () => {
-        if (sessionCheckInterval.current) {
-          clearInterval(sessionCheckInterval.current)
+        setCourse(courseData)
+
+        // Set actual video duration from DB or default
+        const duration = courseData.videoDuration || 86400
+        setActualVideoDuration(duration)
+
+        // Extract YouTube video ID and initialize player
+        if (courseData.youtube_link) {
+          const videoId = getYouTubeVideoId(courseData.youtube_link)
+          if (videoId) {
+            initializeYouTubePlayer(videoId, courseData.youtube_link)
+          } else {
+            setError("Invalid YouTube URL provided for this course.")
+          }
+        } else {
+          setError("No YouTube link found for this course.")
+        }
+
+        setLoading(false)
+        checkSessionStatus(courseData) // Initial session check
+      } catch (err: any) {
+        console.error("[AccessCoursePage] Error fetching course:", err)
+        setError(err.message || "Failed to load course details.")
+        setLoading(false)
+        // Redirect if it's a critical error like course not found
+        if (err.message === "Course not found") {
+          setTimeout(() => router.push("/user/access-course"), 3000)
         }
       }
     }
-  }, [courseDetails, showCameraPermission, sessionStartTime])
 
-  // Calculate the current time position in the video based on session start time
-  const calculateCurrentTimePosition = (startTime: Date): number => {
-    const now = new Date()
-    const elapsedMilliseconds = now.getTime() - startTime.getTime()
-    return Math.floor(elapsedMilliseconds / 1000) // Convert to seconds
+    fetchCourseAndInitialize()
+
+    // Cleanup for API ready listener
+    return () => {
+      if (window.onYouTubeIframeAPIReady) {
+        delete window.onYouTubeIframeAPIReady
+      }
+    }
+  }, [courseId])
+
+  useEffect(() => {
+    if (!skipCamera) {
+      // Request camera permission when page loads
+      const requestCamera = async () => {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+          setCameraPermissionGranted(true)
+          setShowCameraPermission(false)
+
+          // Optionally auto-enable camera
+          if (cameraVideoRef.current) {
+            cameraVideoRef.current.srcObject = stream
+            setCameraEnabled(true)
+            setShowCameraPreview(true)
+          }
+        } catch (error) {
+          console.error("Camera permission denied on page load:", error)
+          setCameraPermissionGranted(false)
+          setShowCameraPermission(false)
+        }
+      }
+
+      requestCamera()
+    } else {
+      // Skip camera entirely
+      setCameraPermissionGranted(false)
+      setShowCameraPermission(false)
+    }
+  }, [skipCamera])
+
+  // Function to initialize YouTube player
+  const initializeYouTubePlayer = (videoId: string, videoUrl: string) => {
+    console.log("[AccessCoursePage] Initializing YouTube player with video ID:", videoId)
+
+    const initPlayer = () => {
+      if (window.YT && window.YT.Player) {
+        if (playerRef.current) {
+          try {
+            playerRef.current.destroy()
+            playerRef.current = null
+          } catch (error) {
+            console.error("[AccessCoursePage] Error destroying existing player:", error)
+          }
+        }
+
+        if (videoContainerRef.current) {
+          videoContainerRef.current.innerHTML = ""
+        }
+
+        const playerDiv = document.createElement("div")
+        playerDiv.id = "youtube-player"
+        playerDiv.style.width = "100%"
+        playerDiv.style.height = "100%"
+        playerDiv.style.position = "absolute"
+        playerDiv.style.top = "0"
+        playerDiv.style.left = "0"
+        playerDiv.style.zIndex = "1"
+
+        if (videoContainerRef.current) {
+          videoContainerRef.current.appendChild(playerDiv)
+        } else {
+          console.error("[AccessCoursePage] videoContainerRef is null")
+          setError("Failed to initialize video player.")
+          return
+        }
+
+        playerRef.current = new window.YT.Player("youtube-player", {
+          videoId: videoId,
+          playerVars: {
+            autoplay: 1,
+            controls: 0, // Hide ALL on-screen controls
+            disablekb: 1, // Disable keyboard controls
+            fs: 0, // Hide fullscreen button
+            rel: 0,
+            showinfo: 0,
+            iv_load_policy: 3,
+            modestbranding: 1,
+            playsinline: 1,
+            mute: 0,
+            origin: window.location.origin,
+            enablejsapi: 1,
+            cc_load_policy: 0,
+            color: "white",
+            autohide: 1,
+          },
+          events: {
+            onReady: (event: any) => {
+              console.log("[AccessCoursePage] ✅ YouTube player ready!")
+
+              const duration = event.target.getDuration()
+              if (duration && duration > 0) {
+                console.log("[AccessCoursePage] Video duration:", duration, "seconds")
+                setActualVideoDuration(duration)
+                setCourse((prev) => (prev ? { ...prev, videoDuration: duration } : null))
+              }
+
+              event.target.playVideo()
+              event.target.setVolume(100)
+              event.target.unMute()
+
+              toast({
+                title: "Video Ready",
+                description: "Your session has started. Enjoy!",
+              })
+
+              startWatchTimer()
+
+              setTimeout(() => {
+                if (!attendanceMarked) {
+                  markAttendance()
+                }
+              }, 60000)
+            },
+            onStateChange: (event: any) => {
+              console.log("[AccessCoursePage] Player state:", event.data)
+
+              if (event.data === 0) {
+                handleVideoEnd()
+              } else if (event.data === 100 || event.data === 101 || event.data === 150) {
+                console.error("[AccessCoursePage] Video Error:", event.data)
+                setError("This video cannot be played. Please contact support.")
+                handleVideoEnd()
+              }
+            },
+            onError: (event: any) => {
+              console.error("[AccessCoursePage] ❌ YouTube error:", event.data)
+              let errorMessage = "Error loading video."
+
+              if (event.data === 2) errorMessage = "Invalid video parameter."
+              else if (event.data === 5) errorMessage = "HTML5 player error."
+              else if (event.data === 100) errorMessage = "Video not found."
+              else if (event.data === 101 || event.data === 150) errorMessage = "Video cannot be embedded."
+
+              toast({ title: "Video Error", description: errorMessage, variant: "destructive" })
+              setError(errorMessage)
+              handleVideoEnd()
+            },
+          },
+        })
+      } else {
+        window.onYouTubeIframeAPIReady = initPlayer
+      }
+    }
+
+    if (window.YT && window.YT.Player) {
+      initPlayer()
+    } else {
+      window.onYouTubeIframeAPIReady = initPlayer
+    }
   }
 
-  const checkSessionStatus = () => {
-    if (!courseDetails || !sessionStartTime) return
+  // Function to check session status based on course details
+  const checkSessionStatus = (currentCourseDetails: CourseDetails) => {
+    if (!currentCourseDetails) return
 
     const now = new Date()
-    const scheduledDate = new Date(courseDetails.scheduled_date)
+    const scheduledDate = new Date(currentCourseDetails.scheduled_date)
 
-    // Parse batch times if available
-    const batchTimes = courseDetails.batch_times ? JSON.parse(courseDetails.batch_times) : null
-    let startHour = scheduledDate.getHours()
-    let startMinute = scheduledDate.getMinutes()
+    // Default to 24 hours if no duration specified or if it's too short
+    const videoDuration = actualVideoDuration || 86400
 
-    if (batchTimes && batchTimes.start_time) {
-      const [hour, minute] = batchTimes.start_time.split(":").map(Number)
-      startHour = hour
-      startMinute = minute
+    let startHour = 0
+    let startMinute = 0
+    let sessionEndTime: Date | null = null
+
+    if (currentCourseDetails.is_predefined_batch && currentCourseDetails.batch_number) {
+      const batchNum = Number.parseInt(currentCourseDetails.batch_number)
+      if (batchNum === 1) {
+        startHour = 5
+        startMinute = 30
+      } else if (batchNum === 2) {
+        startHour = 6
+        startMinute = 40
+      } else if (batchNum === 3) {
+        startHour = 7
+        startMinute = 50
+      } else if (batchNum === 4) {
+        startHour = 17
+        startMinute = 30
+      } else if (batchNum === 5) {
+        startHour = 18
+        startMinute = 40
+      } else if (batchNum === 6) {
+        startHour = 19
+        startMinute = 50
+      }
+    } else if (currentCourseDetails.custom_batch_time) {
+      const timeMatch = currentCourseDetails.custom_batch_time.match(/(\d+):(\d+)\s*(AM|PM)?/)
+      if (timeMatch) {
+        let hour = Number.parseInt(timeMatch[1])
+        const minute = Number.parseInt(timeMatch[2])
+        const ampm = timeMatch[3]?.toUpperCase()
+
+        if (ampm === "PM" && hour < 12) hour += 12
+        if (ampm === "AM" && hour === 12) hour = 0
+
+        startHour = hour
+        startMinute = minute
+      }
+    } else {
+      // No specific batch time, treat as available all day for the scheduled date
+      // This path should ideally not be taken if the backend enforces batch times
+      // For safety, we can default to a standard start time or error out.
+      // Let's assume it should have a batch time if scheduled_date is used meaningfully.
+      console.warn(
+        "[AccessCoursePage] Course has scheduled_date but no batch times specified. Assuming no session restriction beyond date.",
+      )
+      const todayLocalDate = now.toLocaleDateString("en-CA")
+      const scheduledLocalDate = scheduledDate.toLocaleDateString("en-CA")
+      if (scheduledLocalDate !== todayLocalDate) {
+        setError("This course session is not for today. Returning to course list.")
+        setSessionActive(false)
+        setTimeout(() => router.push("/user/access-course"), 3000)
+        return
+      }
+      // If today, allow access, but watch time will determine attendance
+      setSessionActive(true) // Assume active if today
+      // We might not be able to set a precise session start time here without batch times
+      // So, we'll rely on video duration for session end.
+      sessionEndTime = new Date(scheduledDate.getTime() + videoDuration * 1000)
     }
 
-    scheduledDate.setHours(startHour, startMinute, 0, 0)
-
-    // Store the session start time
-    if (!sessionStartTime) {
-      setSessionStartTime(scheduledDate)
+    if (!sessionEndTime) {
+      scheduledDate.setHours(startHour, startMinute, 0, 0)
+      setSessionStartTime(scheduledDate) // Store the session start time
+      sessionEndTime = new Date(scheduledDate.getTime() + videoDuration * 1000)
     }
 
-    // Priority: 1. Actual YouTube duration, 2. 24 hours default (never use short database duration)
-    const duration = actualVideoDuration || 86400 // Always default to 24 hours if YouTube duration not available
+    const gracePeriod = 7200 // 2 hours grace period after video ends
+    const sessionEndWithGrace = new Date(sessionEndTime.getTime() + gracePeriod * 1000)
 
-    console.log(
-      "[v0] Session check - Using duration:",
-      duration,
-      "seconds (",
-      Math.floor(duration / 3600),
-      "hours",
-      Math.floor((duration % 3600) / 60),
-      "minutes)",
-    )
-    console.log("[v0] Actual video duration:", actualVideoDuration)
-    console.log("[v0] Database duration:", courseDetails.videoDuration)
+    console.log("[AccessCoursePage] Session Check:")
+    console.log("[AccessCoursePage] - Scheduled Start:", scheduledDate.toLocaleString())
+    console.log("[AccessCoursePage] - Calculated End:", sessionEndTime.toLocaleString())
+    console.log("[AccessCoursePage] - End with Grace:", sessionEndWithGrace.toLocaleString())
+    console.log("[AccessCoursePage] - Current Time:", now.toLocaleString())
 
-    const endTime = new Date(scheduledDate.getTime() + duration * 1000)
+    const isActive = now >= scheduledDate && now < sessionEndWithGrace
 
-    // Check if current time is within the session time
-    const isActive = now >= scheduledDate && now < endTime
-
-    // Update session active state
     setSessionActive(isActive)
-
-    const gracePeriod = 7200 // 2 hour grace period after video ends (was 1 hour)
-    const sessionEndWithGrace = new Date(endTime.getTime() + gracePeriod * 1000)
-
-    console.log("[v0] Session times:")
-    console.log("[v0] - Scheduled start:", scheduledDate.toLocaleString())
-    console.log("[v0] - Calculated end:", endTime.toLocaleString())
-    console.log("[v0] - End with grace:", sessionEndWithGrace.toLocaleString())
-    console.log("[v0] - Current time:", now.toLocaleString())
-    console.log("[v0] - Session active:", isActive)
 
     if (now < scheduledDate) {
       // Session hasn't started yet
-      console.log("[v0] Session hasn't started yet")
       toast({
         title: "Session Not Started",
         description: "This session hasn't started yet. Please wait for the scheduled time.",
@@ -587,10 +399,9 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
       })
       setTimeout(() => {
         router.push("/user/access-course")
-      }, 3000)
-    } else if (now > sessionEndWithGrace && !hasCompletedVideo) {
-      // Session ended with grace period and video not completed
-      console.log("[v0] Session ended with grace period")
+      }, 5000) // Wait longer to allow user to see message
+    } else if (now > sessionEndWithGrace && !attendanceMarked) {
+      // Session ended with grace period and video not completed/attendance not marked
       toast({
         title: "Session Ended",
         description: "This session is no longer active. Returning to course list.",
@@ -598,905 +409,551 @@ export default function VideoPlayer({ params }: { params: { courseId: string } }
       })
       setTimeout(() => {
         router.push("/user/access-course")
-      }, 3000)
+      }, 5000)
     } else {
-      console.log("[v0] Session is active and running normally")
+      console.log("[AccessCoursePage] Session is active and running normally.")
+      // If active, calculate current time position for resuming video
+      if (sessionStartTime) {
+        const elapsedMilliseconds = now.getTime() - sessionStartTime.getTime()
+        setCurrentTimePosition(Math.max(0, Math.floor(elapsedMilliseconds / 1000)))
+      }
     }
   }
 
-  // Fetch user data including database ID
-  async function fetchUserData() {
-    try {
-      const supabase = getSupabaseBrowserClient()
-
-      // Get auth user ID from localStorage
-      const authUserId = localStorage.getItem("userId")
-      if (!authUserId) {
-        console.error("User ID not found in localStorage")
-        setAttendanceError("User ID not found. Please log in again.")
-        return
-      }
-
-      // Try to get user by user_id field first
-      const { data, error } = await supabase.from("users").select("id, email").eq("user_id", authUserId).limit(1)
-
-      if (error) {
-        console.error("Error fetching user data:", error)
-        setAttendanceError("Error fetching user data. Please try again.")
-        return
-      }
-
-      if (data && data.length > 0) {
-        setUserDbId(data[0].id)
-      } else {
-        // Try with id field as a fallback
-        const { data: userData, error: userError } = await supabase
-          .from("users")
-          .select("id, email")
-          .eq("id", authUserId)
-          .limit(1)
-
-        if (userError) {
-          console.error("Error in second user fetch attempt:", userError)
-          setAttendanceError("Error fetching user data. Please try again.")
-          return
-        }
-
-        if (userData && userData.length > 0) {
-          setUserDbId(userData[0].id)
-        } else {
-          // As a fallback, use the auth user ID directly
-          setUserDbId(Number.parseInt(authUserId, 10) || null)
-
-          if (isNaN(Number.parseInt(authUserId, 10))) {
-            console.error("Auth user ID is not a valid number for fallback")
-            setAttendanceError("User not found in database. Please contact support.")
-          }
-        }
-      }
-    } catch (error) {
-      console.error("Error in fetchUserData:", error)
-      setAttendanceError("An unexpected error occurred. Please try again.")
-    }
-  }
-
-  // Fetch course details
-  async function fetchCourseDetails() {
-    try {
-      setLoading(true)
-      const supabase = getSupabaseBrowserClient()
-
-      // Fetch the course details
-      const { data, error } = await supabase.from("courses").select("*").eq("id", params.courseId).single()
-
-      if (error) {
-        throw error
-      }
-
-      if (!data) {
-        throw new Error("Course not found")
-      }
-
-      const videoDuration = data.video_duration || 86400 // 24 hours maximum by default
-
-      setCourseDetails({
-        ...data,
-        videoDuration,
-      })
-
-      // Extract YouTube video ID
-      const videoId = extractYoutubeVideoId(data.youtube_link)
-      if (!videoId) {
-        throw new Error("Invalid YouTube link")
-      }
-
-      setYoutubeVideoId(videoId)
-
-      // Check if the session is active
-      const now = new Date()
-      const scheduledDate = new Date(data.scheduled_date)
-
-      // NEW LOGIC: Check if batch times are specified
-      const hasBatchTimes = data.batch_number || data.custom_batch_time
-
-      if (!hasBatchTimes) {
-        // NO BATCH TIMES: Allow access for full day
-        const todayLocalDate = now.toLocaleDateString("en-CA")
-        const scheduledLocalDate = scheduledDate.toLocaleDateString("en-CA")
-
-        if (scheduledLocalDate === todayLocalDate) {
-          setSessionActive(true)
-        } else {
-          toast({
-            title: "Session Not Active",
-            description: "This session is not currently active. Returning to course list.",
-            variant: "destructive",
-          })
-
-          setTimeout(() => {
-            router.push("/user/access-course")
-          }, 3000)
-        }
-        return
-      }
-
-      // HAS BATCH TIMES: Use existing batch time logic
-      let startHour = 0
-      let startMinute = 0
-
-      if (data.is_predefined_batch && data.batch_number) {
-        // Parse predefined batch times
-        const batchNum = Number.parseInt(data.batch_number)
-        if (batchNum === 1) {
-          startHour = 5
-          startMinute = 30
-        } else if (batchNum === 2) {
-          startHour = 6
-          startMinute = 40
-        } else if (batchNum === 3) {
-          startHour = 7
-          startMinute = 50
-        } else if (batchNum === 4) {
-          startHour = 17
-          startMinute = 30
-        } else if (batchNum === 5) {
-          startHour = 18
-          startMinute = 40
-        } else if (batchNum === 6) {
-          startHour = 19
-          startMinute = 50
-        }
-      } else if (data.custom_batch_time) {
-        // Parse custom batch time
-        const timeMatch = data.custom_batch_time.match(/(\d+):(\d+)\s*(AM|PM)?/)
-        if (timeMatch) {
-          let hour = Number.parseInt(timeMatch[1])
-          const minute = Number.parseInt(timeMatch[2])
-          const ampm = timeMatch[3]?.toUpperCase()
-
-          // Convert to 24-hour format if needed
-          if (ampm === "PM" && hour < 12) hour += 12
-          if (ampm === "AM" && hour === 12) hour = 0
-
-          startHour = hour
-          startMinute = minute
-        }
-      }
-
-      // Set the start time
-      scheduledDate.setHours(startHour, startMinute, 0, 0)
-
-      // Store the session start time
-      setSessionStartTime(scheduledDate)
-
-      // Calculate the current time position in the video
-      const currentPosition = calculateCurrentTimePosition(scheduledDate)
-      setCurrentTimePosition(currentPosition)
-
-      // Calculate end time based on default duration
-      const endTime = new Date(scheduledDate.getTime() + videoDuration * 1000)
-
-      // Check if current time is within the session time
-      const isActive = now >= scheduledDate && now < endTime
-
-      if (!isActive) {
-        toast({
-          title: "Session Not Active",
-          description: "This session is not currently active. Returning to course list.",
-          variant: "destructive",
-        })
-
-        // Redirect after a short delay
-        setTimeout(() => {
-          router.push("/user/access-course")
-        }, 3000)
-      }
-
-      setSessionActive(isActive)
-    } catch (error: any) {
-      console.error("Error fetching course details:", error)
-      toast({
-        title: "Error",
-        description: error.message || "Failed to load course details. Please try again later.",
-        variant: "destructive",
-      })
-      router.push("/user/access-course")
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // Function to initialize YouTube player
-  const initializeYouTubePlayer = () => {
-    if (!window.YT || !window.YT.Player || !playerContainerRef.current || !youtubeVideoId) {
-      console.log("YouTube API or player container not ready")
-      return
-    }
-
-    // Destroy existing player if it exists
-    if (youtubePlayer.current) {
-      try {
-        youtubePlayer.current.destroy()
-        youtubePlayer.current = null
-      } catch (error) {
-        console.error("Error destroying existing YouTube player:", error)
-      }
-    }
-
-    try {
-      // Create a new div for the player
-      const playerDiv = document.createElement("div")
-      playerDiv.id = "youtube-player"
-      playerDiv.style.width = "100%"
-      playerDiv.style.height = "100%"
-      playerDiv.style.position = "absolute"
-      playerDiv.style.top = "0"
-      playerDiv.style.left = "0"
-
-      // Clear the container first
-      if (playerContainerRef.current) {
-        playerContainerRef.current.innerHTML = ""
-        playerContainerRef.current.appendChild(playerDiv)
-      }
-
-      // Create new player
-      youtubePlayer.current = new window.YT.Player("youtube-player", {
-        videoId: youtubeVideoId,
-        playerVars: {
-          autoplay: 1,
-          controls: 0,
-          disablekb: 1,
-          fs: 0,
-          rel: 0,
-          showinfo: 0,
-          iv_load_policy: 3,
-          modestbranding: 1,
-          cc_load_policy: 0,
-          playsinline: 1,
-          origin: window.location.origin,
-          mute: 0, // Ensure audio is not muted
-          start: currentTimePosition > 0 ? currentTimePosition : 0, // Start from current position if joining late
-        },
-        events: {
-          onReady: (event) => {
-            console.log("YouTube player ready")
-
-            // Set player size to fill container
-            const iframe = event.target.getIframe()
-            if (iframe) {
-              iframe.style.width = "100vw"
-              iframe.style.height = "100vh"
-              iframe.style.position = "absolute"
-              iframe.style.top = "0"
-              iframe.style.left = "0"
-              iframe.style.border = "none"
-
-              // Add additional styles to prevent interaction
-              iframe.style.pointerEvents = "none"
-
-              // Add a transparent overlay to capture all events
-              const overlay = document.createElement("div")
-              overlay.style.position = "absolute"
-              overlay.style.top = "0"
-              overlay.style.left = "0"
-              overlay.style.width = "100%"
-              overlay.style.height = "100%"
-              overlay.style.zIndex = "10"
-
-              if (playerContainerRef.current) {
-                playerContainerRef.current.appendChild(overlay)
-              }
-            }
-
-            const duration = event.target.getDuration()
-            if (duration && duration > 0) {
-              console.log(
-                "[v0] Actual YouTube video duration detected:",
-                duration,
-                "seconds (",
-                Math.floor(duration / 3600),
-                "hours",
-                Math.floor((duration % 3600) / 60),
-                "minutes)",
-              )
-
-              setActualVideoDuration(duration)
-
-              // Update course details with actual duration
-              setCourseDetails((prev) => (prev ? { ...prev, videoDuration: duration } : null))
-
-              // Force a session status check with the new duration
-              setTimeout(() => {
-                checkSessionStatus()
-              }, 1000)
-            }
-
-            // Start video timer
-            startVideoTimer()
-
-            // Mark attendance after a delay
-            startVideoTimeout.current = setTimeout(() => {
-              markAttendance()
-            }, 60000) // Mark attendance after 1 minute
-
-            // Start the video at the current position if joining late
-            if (currentTimePosition > 0) {
-              event.target.seekTo(currentTimePosition, true)
-            }
-
-            event.target.playVideo()
-
-            // Set volume to 100% (full sound)
-            event.target.setVolume(100)
-            // Ensure video is unmuted
-            event.target.unMute()
-          },
-          onStateChange: (event) => {
-            // YT.PlayerState.ENDED = 0
-            if (event.data === 0) {
-              handleVideoEnd()
-            }
-
-            // If video is paused, play it again (prevent user from pausing)
-            if (event.data === 2) {
-              // YT.PlayerState.PAUSED = 2
-              event.target.playVideo()
-            }
-
-            // If video is buffering, show loading state
-            if (event.data === 3) {
-              // YT.PlayerState.BUFFERING = 3
-              console.log("Video is buffering...")
-            }
-          },
-          onError: (event) => {
-            console.error("YouTube player error:", event.data)
-            toast({
-              title: "Video Error",
-              description: "There was an error playing the video. Please try again.",
-              variant: "destructive",
-            })
-          },
-          onPlaybackQualityChange: (event) => {
-            console.log("Playback quality changed to:", event.data)
-          },
-          onPlaybackRateChange: (event) => {
-            if (event.data !== 1) {
-              console.log("Playback rate changed to:", event.data, "- resetting to normal speed")
-              event.target.setPlaybackRate(1)
-            }
-          },
-        },
-      })
-    } catch (error) {
-      console.error("Error initializing YouTube player:", error)
-
-      // Fallback to iframe if YT Player fails
-      if (playerContainerRef.current) {
-        playerContainerRef.current.innerHTML = ""
-        const iframe = document.createElement("iframe")
-
-        // Add start parameter to start from current position if joining late
-        const startParam = currentTimePosition > 0 ? `&start=${currentTimePosition}` : ""
-
-        iframe.src = `https://www.youtube.com/embed/${youtubeVideoId}?autoplay=1&controls=0&disablekb=1&fs=0&rel=0&showinfo=0&iv_load_policy=3&modestbranding=1&cc_load_policy=0&playsinlinecontrols=0&disablekb=1&fs=0&rel=0&showinfo=0&iv_load_policy=3&modestbranding=1&cc_load_policy=0&playsinline=1${startParam}&origin=${window.location.origin}`
-        iframe.title = "YouTube video player"
-        iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-        iframe.allowFullscreen = true
-        iframe.style.width = "100vw"
-        iframe.style.height = "100vh"
-        iframe.style.position = "absolute"
-        iframe.style.top = "0"
-        iframe.style.left = "0"
-        iframe.style.border = "none"
-        iframe.style.pointerEvents = "none"
-        playerContainerRef.current.appendChild(iframe)
-
-        // Add a transparent overlay to capture all events
-        const overlay = document.createElement("div")
-        overlay.style.position = "absolute"
-        overlay.style.top = "0"
-        overlay.style.left = "0"
-        overlay.style.width = "100%"
-        overlay.style.height = "100%"
-        overlay.style.zIndex = "10"
-
-        playerContainerRef.current.appendChild(overlay)
-
-        // Start video timer
-        startVideoTimer()
-
-        // Mark attendance after a delay
-        startVideoTimeout.current = setTimeout(() => {
+  // Start watch timer for attendance tracking
+  const startWatchTimer = () => {
+    console.log("[AccessCoursePage] Starting watch timer...")
+    watchTimerRef.current = setInterval(() => {
+      setWatchTime((prev) => {
+        const newTime = prev + 1
+        // Mark attendance after 60 seconds if not already marked and session is active
+        if (newTime === 60 && !attendanceMarked && sessionActive) {
           markAttendance()
-        }, 60000) // Mark attendance after 1 minute
-      }
-    }
-  }
-
-  // Function to start the video timer
-  const startVideoTimer = () => {
-    console.log("Starting video timer...")
-    videoTimer.current = setInterval(() => {
-      setElapsedTime((prev) => prev + 1)
+        }
+        // Check session status periodically if it's still active
+        if (newTime % 30 === 0) {
+          // Check every 30 seconds
+          checkSessionStatus(course!)
+        }
+        return newTime
+      })
     }, 1000)
   }
 
-  // Function to handle video end
-  const handleVideoEnd = async () => {
-    console.log("📹 Video ended - stopping camera...")
-    clearInterval(videoTimer.current!)
-    setHasCompletedVideo(true)
+  // Mark attendance
+  const markAttendance = async () => {
+    if (!course || !sessionActive) return // Don't mark if session inactive or no course data
+    if (attendanceMarked) return // Don't mark again
 
-    // Mark video as completed
-    await markVideoCompleted()
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) {
+        console.error("[AccessCoursePage] User not logged in, cannot mark attendance.")
+        return
+      }
 
-    // Force stop camera
-    if (cameraStream) {
-      cameraStream.getTracks().forEach((track) => {
-        console.log("🎥 Force stopping track on video end:", track.kind)
-        track.stop()
+      const { error } = await supabase
+        .from("user_courses")
+        .upsert([
+          // Use upsert to handle cases where attendance might already exist (e.g., partial session)
+          {
+            user_id: user.id,
+            course_id: course.id,
+            attended: true,
+            attended_at: new Date().toISOString(),
+            completed_video: false, // Ensure completed_video is false on initial attendance mark
+          },
+        ])
+        .select() // Use select to get the inserted/updated row
+
+      if (!error) {
+        setAttendanceMarked(true)
+        console.log("[AccessCoursePage] Attendance marked successfully.")
+        toast({ title: "Attendance Recorded", description: "Your attendance has been successfully recorded." })
+      } else {
+        console.error("[AccessCoursePage] Error marking attendance:", error)
+        setError("Failed to mark attendance. Please try again later.")
+      }
+    } catch (err) {
+      console.error("[AccessCoursePage] Unexpected error marking attendance:", err)
+      setError("An unexpected error occurred while marking attendance.")
+    }
+  }
+
+  // Camera controls (improved handling)
+  const toggleCamera = async () => {
+    if (!cameraPermissionGranted) {
+      toast({
+        title: "Camera Permission Required",
+        description: "Please allow camera access first.",
+        variant: "destructive",
       })
-      setCameraStream(null)
+      // Optionally prompt for permission here if not handled by CameraPermission component
+      return
     }
 
-    if (cameraVideoRef.current) {
+    if (!cameraEnabled) {
+      // Turn camera ON
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 320 },
+            height: { ideal: 240 },
+            facingMode: "user",
+          },
+          audio: false, // Assuming audio is not needed for this feature
+        })
+        if (cameraVideoRef.current) {
+          cameraVideoRef.current.srcObject = stream
+          setCameraEnabled(true)
+          setCameraPermissionGranted(true) // Ensure it's true if we got here
+          toast({ title: "Camera Started", description: "Your camera feed is active." })
+        }
+      } catch (err: any) {
+        console.error("[AccessCoursePage] Error accessing camera:", err)
+        setError("Could not access camera. Please check permissions or browser settings.")
+        toast({ title: "Camera Error", description: "Failed to access camera.", variant: "destructive" })
+        setCameraEnabled(false) // Ensure state is correct
+      }
+    } else {
+      // Turn camera OFF
+      if (cameraVideoRef.current && cameraVideoRef.current.srcObject) {
+        const stream = cameraVideoRef.current.srcObject as MediaStream
+        stream.getTracks().forEach((track) => track.stop())
+        cameraVideoRef.current.srcObject = null
+      }
+      setCameraEnabled(false)
+      setShowCameraPreview(false) // Hide preview when turning off camera
+      toast({ title: "Camera Stopped", description: "Your camera feed has been turned off." })
+    }
+  }
+
+  // Handle camera permission grant
+  const handleCameraPermissionGranted = () => {
+    setCameraPermissionGranted(true)
+    setShowCameraPermission(false) // Hide the permission prompt
+    // Optionally auto-enter fullscreen or start camera here
+    // For now, we let user control fullscreen and camera start
+  }
+
+  // Handle skipping camera permission
+  const handleSkipCamera = () => {
+    setCameraPermissionGranted(false) // Explicitly state permission is NOT granted
+    setShowCameraPermission(false)
+    toast({ title: "Camera Skipped", description: "Camera feature will be unavailable." })
+  }
+
+  const toggleFullscreen = () => {
+    const element = videoContainerRef.current
+    if (!element) return
+
+    if (!document.fullscreenElement) {
+      if (element.requestFullscreen) {
+        element.requestFullscreen().catch((err) => {
+          console.error(`Error attempting to enable fullscreen: ${err.message}`)
+          toast({ title: "Fullscreen Error", description: "Unable to enter fullscreen mode.", variant: "destructive" })
+        })
+      } else if ((element as any).mozRequestFullScreen) {
+        // Firefox
+        ;(element as any).mozRequestFullScreen().catch(console.error)
+      } else if ((element as any).webkitRequestFullscreen) {
+        // Chrome, Safari and Opera
+        ;(element as any).webkitRequestFullscreen().catch(console.error)
+      } else if ((element as any).msRequestFullscreen) {
+        // IE/Edge
+        ;(element as any).msRequestFullscreen().catch(console.error)
+      }
+      setIsFullscreen(true)
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen()
+      } else if ((document as any).mozCancelFullScreen) {
+        // Firefox
+        ;(document as any).mozCancelFullScreen()
+      } else if ((document as any).webkitExitFullscreen) {
+        // Chrome, Safari and Opera
+        ;(document as any).webkitExitFullscreen()
+      } else if ((document as any).msExitFullscreen) {
+        // IE/Edge
+        ;(document as any).msExitFullscreen()
+      }
+      setIsFullscreen(false)
+    }
+  }
+
+  const sendEmoji = (emoji: string) => {
+    // Use a dedicated container for animations
+    const container = document.getElementById("emoji-animation-container")
+    if (container) {
+      const emojiEl = document.createElement("div")
+      emojiEl.textContent = emoji
+      emojiEl.className = "absolute text-4xl animate-float-up"
+      emojiEl.style.left = `${Math.random() * 80 + 10}%`
+      emojiEl.style.bottom = "80px" // Adjusted positioning
+      container.appendChild(emojiEl)
+      setTimeout(() => emojiEl.remove(), 2000) // Remove after animation duration
+    }
+  }
+
+  // Handle video end event
+  const handleVideoEnd = async () => {
+    console.log("[AccessCoursePage] 📹 Video ended - cleaning up...")
+    if (watchTimerRef.current) {
+      clearInterval(watchTimerRef.current)
+    }
+
+    // Mark video as completed IF attendance was already marked and user watched enough
+    if (attendanceMarked && watchTime >= 60) {
+      // Ensure they watched at least 60 seconds
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
+        if (user && course) {
+          const { error } = await supabase
+            .from("user_courses")
+            .update({ completed_video: true, completed_at: new Date().toISOString() })
+            .eq("user_id", user.id)
+            .eq("course_id", course.id)
+          if (!error) {
+            console.log("[AccessCoursePage] Video marked as completed.")
+            toast({ title: "Video Completed", description: "You have successfully completed the video." })
+          } else {
+            console.error("[AccessCoursePage] Error marking video as completed:", error)
+          }
+        }
+      } catch (err) {
+        console.error("[AccessCoursePage] Error marking video as completed:", err)
+      }
+    } else if (!attendanceMarked && watchTime >= 60) {
+      // If they watched enough but attendance wasn't marked (e.g., timer issue) try to mark attendance now
+      markAttendance()
+    }
+
+    // Stop camera feed
+    if (cameraEnabled && cameraVideoRef.current?.srcObject) {
+      const stream = cameraVideoRef.current.srcObject as MediaStream
+      stream.getTracks().forEach((track) => track.stop())
       cameraVideoRef.current.srcObject = null
     }
-
-    setCameraOn(false)
+    setCameraEnabled(false)
     setShowCameraPreview(false)
 
     // Exit fullscreen
     if (document.fullscreenElement) {
-      document.exitFullscreen().catch((err) => console.error("Error exiting fullscreen:", err))
-    } else if ((document as any).webkitExitFullscreen) {
-      ;(document as any).webkitExitFullscreen()
-    } else if ((document as any).mozCancelFullScreen) {
-      ;(document as any).mozCancelFullScreen()
-    } else if ((document as any).msExitFullscreen) {
-      ;(document as any).msExitFullscreen()
+      document.exitFullscreen().catch(console.error)
     }
 
     // Redirect back to course list after a delay
     setTimeout(() => {
       router.push("/user/access-course")
-    }, 3000)
+    }, 5000) // Wait longer to allow user to see message
   }
 
-  // Function to mark attendance
-  async function markAttendance() {
-    if (!courseDetails || !userDbId) return
-
-    setMarkingAttendance(true)
-    setAttendanceError(null)
-
-    try {
-      const supabase = getSupabaseBrowserClient()
-
-      // Check if attendance already marked
-      const { data: existingAttendance, error: attendanceCheckError } = await supabase
-        .from("user_courses")
-        .select("*")
-        .eq("user_id", userDbId)
-        .eq("course_id", courseDetails.id)
-
-      if (attendanceCheckError) {
-        console.error("Error checking existing attendance:", attendanceCheckError)
-        setAttendanceError("Error checking attendance. Please try again.")
-        return
-      }
-
-      if (existingAttendance && existingAttendance.length > 0) {
-        console.log("Attendance already marked for this course")
-        return
-      }
-
-      // Mark attendance
-      const { data, error } = await supabase
-        .from("user_courses")
-        .insert([
-          {
-            user_id: userDbId,
-            course_id: courseDetails.id,
-            attended: true,
-          },
-        ])
-        .select()
-
-      if (error) {
-        console.error("Error marking attendance:", error)
-        setAttendanceError("Error marking attendance. Please try again.")
-        return
-      }
-
-      console.log("Attendance marked successfully:", data)
-    } catch (error) {
-      console.error("Error in markAttendance:", error)
-      setAttendanceError("An unexpected error occurred. Please try again.")
-    } finally {
-      setMarkingAttendance(false)
+  const exitSession = () => {
+    console.log("[AccessCoursePage] Exiting session...")
+    if (watchTimerRef.current) {
+      clearInterval(watchTimerRef.current)
     }
-  }
-
-  // Function to mark video as completed
-  async function markVideoCompleted() {
-    if (!courseDetails || !userDbId) return
-
-    try {
-      const supabase = getSupabaseBrowserClient()
-
-      // Check if video completion already marked
-      const { data: existingCompletion, error: completionCheckError } = await supabase
-        .from("user_courses")
-        .select("*")
-        .eq("user_id", userDbId)
-        .eq("course_id", courseDetails.id)
-
-      if (completionCheckError) {
-        console.error("Error checking existing completion:", completionCheckError)
-        return
+    if (playerRef.current) {
+      try {
+        playerRef.current.destroy()
+      } catch (error) {
+        console.error("[AccessCoursePage] Error destroying YouTube player on exit:", error)
       }
-
-      if (existingCompletion && existingCompletion.length > 0 && existingCompletion[0].completed_video) {
-        console.log("Video completion already marked for this course")
-        return
-      }
-
-      // Mark video as completed
-      const { data, error } = await supabase
-        .from("user_courses")
-        .upsert([
-          {
-            user_id: userDbId,
-            course_id: courseDetails.id,
-            attended: true,
-            completed_video: true,
-          },
-        ])
-        .select()
-
-      if (error) {
-        console.error("Error marking video as completed:", error)
-        return
-      }
-
-      console.log("Video marked as completed successfully:", data)
-    } catch (error) {
-      console.error("Error in markVideoCompleted:", error)
     }
-  }
-
-  // Handle back button click
-  const handleExitClick = () => {
-    console.log("🚪 Exiting session - stopping camera...")
-
-    // Force stop camera
-    if (cameraStream) {
-      cameraStream.getTracks().forEach((track) => {
-        console.log("🎥 Force stopping track:", track.kind)
-        track.stop()
-      })
-      setCameraStream(null)
-    }
-
-    if (cameraVideoRef.current) {
+    // Stop camera feed
+    if (cameraEnabled && cameraVideoRef.current?.srcObject) {
+      const stream = cameraVideoRef.current.srcObject as MediaStream
+      stream.getTracks().forEach((track) => track.stop())
       cameraVideoRef.current.srcObject = null
     }
-
-    setCameraOn(false)
+    setCameraEnabled(false)
     setShowCameraPreview(false)
 
     // Exit fullscreen
     if (document.fullscreenElement) {
-      document.exitFullscreen().catch((err) => console.error("Error exiting fullscreen:", err))
-    } else if ((document as any).webkitExitFullscreen) {
-      ;(document as any).webkitExitFullscreen()
-    } else if ((document as any).mozCancelFullScreen) {
-      ;(document as any).mozCancelFullScreen()
-    } else if ((document as any).msExitFullscreen) {
-      ;(document as any).msExitFullscreen()
+      document.exitFullscreen().catch(console.error)
     }
 
-    router.push("/user/access-course")
+    router.push("/user/dashboard")
   }
 
+  useEffect(() => {
+    // Add event listener for fullscreen changes
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement)
+    }
+    document.addEventListener("fullscreenchange", handleFullscreenChange)
+
+    // Prevent default behavior for certain keys if in fullscreen/video context
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (isFullscreen) {
+        // Allow volume controls, but block others
+        if (!(e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "F11")) {
+          e.preventDefault()
+          e.stopPropagation()
+          return false
+        }
+      }
+      // Handle specific keys for actions like exiting
+      if (e.key === "Escape" && isFullscreen) {
+        toggleFullscreen()
+      }
+      if (e.key === "Backspace" || e.key === "Delete") {
+        // Prevent accidental deletion/back
+        e.preventDefault()
+        e.stopPropagation()
+        return false
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown, true)
+
+    // Prevent right-click
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault()
+      return false
+    }
+    document.addEventListener("contextmenu", handleContextMenu)
+
+    // Prevent selection
+    const handleSelectStart = (e: Event) => {
+      e.preventDefault()
+      return false
+    }
+    document.addEventListener("selectstart", handleSelectStart)
+
+    // Prevent drag
+    const handleDragStart = (e: DragEvent) => {
+      e.preventDefault()
+      return false
+    }
+    document.addEventListener("dragstart", handleDragStart)
+
+    // Prevent mouse wheel for zooming
+    const handleWheel = (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        // Ctrl+Wheel or Cmd+Wheel
+        e.preventDefault()
+        return false
+      }
+    }
+    document.addEventListener("wheel", handleWheel, { passive: false })
+
+    // Return cleanup function
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange)
+      window.removeEventListener("keydown", handleKeyDown, true)
+      document.removeEventListener("contextmenu", handleContextMenu)
+      document.removeEventListener("selectstart", handleSelectStart)
+      document.removeEventListener("dragstart", handleDragStart)
+      document.removeEventListener("wheel", handleWheel)
+
+      if (watchTimerRef.current) {
+        clearInterval(watchTimerRef.current)
+      }
+      if (playerRef.current) {
+        try {
+          playerRef.current.destroy()
+        } catch (error) {
+          console.error("[AccessCoursePage] Error destroying YouTube player on unmount:", error)
+        }
+      }
+      // Stop camera feed on unmount
+      if (cameraEnabled && cameraVideoRef.current?.srcObject) {
+        const stream = cameraVideoRef.current.srcObject as MediaStream
+        stream.getTracks().forEach((track) => track.stop())
+        cameraVideoRef.current.srcObject = null
+      }
+      setCameraEnabled(false)
+      setShowCameraPreview(false)
+
+      // Exit fullscreen on unmount if active
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(console.error)
+      }
+      // Remove API ready listener if it was set
+      if (window.onYouTubeIframeAPIReady) {
+        delete window.onYouTubeIframeAPIReady
+      }
+    }
+  }, [isFullscreen, cameraEnabled]) // Re-run cleanup if state changes that affect listeners/actions
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-white text-xl">Loading course...</div>
+      </div>
+    )
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-black flex flex-col items-center justify-center text-center p-4">
+        <div className="text-red-500 text-xl mb-4">{error}</div>
+        <Button onClick={() => router.push("/user/access-course")}>Back to Course List</Button>
+      </div>
+    )
+  }
+
+  // Main UI
   return (
-    <div className="min-h-screen bg-black text-white relative overflow-hidden">
-      {showCameraPermission && (
-        <CameraPermission onPermissionGranted={handleCameraPermissionGranted} onSkip={handleSkipCamera} />
-      )}
+    <div className="min-h-screen bg-black relative">
+      {/* Hidden component for camera permission prompt */}
+      {/* In this merge, we assume camera permission is handled by a separate component or flow,
+          or it's implicitly granted/skipped if `showCameraPermission` is false.
+          For simplicity in this merge, we'll integrate the camera logic directly. */}
 
-      {!showCameraPermission && (
-        <>
-          {aiAnalysisEnabled ? (
-            <AIEnhancedPlayer
-              courseId={params.courseId}
-              userId={userDbId || 0}
-              youtubeVideoId={youtubeVideoId}
-              activityType={
-                courseDetails?.title?.toLowerCase().includes("fitness")
-                  ? "fitness"
-                  : courseDetails?.title?.toLowerCase().includes("singing")
-                    ? "singing"
-                    : courseDetails?.title?.toLowerCase().includes("dance")
-                      ? "dance"
-                      : "yoga"
-              }
+      <div ref={videoContainerRef} className="relative w-full h-screen flex flex-col overflow-hidden">
+        {/* LIVE Badge */}
+        <div className="absolute top-4 left-4 z-30">
+          <div className="bg-red-600 text-white px-3 py-1 rounded-full text-sm font-bold flex items-center gap-2 animate-pulse">
+            <span className="w-2 h-2 bg-white rounded-full"></span>
+            LIVE
+          </div>
+        </div>
+
+        {/* Fullscreen Button */}
+        <div className="absolute top-4 right-4 z-30">
+          <Button
+            onClick={toggleFullscreen}
+            variant="ghost" // Use ghost for better integration with dark background
+            size="icon"
+            className="bg-black/50 border-white/20 hover:bg-white/20 text-white"
+            aria-label={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+          >
+            {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
+          </Button>
+        </div>
+
+        {/* YouTube Player Container - positioned absolutely to fill */}
+        <div className="flex-1 relative bg-black">
+          <div id="youtube-player" className="absolute inset-0 w-full h-full"></div>
+        </div>
+
+        {/* Camera Preview */}
+        {cameraEnabled && showCameraPreview && (
+          <div className="absolute bottom-24 right-4 w-48 h-36 rounded-lg overflow-hidden border-2 border-white/20 shadow-lg z-20">
+            <video
+              ref={cameraVideoRef}
+              autoPlay
+              playsInline
+              muted
+              className="w-full h-full object-cover"
+              // Style to mirror the video like a selfie if desired, e.g. transform: scaleX(-1);
             />
-          ) : (
-            <>
-              {/* Existing video player implementation */}
-              {/* <div
-                className="fixed inset-0 bg-black flex flex-col w-screen h-screen overflow-hidden"
-                ref={videoWrapperRef}
-              > */}
-              {/* Video Container */}
-              <div
-                ref={playerContainerRef}
-                className={`relative w-full h-screen flex items-center justify-center ${isFullscreen ? "fixed inset-0 z-50" : ""}`}
-              >
-                {/* Camera Preview goes HERE - inside the video container */}
-                {showCameraPreview && (
-                  <div className="absolute top-4 right-4 z-50 bg-black rounded-lg border-2 border-white overflow-hidden shadow-2xl">
-                    <div className="relative">
-                      <video
-                        ref={cameraVideoRef}
-                        autoPlay
-                        muted
-                        playsInline
-                        className="w-48 h-36 object-cover bg-gray-800"
-                        style={{ transform: "scaleX(-1)" }} // Mirror the video like a selfie
-                      />
-                      <button
-                        onClick={() => setShowCameraPreview(false)}
-                        className="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white rounded-full p-1 transition-colors"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                      {/* Camera Status Indicator */}
-                      <div className="absolute top-2 left-2 bg-green-600 text-white text-xs px-2 py-1 rounded flex items-center">
-                        <div className="w-2 h-2 bg-white rounded-full mr-1 animate-pulse"></div>
-                        {cameraOn ? "LIVE" : "OFF"}
-                      </div>
-                      {/* Show message when camera is off */}
-                      {!cameraOn && (
-                        <div className="absolute inset-0 bg-gray-800 flex items-center justify-center">
-                          <div className="text-white text-center">
-                            <CameraOff className="h-8 w-8 mx-auto mb-2" />
-                            <p className="text-xs">Camera Off</p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
+            <button
+              onClick={() => setShowCameraPreview(false)}
+              className="absolute top-1 right-1 bg-black/50 hover:bg-red-600 text-white rounded-full p-1 transition-colors z-10"
+              aria-label="Close Camera Preview"
+            >
+              <X className="h-3 w-3" />
+            </button>
+            {/* Camera Status Indicator - if camera is ON */}
+            <div className="absolute top-1 left-1 bg-green-600/70 text-white text-xs px-1.5 py-0.5 rounded flex items-center z-10">
+              <div className="w-1.5 h-1.5 bg-white rounded-full mr-1 animate-pulse"></div>
+              LIVE
+            </div>
+          </div>
+        )}
 
-                {/* LIVE Indicator */}
-                <div className="absolute top-2 left-2 z-50 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-md flex items-center">
-                  <span className="animate-pulse mr-1 h-2 w-2 rounded-full bg-white inline-block"></span>
-                  LIVE
-                </div>
+        {/* Emoji Animation Container */}
+        <div id="emoji-animation-container" className="absolute inset-0 pointer-events-none z-10"></div>
 
-                {/* Fullscreen Warning Overlay */}
-                {/* {showFullscreenWarning && (
-                  <div
-                    className="absolute inset-0 z-50 bg-black/90 flex flex-col items-center justify-center"
-                    ref={fullscreenOverlayRef}
-                  >
-                    <div className="text-center p-6 max-w-md">
-                      <Lock className="h-16 w-16 text-red-500 mx-auto mb-4" />
-                      <h2 className="text-white text-2xl font-bold mb-4">Fullscreen Required</h2>
-                      <p className="text-gray-300 mb-6">
-                        This video must be viewed in fullscreen mode. Please click the button below to continue.
-                      </p>
-                      <p className="text-yellow-400 text-sm mb-6">
-                        Warning: Exiting fullscreen{" "}
-                        {fullscreenAttempts > 1 ? `${fullscreenAttempts} times` : "repeatedly"} will terminate your
-                        session.
-                      </p>
-                      <Button
-                        onClick={() => {
-                          if (document.documentElement) {
-                            requestFullscreen(document.documentElement)
-                            setShowFullscreenWarning(false)
-                          }
-                        }}
-                        className="bg-red-600 hover:bg-red-700"
-                      >
-                        Enter Fullscreen
-                      </Button>
-                    </div>
-                  </div>
-                )} */}
+        {/* Bottom Controls */}
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/90 to-transparent p-4 z-20">
+          <div className="text-white text-lg font-semibold mb-3">{course?.title}</div>
 
-                {/* NEW SIMPLIFIED CONTROLS BAR */}
-                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 text-white z-10">
-                  <div className="flex justify-between items-center mb-2">
-                    {courseDetails?.title && <h1 className="text-xl font-bold">{courseDetails.title}</h1>}
-                  </div>
-
-                  {attendanceError && <div className="text-red-400 text-sm mt-2">{attendanceError}</div>}
-
-                  {hasCompletedVideo && (
-                    <div className="text-green-400 text-sm mt-2">Video completed! Returning to course list...</div>
-                  )}
-
-                  {/* NEW CONTROL BAR WITH CAMERA TOGGLE */}
-                  <div className="flex items-center justify-between mt-4 bg-black/50 rounded-lg p-3">
-                    {/* Camera Controls */}
-                    <div className="flex items-center gap-2">
-                      {/* Camera ON/OFF Toggle */}
-                      {cameraPermissionGranted && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={toggleCamera}
-                          className={`text-white hover:bg-white/20 flex items-center gap-2 ${
-                            cameraOn ? "bg-green-600/20" : "bg-gray-600/20"
-                          }`}
-                        >
-                          {cameraOn ? <Video className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}
-                          {cameraOn ? "Camera ON" : "Camera OFF"}
-                        </Button>
-                      )}
-
-                      {/* Video Preview Toggle */}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={toggleCameraPreview}
-                        disabled={!cameraPermissionGranted}
-                        className={`text-white hover:bg-white/20 flex items-center gap-2 ${
-                          showCameraPreview ? "bg-blue-600/20" : "bg-gray-600/20"
-                        }`}
-                      >
-                        <Camera className="h-4 w-4" />
-                        {showCameraPreview ? "Hide Preview" : "Show Preview"}
-                      </Button>
-                    </div>
-
-                    {/* Emoji Reaction Bar */}
-                    <div className="flex items-center space-x-3">
-                      <button
-                        className="emoji-btn p-2 rounded-full hover:bg-white/20 transition-colors"
-                        onClick={() => {
-                          const btn = document.createElement("div")
-                          btn.className = "absolute animate-emoji text-2xl"
-                          btn.textContent = "✋"
-                          btn.style.bottom = "20%"
-                          btn.style.left = `${Math.random() * 80 + 10}%`
-                          if (videoWrapperRef.current) videoWrapperRef.current.appendChild(btn)
-                          setTimeout(() => btn.remove(), 2000)
-                        }}
-                      >
-                        <span className="text-xl">✋</span>
-                      </button>
-                      <button
-                        className="emoji-btn p-2 rounded-full hover:bg-white/20 transition-colors"
-                        onClick={() => {
-                          const btn = document.createElement("div")
-                          btn.className = "absolute animate-emoji text-2xl"
-                          btn.textContent = "❤️"
-                          btn.style.bottom = "20%"
-                          btn.style.left = `${Math.random() * 80 + 10}%`
-                          if (videoWrapperRef.current) videoWrapperRef.current.appendChild(btn)
-                          setTimeout(() => btn.remove(), 2000)
-                        }}
-                      >
-                        <span className="text-xl">❤️</span>
-                      </button>
-                      <button
-                        className="emoji-btn p-2 rounded-full hover:bg-white/20 transition-colors"
-                        onClick={() => {
-                          const btn = document.createElement("div")
-                          btn.className = "absolute animate-emoji text-2xl"
-                          btn.textContent = "👍"
-                          btn.style.bottom = "20%"
-                          btn.style.left = `${Math.random() * 80 + 10}%`
-                          if (videoWrapperRef.current) videoWrapperRef.current.appendChild(btn)
-                          setTimeout(() => btn.remove(), 2000)
-                        }}
-                      >
-                        <span className="text-xl">👍</span>
-                      </button>
-                      <button
-                        className="emoji-btn p-2 rounded-full hover:bg-white/20 transition-colors"
-                        onClick={() => {
-                          const btn = document.createElement("div")
-                          btn.className = "absolute animate-emoji text-2xl"
-                          btn.textContent = "😊"
-                          btn.style.bottom = "20%"
-                          btn.style.left = `${Math.random() * 80 + 10}%`
-                          if (videoWrapperRef.current) videoWrapperRef.current.appendChild(btn)
-                          setTimeout(() => btn.remove(), 2000)
-                        }}
-                      >
-                        <span className="text-xl">😊</span>
-                      </button>
-                      <button
-                        className="emoji-btn p-2 rounded-full hover:bg-white/20 transition-colors"
-                        onClick={() => {
-                          const btn = document.createElement("div")
-                          btn.className = "absolute animate-emoji text-2xl"
-                          btn.textContent = "👏"
-                          btn.style.bottom = "20%"
-                          btn.style.left = `${Math.random() * 80 + 10}%`
-                          if (videoWrapperRef.current) videoWrapperRef.current.appendChild(btn)
-                          setTimeout(() => btn.remove(), 2000)
-                        }}
-                      >
-                        <span className="text-xl">👏</span>
-                      </button>
-                    </div>
-
-                    {/* Exit Button */}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleExitClick}
-                      className="text-white hover:bg-red-600/20 flex items-center gap-2"
-                    >
-                      <ArrowLeft className="h-4 w-4" />
-                      Exit
-                    </Button>
-                  </div>
-                </div>
-              </div>
-              {/* </div> */}
-            </>
+          {/* Error Message Display */}
+          {error && <div className="text-red-400 text-sm mb-2">{error}</div>}
+          {/* Session Status Message */}
+          {!sessionActive && <div className="text-orange-400 text-sm mb-2">Session is currently inactive.</div>}
+          {attendanceMarked && watchTime >= 60 && (
+            <div className="text-green-400 text-sm mb-2">✓ Attendance marked & Video progress recorded.</div>
           )}
 
-          <div className="absolute top-4 right-4 z-30">
-            <Button
-              onClick={() => setAiAnalysisEnabled(!aiAnalysisEnabled)}
-              className={`${aiAnalysisEnabled ? "bg-purple-600 hover:bg-purple-700" : "bg-gray-600 hover:bg-gray-700"} text-white`}
-            >
-              <Brain className="w-4 h-4 mr-2" />
-              {aiAnalysisEnabled ? "Disable AI" : "Enable AI"}
+          <div className="flex items-center justify-between gap-2">
+            <Button onClick={exitSession} variant="destructive" className="flex items-center gap-2">
+              <LogOut className="w-4 h-4" />
+              Exit Session
             </Button>
-          </div>
-          <div className="absolute top-4 right-4 z-20 flex gap-2">
-            <Button
-              variant="secondary"
-              size="icon"
-              className="bg-black/50 hover:bg-black/70 text-white"
-              onClick={toggleFullscreen}
-              title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
-            >
-              {isFullscreen ? (
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
+
+            <div className="flex items-center gap-2">
+              {/* Camera Toggle Button */}
+              <Button
+                onClick={toggleCamera}
+                variant="outline"
+                size="icon"
+                className="bg-white/10 border-white/20 hover:bg-white/20 text-white"
+                aria-label={cameraEnabled ? "Turn Off Camera" : "Turn On Camera"}
+                disabled={!cameraPermissionGranted} // Disable if permission not granted
+              >
+                {cameraEnabled ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
+              </Button>
+
+              {/* Show Camera Preview Button (only if camera is enabled) */}
+              {cameraEnabled && (
+                <Button
+                  onClick={() => setShowCameraPreview(!showCameraPreview)}
+                  variant="outline"
+                  size="icon"
+                  className={`text-white ${showCameraPreview ? "bg-blue-500/20 border-blue-500" : "bg-white/10 border-white/20"} hover:bg-white/20`}
+                  aria-label={showCameraPreview ? "Hide Camera Preview" : "Show Camera Preview"}
                 >
-                  <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"></path>
-                </svg>
-              ) : (
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path>
-                </svg>
+                  <Camera className="w-5 h-5" />
+                </Button>
               )}
-            </Button>
+
+              {/* Emoji Reactions */}
+              <div className="flex gap-1">
+                {["👍", "❤️", "😊", "🔥", "👏"].map((emoji) => (
+                  <Button
+                    key={emoji}
+                    onClick={() => sendEmoji(emoji)}
+                    variant="ghost"
+                    size="icon"
+                    className="text-2xl hover:scale-125 transition-transform"
+                    aria-label={`Send ${emoji} reaction`}
+                  >
+                    {emoji}
+                  </Button>
+                ))}
+              </div>
+            </div>
           </div>
-        </>
-      )}
+
+          {/* Watch Time and Attendance Status */}
+          <div className="text-white/70 text-sm mt-3 flex justify-between items-center">
+            <span>
+              Watch time: {Math.floor(watchTime / 60)}:{(watchTime % 60).toString().padStart(2, "0")}
+            </span>
+            {!attendanceMarked && watchTime < 60 && !error && sessionActive && (
+              <span>Marking attendance in {Math.max(0, 60 - watchTime)} seconds...</span>
+            )}
+            {attendanceMarked && watchTime >= 60 && <span className="text-green-400 ml-4">✓ Attendance marked</span>}
+          </div>
+        </div>
+      </div>
+
+      <style jsx>{`
+        @keyframes float-up {
+          0% {
+            transform: translateY(0) scale(1);
+            opacity: 1;
+          }
+          100% {
+            transform: translateY(-200px) scale(1.5);
+            opacity: 0;
+          }
+        }
+        .animate-float-up {
+          animation: float-up 2s ease-out forwards;
+        }
+      `}</style>
     </div>
   )
 }

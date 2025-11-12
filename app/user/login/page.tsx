@@ -184,19 +184,23 @@ export default function LoginPage() {
       setPassword("")
 
       const pendingPlan = sessionStorage.getItem("pendingSubscriptionPlan")
+      console.log("[v0] Checking for pending subscription plan:", pendingPlan)
+
       if (pendingPlan) {
         sessionStorage.removeItem("pendingSubscriptionPlan")
-        console.log("[v0] Redirecting to payment for plan:", pendingPlan)
+        console.log("[v0] Found pending plan, redirecting to payment for plan:", pendingPlan)
         window.location.href = `/user/subscribe?plan=${pendingPlan}`
         return
       }
 
-      console.log("[v0] Redirecting to:", redirectUrl || "/user/dashboard")
+      console.log("[v0] No pending plan, checking redirect URL:", redirectUrl)
 
       // Redirect
       if (redirectUrl) {
+        console.log("[v0] Redirecting to redirect URL:", redirectUrl)
         window.location.href = redirectUrl
       } else {
+        console.log("[v0] No redirect URL, going to dashboard")
         window.location.href = "/user/dashboard"
       }
 

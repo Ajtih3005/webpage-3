@@ -267,31 +267,46 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
   }
 
   const handleSubscribeClick = (planId: string) => {
+    console.log("[v0] Subscribe button clicked for plan:", planId)
+
     // Check if user is logged in
     const isLoggedIn = localStorage.getItem("userAuthenticated") === "true"
+    console.log("[v0] User logged in status:", isLoggedIn)
 
     if (isLoggedIn) {
       // User is logged in, go directly to payment
+      console.log("[v0] User is logged in, redirecting to payment")
       router.push(`/user/subscribe?plan=${planId}`)
     } else {
       // User not logged in, show auth modal
+      console.log("[v0] User not logged in, showing auth modal")
       setSelectedPlanId(planId)
       setShowAuthModal(true)
     }
   }
 
   const handleAuthChoice = (choice: "login" | "register") => {
+    console.log("[v0] Auth choice selected:", choice)
+    console.log("[v0] Selected plan ID:", selectedPlanId)
+
     if (selectedPlanId) {
       // Store the plan ID they want to subscribe to
       sessionStorage.setItem("pendingSubscriptionPlan", selectedPlanId)
+      console.log("[v0] Stored pending plan in sessionStorage:", selectedPlanId)
 
       // Redirect to login or register with return URL
       const returnUrl = `/user/subscribe?plan=${selectedPlanId}`
+      console.log("[v0] Return URL:", returnUrl)
+
       if (choice === "login") {
+        console.log("[v0] Redirecting to login page")
         router.push(`/user/login?redirect=${encodeURIComponent(returnUrl)}`)
       } else {
+        console.log("[v0] Redirecting to register page")
         router.push(`/user/register?redirect=${encodeURIComponent(returnUrl)}`)
       }
+    } else {
+      console.error("[v0] No plan ID selected!")
     }
   }
 

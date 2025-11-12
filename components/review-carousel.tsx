@@ -28,81 +28,34 @@ export default function ReviewCarousel() {
       try {
         setLoading(true)
 
-        // First try direct Supabase client
-        try {
-          const supabase = getSupabaseBrowserClient()
+        const supabase = getSupabaseBrowserClient()
 
-          const { data, error } = await supabase
-            .from("reviews")
-            .select("*")
-            .eq("is_published", true)
-            .order("is_featured", { ascending: false })
-            .order("created_at", { ascending: false })
+        const { data, error: supabaseError } = await supabase
+          .from("reviews")
+          .select("*")
+          .eq("is_published", true)
+          .order("is_featured", { ascending: false })
+          .order("created_at", { ascending: false })
 
-          if (error) {
-            console.error("Direct Supabase error:", error)
-            throw error
-          }
-
-          if (data && data.length > 0) {
-            setReviews(data)
-            console.log(`Loaded ${data.length} reviews via Supabase client`)
-            return
-          }
-        } catch (err) {
-          console.error("Supabase client fetch failed, trying API route:", err)
+        if (supabaseError) {
+          console.error("Supabase reviews fetch error:", supabaseError)
+          // Use fallback data instead of throwing
+          setReviews(getMockReviews())
+          return
         }
 
-        // Second, try our API endpoint
-        try {
-          const response = await fetch("/api/reviews")
-          if (!response.ok) throw new Error(`API returned ${response.status}`)
-
-          const data = await response.json()
-          if (data.reviews && data.reviews.length > 0) {
-            setReviews(data.reviews)
-            console.log(`Loaded ${data.reviews.length} reviews via API`)
-            return
-          }
-        } catch (err) {
-          console.error("API fetch failed, using fallback data:", err)
+        if (data && data.length > 0) {
+          setReviews(data)
+          console.log(`✅ Loaded ${data.length} reviews from database`)
+        } else {
+          // No reviews in database, use mock data
+          setReviews(getMockReviews())
+          console.log("Using fallback review data (no reviews in database)")
         }
-
-        // Fallback: Use mock data if both methods fail
-        console.log("Using fallback review data")
-        const mockReviews = [
-          {
-            id: 1,
-            name: "Aditi Patel",
-            avatar_url: null,
-            rating: 5,
-            review_text:
-              "The morning yoga sessions have completely transformed my daily routine. I feel more energetic and focused throughout the day.",
-            is_featured: true,
-          },
-          {
-            id: 2,
-            name: "Arjun Singh",
-            avatar_url: null,
-            rating: 5,
-            review_text:
-              "I've been practicing yoga for years, but these classes taught me new techniques that have improved my practice significantly.",
-            is_featured: false,
-          },
-          {
-            id: 3,
-            name: "Kavya Joshi",
-            avatar_url: null,
-            rating: 4,
-            review_text:
-              "The instructors are excellent and the course content is well-structured. Highly recommended for beginners!",
-            is_featured: false,
-          },
-        ]
-        setReviews(mockReviews)
       } catch (err) {
-        console.error("Error in review fetch:", err)
-        setError("Something went wrong")
+        console.error("Error fetching reviews:", err)
+        // Always use mock data as fallback
+        setReviews(getMockReviews())
       } finally {
         setLoading(false)
       }
@@ -344,3 +297,33 @@ function ReviewCard({ review, isCenter }: { review: Review; isCenter: boolean })
     </Card>
   )
 }
+
+const getMockReviews = (): Review[] => [
+  {
+    id: 1,
+    name: "Aditi Patel",
+    avatar_url: null,
+    rating: 5,
+    review_text:
+      "The morning yoga sessions have completely transformed my daily routine. I feel more energetic and focused throughout the day.",
+    is_featured: true,
+  },
+  {
+    id: 2,
+    name: "Arjun Singh",
+    avatar_url: null,
+    rating: 5,
+    review_text:
+      "I've been practicing yoga for years, but these classes taught me new techniques that have improved my practice significantly.",
+    is_featured: false,
+  },
+  {
+    id: 3,
+    name: "Kavya Joshi",
+    avatar_url: null,
+    rating: 4,
+    review_text:
+      "The instructors are excellent and the course content is well-structured. Highly recommended for beginners!",
+    is_featured: false,
+  },
+]

@@ -299,8 +299,7 @@ export default function AccessCourse() {
     }
   }
 
-  // Handle joining a session
-  const handleJoinSession = (course: GroupedCourse) => {
+  const handleJoinSession = async (course: GroupedCourse) => {
     const activeBatch = findActiveBatch(course)
 
     if (!activeBatch) {
@@ -321,8 +320,8 @@ export default function AccessCourse() {
       return
     }
 
-    // Navigate to the video player page with the batch ID
-    router.push(`/user/access-course/${activeBatch.id}`)
+    console.log("[v0] Navigating to player with courseId:", activeBatch.id)
+    window.location.href = `/user/access-course/${activeBatch.id}`
   }
 
   // Add this new function to fetch user's subscriptions
@@ -1128,7 +1127,7 @@ export default function AccessCourse() {
           </div>
 
           <DialogFooter className="flex flex-col sm:flex-row gap-2">
-            <Button variant="outline" onClick={handleDismissWhatsApp} className="sm:w-1/2">
+            <Button variant="outline" onClick={handleDismissWhatsApp} className="sm:w-1/2 bg-transparent">
               Remind Me Later
             </Button>
             <Button onClick={handleJoinWhatsApp} className="bg-green-600 hover:bg-green-700 sm:w-1/2">
