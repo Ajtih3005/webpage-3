@@ -320,8 +320,8 @@ export default function AccessCourse() {
       return
     }
 
-    console.log("[v0] Navigating to player with courseId:", activeBatch.id)
-    window.location.href = `/user/access-course/${activeBatch.id}`
+    console.log("[v0] Navigating to live session player with courseId:", activeBatch.id)
+    router.push(`/user/live-session/${activeBatch.id}`)
   }
 
   // Add this new function to fetch user's subscriptions
@@ -528,10 +528,10 @@ export default function AccessCourse() {
       const { data: userSubscriptions, error: subError } = await supabase
         .from("user_subscriptions")
         .select(`
-          id, 
-          subscription_id, 
-          start_date, 
-          end_date, 
+          id,
+          subscription_id,
+          start_date,
+          end_date,
           is_active,
           subscription:subscriptions (
             id,

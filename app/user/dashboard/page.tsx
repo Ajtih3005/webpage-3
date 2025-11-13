@@ -167,16 +167,18 @@ export default function UserDashboard() {
           start_date,
           end_date,
           is_active,
-          subscription:subscriptions (
+          subscription:subscriptions!inner (
             id,
             name,
             description,
             price,
-            duration_days
+            duration_days,
+            is_active
           )
         `)
           .eq("user_id", userId)
-          .eq("is_active", true)
+          .eq("user_subscriptions.is_active", true)
+          .eq("subscription.is_active", true)
           .order("end_date", { ascending: false })
 
         if (subscriptionsError) throw subscriptionsError
@@ -339,7 +341,7 @@ export default function UserDashboard() {
             <Button
               variant="outline"
               size="sm"
-              className="ml-auto text-yellow-600 border-yellow-300 hover:bg-yellow-100"
+              className="ml-auto text-yellow-600 border-yellow-300 hover:bg-yellow-100 bg-transparent"
               onClick={handleRetry}
             >
               Retry
@@ -892,7 +894,11 @@ export default function UserDashboard() {
                   </div>
                 </CardContent>
                 <CardFooter>
-                  <Button variant="outline" className="w-full" onClick={() => router.push("/user/access-course")}>
+                  <Button
+                    variant="outline"
+                    className="w-full bg-transparent"
+                    onClick={() => router.push("/user/access-course")}
+                  >
                     <PlayCircle className="mr-2 h-4 w-4" /> Access Courses
                   </Button>
                 </CardFooter>
