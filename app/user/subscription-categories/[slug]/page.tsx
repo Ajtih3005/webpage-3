@@ -242,7 +242,9 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
   const handleSubscribeClick = (planId: string) => {
     console.log("[v0] Subscribe button clicked for plan:", planId)
 
-    const isLoggedIn = localStorage.getItem("userAuthenticated") === "true"
+    const userId = localStorage.getItem("userId")
+    const isLoggedIn = !!userId
+    console.log("[v0] User ID found:", userId)
     console.log("[v0] User logged in status:", isLoggedIn)
 
     if (isLoggedIn) {

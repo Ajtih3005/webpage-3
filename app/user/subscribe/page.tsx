@@ -42,15 +42,10 @@ export default function SubscribePage() {
 
   useEffect(() => {
     const storedUserId = localStorage.getItem("userId")
-    if (!storedUserId) {
-      router.push("/user/login")
-      return
-    }
-    
     setUserId(storedUserId)
 
     fetchSubscriptions()
-  }, [router])
+  }, [])
 
   const fetchSubscriptions = async () => {
     try {
