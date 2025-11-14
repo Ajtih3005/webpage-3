@@ -14,7 +14,6 @@ export async function POST() {
         subscription_id,
         activation_date,
         total_active_days_used,
-        last_day_counted,
         is_active,
         subscription:subscriptions (duration_days)
       `)
@@ -53,9 +52,7 @@ export async function POST() {
         }
 
         // Get the last day we counted (or activation date if never counted)
-        const lastCountedDate = subscription.last_day_counted
-          ? new Date(subscription.last_day_counted)
-          : new Date(activationDate)
+        const lastCountedDate = new Date(activationDate)
         lastCountedDate.setHours(0, 0, 0, 0)
 
         // Calculate days since last count
@@ -75,7 +72,6 @@ export async function POST() {
             .from("user_subscriptions")
             .update({
               total_active_days_used: Math.min(newDaysUsed, durationDays), // Cap at duration
-              last_day_counted: today.toISOString(),
               is_active: !shouldExpire, // Set to false if expired
               ...(shouldExpire && {
                 activation_notes: `Automatically expired after ${durationDays} days on ${today.toISOString().split("T")[0]}`,

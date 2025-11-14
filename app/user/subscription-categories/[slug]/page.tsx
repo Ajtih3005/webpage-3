@@ -274,8 +274,7 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
     console.log("[v0] User logged in status:", isLoggedIn)
 
     if (isLoggedIn) {
-      // User is logged in, go directly to payment
-      console.log("[v0] User is logged in, redirecting to payment")
+      console.log("[v0] User is logged in, redirecting to payment page")
       router.push(`/user/subscribe?plan=${planId}`)
     } else {
       // User not logged in, show auth modal
@@ -290,13 +289,12 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
     console.log("[v0] Selected plan ID:", selectedPlanId)
 
     if (selectedPlanId) {
-      // Store the plan ID they want to subscribe to
       sessionStorage.setItem("pendingSubscriptionPlan", selectedPlanId)
       console.log("[v0] Stored pending plan in sessionStorage:", selectedPlanId)
 
-      // Redirect to login or register with return URL
+      // Redirect to login or register with return URL to payment page
       const returnUrl = `/user/subscribe?plan=${selectedPlanId}`
-      console.log("[v0] Return URL:", returnUrl)
+      console.log("[v0] Return URL to payment page:", returnUrl)
 
       if (choice === "login") {
         console.log("[v0] Redirecting to login page")

@@ -1,14 +1,15 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams } from 'next/navigation'
 import { UserLayout } from "@/components/user-layout"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Checkbox } from "@/components/ui/checkbox"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
-import { Check, AlertCircle, Loader2, Star, Clock, Users, Gift } from "lucide-react"
+import { Check, AlertCircle, Loader2, Star, Clock, Users, Gift, ShoppingCart, ArrowLeft, FileText } from 'lucide-react'
 import { RazorpayPaymentButton } from "@/components/razorpay-payment-button"
 
 interface Subscription {
@@ -31,16 +32,22 @@ export default function SubscribePage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null)
+  const [userId, setUserId] = useState<string | null>(null)
+  const [termsAccepted, setTermsAccepted] = useState(false)
+  const [showDirectPayment, setShowDirectPayment] = useState(false)
+  
   const router = useRouter()
   const searchParams = useSearchParams()
-  const subscriptionId = searchParams.get("id")
+  const planId = searchParams.get("plan")
 
   useEffect(() => {
-    const userId = localStorage.getItem("userId")
-    if (!userId) {
+    const storedUserId = localStorage.getItem("userId")
+    if (!storedUserId) {
       router.push("/user/login")
       return
     }
+    
+    setUserId(storedUserId)
 
     fetchSubscriptions()
   }, [router])
@@ -51,7 +58,6 @@ export default function SubscribePage() {
       setError(null)
       const supabase = getSupabaseBrowserClient()
 
-      // Fetch ALL subscriptions (don't filter by is_active)
       const { data, error: fetchError } = await supabase
         .from("subscriptions")
         .select("*")
@@ -68,16 +74,17 @@ export default function SubscribePage() {
         return
       }
 
-      console.log("Fetched subscriptions:", data)
+      console.log("[v0] Fetched subscriptions:", data)
       setSubscriptions(data)
 
-      // If a specific subscription ID is provided, select it
-      if (subscriptionId) {
-        const targetSubscription = data.find((sub) => sub.id.toString() === subscriptionId)
+      if (planId) {
+        const targetSubscription = data.find((sub) => sub.id.toString() === planId)
         if (targetSubscription) {
+          console.log("[v0] Plan ID found in URL, showing direct payment page for:", targetSubscription.name)
           setSelectedSubscription(targetSubscription)
+          setShowDirectPayment(true)
         } else {
-          setError(`Subscription with ID ${subscriptionId} not found.`)
+          setError(`Subscription plan not found.`)
         }
       }
     } catch (err) {
@@ -130,6 +137,200 @@ export default function SubscribePage() {
     if (durationDays === 90) return "Most Popular"
     if (durationDays === 365) return "Best Value"
     return null
+  }
+
+  if (showDirectPayment && selectedSubscription && userId) {
+    const features =
+      selectedSubscription.features || selectedSubscription.features_list || getDefaultFeatures(selectedSubscription.duration_days)
+
+    return (
+      <UserLayout>
+        <div className="container mx-auto py-8 max-w-4xl">
+          <Button
+            variant="ghost"
+            onClick={() => router.back()}
+            className="mb-6"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back
+          </Button>
+
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Complete Your Subscription</h1>
+            <p className="text-gray-600">Review your plan details and proceed with payment</p>
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Card className="border-2">
+              <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-xl">{selectedSubscription.name}</CardTitle>
+                  <ShoppingCart className="h-5 w-5 text-green-600" />
+                </div>
+                <CardDescription>{selectedSubscription.description}</CardDescription>
+              </CardHeader>
+              <CardContent className="pt-6">
+                <div className="space-y-4">
+                  <div className="bg-green-50 p-4 rounded-lg">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-gray-600">Plan Price</span>
+                      {selectedSubscription.has_discount && selectedSubscription.original_price && (
+                        <span className="text-gray-500 line-through text-sm">
+                          {formatPrice(selectedSubscription.original_price)}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-2xl font-bold text-green-600">
+                        {formatPrice(selectedSubscription.price)}
+                      </span>
+                      {selectedSubscription.has_discount && selectedSubscription.discount_percentage && (
+                        <Badge variant="destructive" className="bg-red-500">
+                          {selectedSubscription.discount_percentage}% OFF
+                        </Badge>
+                      )}
+                    </div>
+                    {selectedSubscription.has_discount && selectedSubscription.original_price && (
+                      <div className="text-sm text-green-700 mt-2">
+                        You save {formatPrice(selectedSubscription.original_price - selectedSubscription.price)}!
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between py-3 border-b">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-gray-500" />
+                      <span className="text-gray-700">Duration</span>
+                    </div>
+                    <span className="font-semibold">{selectedSubscription.duration_days} days</span>
+                  </div>
+
+                  <div className="flex items-center justify-between py-3 border-b">
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4 text-gray-500" />
+                      <span className="text-gray-700">Plan Type</span>
+                    </div>
+                    <span className="font-semibold">{getSubscriptionPeriod(selectedSubscription.duration_days)}</span>
+                  </div>
+
+                  <div className="pt-4">
+                    <h4 className="font-semibold text-gray-900 mb-3">What's Included:</h4>
+                    <div className="space-y-2">
+                      {features.map((feature, index) => (
+                        <div key={index} className="flex items-start">
+                          <Check className="h-5 w-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
+                          <span className="text-sm text-gray-700">{feature}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-2">
+              <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50">
+                <CardTitle className="text-xl">Payment Details</CardTitle>
+                <CardDescription>Secure payment powered by Razorpay</CardDescription>
+              </CardHeader>
+              <CardContent className="pt-6 space-y-6">
+                <div className="space-y-3">
+                  <h4 className="font-semibold text-gray-900">Bill Summary</h4>
+                  <div className="bg-gray-50 p-4 rounded-lg space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Subtotal</span>
+                      <span className="font-medium">{formatPrice(selectedSubscription.price)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Taxes & Fees</span>
+                      <span className="font-medium">Included</span>
+                    </div>
+                    <div className="border-t pt-2 mt-2">
+                      <div className="flex justify-between">
+                        <span className="font-bold text-gray-900">Total Amount</span>
+                        <span className="font-bold text-green-600 text-lg">
+                          {formatPrice(selectedSubscription.price)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="font-semibold text-gray-900 flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    Terms & Conditions
+                  </h4>
+                  <div className="bg-gray-50 p-4 rounded-lg text-sm text-gray-700 space-y-2 max-h-48 overflow-y-auto">
+                    <p>• Payment is non-refundable once the subscription is activated.</p>
+                    <p>• Access to the course will be granted immediately after successful payment.</p>
+                    <p>• Subscription is valid for {selectedSubscription.duration_days} days from the date of activation.</p>
+                    <p>• You will receive access to all features mentioned in the plan.</p>
+                    <p>• No automatic renewal - you can choose to renew manually.</p>
+                    <p>• For any issues, please contact our support team.</p>
+                  </div>
+
+                  <div className="flex items-start space-x-2 pt-2">
+                    <Checkbox
+                      id="terms"
+                      checked={termsAccepted}
+                      onCheckedChange={(checked) => setTermsAccepted(checked as boolean)}
+                    />
+                    <label
+                      htmlFor="terms"
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                    >
+                      I agree to the terms and conditions
+                    </label>
+                  </div>
+                </div>
+
+                <div className="pt-4">
+                  {!termsAccepted ? (
+                    <Button disabled className="w-full h-12 text-base font-semibold">
+                      Please Accept Terms & Conditions
+                    </Button>
+                  ) : (
+                    <RazorpayPaymentButton
+                      subscriptionId={selectedSubscription.id}
+                      amount={selectedSubscription.price}
+                      userId={userId}
+                      duration={selectedSubscription.duration_days}
+                      buttonText="Proceed to Payment"
+                      notes={{
+                        plan_name: selectedSubscription.name
+                      }}
+                      className="w-full h-12 text-base font-semibold bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+                    />
+                  )}
+                </div>
+
+                <div className="text-center pt-4 border-t">
+                  <div className="flex items-center justify-center gap-2 text-sm text-gray-600">
+                    <Check className="h-4 w-4 text-green-600" />
+                    <span>Secure payment powered by Razorpay</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card className="mt-6 bg-blue-50 border-blue-200">
+            <CardContent className="pt-6">
+              <div className="text-center">
+                <h4 className="font-semibold text-gray-900 mb-2">Need Help?</h4>
+                <p className="text-sm text-gray-600 mb-4">
+                  Our support team is here to assist you with any questions about your subscription.
+                </p>
+                <Button variant="outline" onClick={() => router.push("/user/contact")}>
+                  Contact Support
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </UserLayout>
+    )
   }
 
   if (loading) {
@@ -307,12 +508,19 @@ export default function SubscribePage() {
                     </Button>
                   ) : isSelected ? (
                     <div className="w-full space-y-2">
-                      <RazorpayPaymentButton
-                        subscriptionId={subscription.id}
-                        amount={subscription.price}
-                        subscriptionName={subscription.name}
-                        className="w-full"
-                      />
+                      {userId && (
+                        <RazorpayPaymentButton
+                          subscriptionId={subscription.id}
+                          amount={subscription.price}
+                          userId={userId}
+                          duration={subscription.duration_days}
+                          buttonText="Proceed to Payment"
+                          notes={{
+                            plan_name: subscription.name
+                          }}
+                          className="w-full"
+                        />
+                      )}
                       <Button variant="outline" onClick={() => setSelectedSubscription(null)} className="w-full">
                         Choose Different Plan
                       </Button>
@@ -323,7 +531,7 @@ export default function SubscribePage() {
                       className="w-full"
                       variant={popularBadge ? "default" : "outline"}
                     >
-                      Select This Plan
+                      Choose Plan
                     </Button>
                   )}
                 </CardFooter>

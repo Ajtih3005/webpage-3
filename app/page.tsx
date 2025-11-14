@@ -31,6 +31,7 @@ import {
 import { useState, useEffect } from "react"
 import ReviewCarousel from "@/components/review-carousel"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
+import { SubscriptionAuthModal } from "@/components/subscription-auth-modal"
 
 interface SubscriptionPage {
   id: string
@@ -47,6 +48,8 @@ export default function Home() {
   const [subscriptionPages, setSubscriptionPages] = useState<SubscriptionPage[]>([])
   const [teamMembers, setTeamMembers] = useState<any[]>([])
   const [showTeamSection, setShowTeamSection] = useState(true)
+  const [showAuthModal, setShowAuthModal] = useState(false)
+  const [selectedPageSlug, setSelectedPageSlug] = useState<string | null>(null)
 
   // Add scroll effect for header
   useEffect(() => {
@@ -106,6 +109,50 @@ export default function Home() {
       }
     } catch (error) {
       console.error("Error fetching team data:", error)
+    }
+  }
+
+  const handleExploreClick = (slug: string) => {
+    console.log("[v0] Explore button clicked for page:", slug)
+
+    // Check if user is logged in
+    const isLoggedIn = localStorage.getItem("userAuthenticated") === "true"
+    console.log("[v0] User logged in status:", isLoggedIn)
+
+    if (isLoggedIn) {
+      // User is logged in, navigate to category page
+      console.log("[v0] User is logged in, navigating to category page")
+      window.location.href = `/user/subscription-categories/${slug}`
+    } else {
+      // User not logged in, show auth modal
+      console.log("[v0] User not logged in, showing auth modal")
+      setSelectedPageSlug(slug)
+      setShowAuthModal(true)
+    }
+  }
+
+  const handleAuthChoice = (choice: "login" | "register") => {
+    console.log("[v0] Auth choice selected:", choice)
+    console.log("[v0] Selected page slug:", selectedPageSlug)
+
+    if (selectedPageSlug) {
+      // Store the intended destination
+      sessionStorage.setItem("intendedDestination", `/user/subscription-categories/${selectedPageSlug}`)
+      console.log("[v0] Stored intended destination in sessionStorage")
+
+      // Redirect to login or register with return URL
+      const returnUrl = `/user/subscription-categories/${selectedPageSlug}`
+      console.log("[v0] Return URL:", returnUrl)
+
+      if (choice === "login") {
+        console.log("[v0] Redirecting to login page")
+        window.location.href = `/user/login?redirect=${encodeURIComponent(returnUrl)}`
+      } else {
+        console.log("[v0] Redirecting to register page")
+        window.location.href = `/user/register?redirect=${encodeURIComponent(returnUrl)}`
+      }
+    } else {
+      console.error("[v0] No page slug selected!")
     }
   }
 
@@ -559,12 +606,13 @@ export default function Home() {
                   <CardContent className="p-3 md:p-6">
                     <p className="text-gray-600 mb-3 md:mb-6 line-clamp-2 text-xs md:text-base">{page.subtitle}</p>
                     <div className="flex justify-center">
-                      <Link href={`/user/subscription-categories/${page.slug}`}>
-                        <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold px-4 py-2 md:px-6 md:py-2 shadow-md hover:shadow-lg transition-all duration-300 text-xs md:text-sm">
-                          Explore Program
-                          <ArrowRight className="ml-1 md:ml-2 h-3 w-3 md:h-4 md:w-4 group-hover:translate-x-1 transition-transform" />
-                        </Button>
-                      </Link>
+                      <Button
+                        onClick={() => handleExploreClick(page.slug)}
+                        className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold px-4 py-2 md:px-6 md:py-2 shadow-md hover:shadow-lg transition-all duration-300 text-xs md:text-sm"
+                      >
+                        Explore Program
+                        <ArrowRight className="ml-1 md:ml-2 h-3 w-3 md:h-4 md:w-4 group-hover:translate-x-1 transition-transform" />
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -592,12 +640,13 @@ export default function Home() {
                     Perfect for beginners starting their yoga journey with gentle poses and breathing techniques.
                   </p>
                   <div className="flex justify-center">
-                    <Link href="/user/subscription-categories/yoga-basics">
-                      <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold px-4 py-2 md:px-6 md:py-2 shadow-md hover:shadow-lg transition-all duration-300 text-xs md:text-sm">
-                        Explore Program
-                        <ArrowRight className="ml-1 md:ml-2 h-3 w-3 md:h-4 md:w-4 group-hover:translate-x-1 transition-transform" />
-                      </Button>
-                    </Link>
+                    <Button
+                      onClick={() => handleExploreClick("yoga-basics")}
+                      className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold px-4 py-2 md:px-6 md:py-2 shadow-md hover:shadow-lg transition-all duration-300 text-xs md:text-sm"
+                    >
+                      Explore Program
+                      <ArrowRight className="ml-1 md:ml-2 h-3 w-3 md:h-4 md:w-4 group-hover:translate-x-1 transition-transform" />
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -621,12 +670,13 @@ export default function Home() {
                     Deepen your practice with guided meditation sessions for mental clarity and inner peace.
                   </p>
                   <div className="flex justify-center">
-                    <Link href="/user/subscription-categories/mindful-meditation">
-                      <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold px-4 py-2 md:px-6 md:py-2 shadow-md hover:shadow-lg transition-all duration-300 text-xs md:text-sm">
-                        Explore Program
-                        <ArrowRight className="ml-1 md:ml-2 h-3 w-3 md:h-4 md:w-4 group-hover:translate-x-1 transition-transform" />
-                      </Button>
-                    </Link>
+                    <Button
+                      onClick={() => handleExploreClick("mindful-meditation")}
+                      className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold px-4 py-2 md:px-6 md:py-2 shadow-md hover:shadow-lg transition-all duration-300 text-xs md:text-sm"
+                    >
+                      Explore Program
+                      <ArrowRight className="ml-1 md:ml-2 h-3 w-3 md:h-4 md:w-4 group-hover:translate-x-1 transition-transform" />
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -650,12 +700,13 @@ export default function Home() {
                     A comprehensive program combining yoga, meditation, and nutrition for total well-being.
                   </p>
                   <div className="flex justify-center">
-                    <Link href="/user/subscription-categories/complete-wellness">
-                      <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold px-4 py-2 md:px-6 md:py-2 shadow-md hover:shadow-lg transition-all duration-300 text-xs md:text-sm">
-                        Explore Program
-                        <ArrowRight className="ml-1 md:ml-2 h-3 w-3 md:h-4 md:w-4 group-hover:translate-x-1 transition-transform" />
-                      </Button>
-                    </Link>
+                    <Button
+                      onClick={() => handleExploreClick("complete-wellness")}
+                      className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold px-4 py-2 md:px-6 md:py-2 shadow-md hover:shadow-lg transition-all duration-300 text-xs md:text-sm"
+                    >
+                      Explore Program
+                      <ArrowRight className="ml-1 md:ml-2 h-3 w-3 md:h-4 md:w-4 group-hover:translate-x-1 transition-transform" />
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -852,7 +903,7 @@ export default function Home() {
                           <h3 className="text-white font-semibold text-sm md:text-base drop-shadow-md">
                             {member.name}
                           </h3>
-                          <p className="text-white/80 text-xs md:text-sm mt-1 drop-shadow-sm">{member.role}</p>
+                          <p className="text-white/80 text-sm md:text-sm mt-1 drop-shadow-sm">{member.role}</p>
                         </div>
                       </div>
                     </div>
@@ -955,12 +1006,7 @@ export default function Home() {
                 <div className="bg-white p-4 rounded-lg shadow-lg flex flex-col items-center transform transition-transform hover:scale-105 duration-300 border border-green-100">
                   <div className="text-green-800 font-bold mb-2 text-center text-sm">SCAN FOR WHATSAPP CHANNEL</div>
                   <div className="h-24 w-24 md:h-32 md:w-32 relative rounded-lg overflow-hidden shadow-inner">
-                    <Image
-                      src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/wpqr1.jpg-7DSQJ8nXyLPXFRzqTX3ZLU425VLrWf.jpeg"
-                      alt="WhatsApp Channel QR Code"
-                      fill
-                      className="object-contain"
-                    />
+                    <Image src="/images/wpqr1.jpeg" alt="WhatsApp Channel QR Code" fill className="object-contain" />
                   </div>
                 </div>
               </div>
@@ -1074,6 +1120,9 @@ export default function Home() {
           </div>
         </div>
       </footer>
+
+      {/* Authentication Modal */}
+      <SubscriptionAuthModal open={showAuthModal} onOpenChange={setShowAuthModal} onAuthChoice={handleAuthChoice} />
     </div>
   )
 }

@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Loader2 } from "lucide-react"
-import { useRouter } from "next/navigation"
+import { Loader2 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
@@ -96,6 +96,8 @@ export function RazorpayPaymentButton({
       setLoading(true)
       setError(null)
 
+      console.log("[v0] Creating order with amount:", amount, "subscriptionId:", subscriptionId)
+
       // Create an order
       const orderResponse = await fetch("/api/razorpay/create-order", {
         method: "POST",
@@ -113,14 +115,25 @@ export function RazorpayPaymentButton({
         }),
       })
 
+      console.log("[v0] Order response status:", orderResponse.status)
+      console.log("[v0] Order response content-type:", orderResponse.headers.get("content-type"))
+
+      const contentType = orderResponse.headers.get("content-type")
+      if (!contentType || !contentType.includes("application/json")) {
+        const textResponse = await orderResponse.text()
+        console.error("[v0] Non-JSON response:", textResponse)
+        throw new Error(`Server returned non-JSON response: ${textResponse.substring(0, 100)}`)
+      }
+
       const orderData = await orderResponse.json()
+      console.log("[v0] Order data:", orderData)
 
       if (!orderResponse.ok) {
-        throw new Error(orderData.error || "Failed to create order")
+        throw new Error(orderData.error || orderData.details || "Failed to create order")
       }
 
       if (!orderData.success || !orderData.order) {
-        throw new Error(orderData.error || "Failed to create order")
+        throw new Error(orderData.error || orderData.details || "Failed to create order")
       }
 
       // Store order in database
@@ -138,7 +151,7 @@ export function RazorpayPaymentButton({
 
       return orderData.order
     } catch (err) {
-      console.error("Error creating order:", err)
+      console.error("[v0] Error creating order:", err)
       setError(err instanceof Error ? err.message : "Failed to create order. Please try again.")
       throw err
     } finally {

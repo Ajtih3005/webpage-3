@@ -167,6 +167,7 @@ export default function UserDashboard() {
           start_date,
           end_date,
           is_active,
+          subscription_plan_active,
           subscription:subscriptions!inner (
             id,
             name,
@@ -177,8 +178,7 @@ export default function UserDashboard() {
           )
         `)
           .eq("user_id", userId)
-          .eq("user_subscriptions.is_active", true)
-          .eq("subscription.is_active", true)
+          .eq("is_active", true)
           .order("end_date", { ascending: false })
 
         if (subscriptionsError) throw subscriptionsError
@@ -187,6 +187,7 @@ export default function UserDashboard() {
         const processedSubscriptions =
           subscriptionsData?.map((sub) => ({
             ...sub,
+            subscription_plan_active: sub.subscription_plan_active !== false, // Default to true if not set
             subscription: {
               ...sub.subscription,
               full_availability: sub.subscription.full_availability || false,

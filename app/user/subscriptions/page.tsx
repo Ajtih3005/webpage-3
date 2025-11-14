@@ -87,12 +87,11 @@ export default function UserSubscriptionsPage() {
         console.log("Update API not available, continuing with current data")
       }
 
-      // Fetch all user subscriptions with subscription details
       const { data: userSubs, error: userSubsError } = await supabase
         .from("user_subscriptions")
         .select(`
           *,
-          subscription:subscriptions (
+          subscription:subscriptions!inner (
             id,
             name,
             description,
@@ -128,6 +127,9 @@ export default function UserSubscriptionsPage() {
         const durationDays = sub.subscription?.duration_days || 30
         const remainingDays = Math.max(0, durationDays - totalActiveDaysUsed)
 
+        // Check if subscription plan is active (controlled by admin)
+        const subscriptionPlanActive = sub.subscription?.is_active !== false
+
         // Simple logic: use is_active column directly
         const isCurrentlyActive = sub.is_active === true
         const isExpired = totalActiveDaysUsed >= durationDays
@@ -146,8 +148,9 @@ export default function UserSubscriptionsPage() {
           remaining_days: remainingDays,
           is_expired: isExpired,
           is_current_active: isCurrentlyActive,
+          subscription_plan_active: subscriptionPlanActive,
           actual_days_since_activation: actualDaysSinceActivation,
-          status: getSubscriptionStatus(sub, isExpired),
+          status: getSubscriptionStatus(sub, isExpired, subscriptionPlanActive),
         }
       })
 
@@ -173,8 +176,19 @@ export default function UserSubscriptionsPage() {
   }
 
   // Get subscription status based on is_active column and expiry
-  const getSubscriptionStatus = (subscription: any, isExpiredByDays: boolean) => {
-    // First check if truly expired (all days used)
+  const getSubscriptionStatus = (subscription: any, isExpiredByDays: boolean, subscriptionPlanActive: boolean) => {
+    // First check if subscription plan itself is inactive (admin turned off)
+    if (!subscriptionPlanActive) {
+      return {
+        text: "Plan Inactive",
+        color: "text-orange-600",
+        bgColor: "bg-orange-100",
+        icon: AlertCircle,
+        description: "This subscription plan is temporarily unavailable. Wait for admin to activate it.",
+      }
+    }
+
+    // Then check if truly expired (all days used)
     if (isExpiredByDays) {
       return {
         text: "Expired",
@@ -207,7 +221,9 @@ export default function UserSubscriptionsPage() {
 
   // Check if a subscription allows access to content
   const canAccessContent = (subscription: any): boolean => {
-    return !subscription.is_expired && subscription.is_active === true
+    return (
+      !subscription.is_expired && subscription.is_active === true && subscription.subscription_plan_active !== false
+    )
   }
 
   // Get subscription period text
@@ -315,10 +331,17 @@ export default function UserSubscriptionsPage() {
                   <strong>Expired:</strong> All subscription days have been used up
                 </span>
               </div>
+              <div className="flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 text-orange-500" />
+                <span>
+                  <strong>Plan Inactive:</strong> This subscription plan is temporarily unavailable
+                </span>
+              </div>
             </div>
             <p className="text-sm mt-3 p-3 bg-blue-100 rounded-md">
               <strong>Note:</strong> Only active subscriptions count days. When inactive, your remaining days are saved
-              for when it becomes active again.
+              for when it becomes active again. Plan inactive subscriptions are paused and will not count days until
+              reactivated.
             </p>
           </AlertDescription>
         </Alert>
@@ -577,6 +600,7 @@ export default function UserSubscriptionsPage() {
                               <StatusIcon className={`h-4 w-4 ${status.color}`} />
                               <AlertDescription className={`${status.color} text-xs`}>
                                 {status.description}
+                                {status.text === "Plan Inactive" && " Contact support if this persists."}
                                 {status.text === "Inactive" && " Your remaining days are preserved."}
                               </AlertDescription>
                             </Alert>
