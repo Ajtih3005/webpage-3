@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { notFound, useSearchParams, useRouter } from "next/navigation"
+import { notFound, useSearchParams, useRouter } from 'next/navigation'
 import Image from "next/image"
 import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,27 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
-import {
-  ChevronDown,
-  ChevronRight,
-  Star,
-  Users,
-  Clock,
-  CheckCircle,
-  ArrowLeft,
-  Sparkles,
-  Crown,
-  Heart,
-  Zap,
-  Flame,
-  Calendar,
-  PlayCircle,
-  BookOpen,
-  TrendingUp,
-  Home,
-  FileText,
-  User,
-} from "lucide-react"
+import { ChevronDown, ChevronRight, Star, Users, Clock, CheckCircle, ArrowLeft, Sparkles, Crown, Heart, Zap, Flame, Calendar, PlayCircle, BookOpen, TrendingUp, Home, FileText, User } from 'lucide-react'
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { Logo } from "@/components/logo"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -104,7 +84,6 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
   const searchParams = useSearchParams()
   const router = useRouter()
 
-  // Get the 'from' parameter to determine where user came from
   const fromUpdates = searchParams.get("from") === "updates"
   const fromLogin = searchParams.get("from") === "login"
   const fromMain = searchParams.get("from") === "main"
@@ -113,7 +92,6 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
   const fromUserPlans = searchParams.get("from") === "user-plans"
 
   useEffect(() => {
-    // Scroll to top immediately when component mounts
     window.scrollTo(0, 0)
     fetchPageData()
   }, [params.slug])
@@ -121,7 +99,6 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
   const fetchPageData = async () => {
     const supabase = getSupabaseBrowserClient()
     try {
-      // Fetch page details
       const { data: pageData, error: pageError } = await supabase
         .from("subscription_pages")
         .select("*")
@@ -135,7 +112,6 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
       }
       setPage(pageData)
 
-      // Fetch info cards
       const { data: cardsData } = await supabase
         .from("subscription_page_cards")
         .select("*")
@@ -144,7 +120,6 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
 
       setInfoCards(cardsData || [])
 
-      // Fetch content sections
       const { data: sectionsData } = await supabase
         .from("subscription_page_sections")
         .select("*")
@@ -153,7 +128,6 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
 
       setContentSections(sectionsData || [])
 
-      // Fetch linked plans
       const { data: plansData } = await supabase
         .from("subscription_page_plans")
         .select(`
@@ -228,15 +202,14 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
     }
   }
 
-  // Determine back link based on where user came from
   const getBackLink = () => {
     if (fromUpdates) return "/updates"
-    if (fromLogin) return "/user/plans" // User subscription page
-    if (fromMain) return "/" // Home page
-    if (fromHome) return "/" // Home page
-    if (fromPlans) return "/plans" // Public plans page
-    if (fromUserPlans) return "/user/plans" // User plans page
-    return "/plans" // Default to public plans
+    if (fromLogin) return "/user/plans"
+    if (fromMain) return "/"
+    if (fromHome) return "/"
+    if (fromPlans) return "/plans"
+    if (fromUserPlans) return "/user/plans"
+    return "/plans"
   }
 
   const getBackText = () => {
@@ -269,7 +242,6 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
   const handleSubscribeClick = (planId: string) => {
     console.log("[v0] Subscribe button clicked for plan:", planId)
 
-    // Check if user is logged in
     const isLoggedIn = localStorage.getItem("userAuthenticated") === "true"
     console.log("[v0] User logged in status:", isLoggedIn)
 
@@ -277,7 +249,6 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
       console.log("[v0] User is logged in, redirecting to payment page")
       router.push(`/user/subscribe?plan=${planId}`)
     } else {
-      // User not logged in, show auth modal
       console.log("[v0] User not logged in, showing auth modal")
       setSelectedPlanId(planId)
       setShowAuthModal(true)
@@ -292,7 +263,6 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
       sessionStorage.setItem("pendingSubscriptionPlan", selectedPlanId)
       console.log("[v0] Stored pending plan in sessionStorage:", selectedPlanId)
 
-      // Redirect to login or register with return URL to payment page
       const returnUrl = `/user/subscribe?plan=${selectedPlanId}`
       console.log("[v0] Return URL to payment page:", returnUrl)
 
@@ -345,14 +315,12 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-rose-50 relative overflow-hidden">
-      {/* Animated Background */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-96 h-96 bg-gradient-to-br from-purple-400/20 to-pink-400/20 rounded-full blur-3xl animate-pulse"></div>
         <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-gradient-to-br from-rose-400/20 to-orange-400/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-gradient-to-br from-pink-300/10 to-purple-300/10 rounded-full blur-3xl animate-pulse delay-500"></div>
       </div>
 
-      {/* Sticky Header */}
       <div className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-purple-100 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <div className="flex items-center">
@@ -372,7 +340,6 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
       </div>
 
       <div className="relative z-10">
-        {/* Hero Section */}
         <div className="relative h-[500px] overflow-hidden">
           <Image
             src={
@@ -385,7 +352,6 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
           />
           <div className="absolute inset-0 bg-gradient-to-r from-purple-900/80 via-pink-900/60 to-rose-900/80" />
 
-          {/* Floating Elements */}
           <div className="absolute top-6 right-6">
             <div className="bg-white/20 backdrop-blur-sm rounded-full px-4 py-2 text-white font-bold flex items-center text-sm">
               <Crown className="mr-2 h-4 w-4" />
@@ -421,14 +387,12 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
             </div>
           </div>
 
-          {/* Scroll Indicator */}
           <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 animate-bounce">
             <ChevronDown className="h-6 w-6 text-white" />
           </div>
         </div>
 
         <div className="container mx-auto px-4 py-12">
-          {/* Info Cards - FIXED ALIGNMENT */}
           {infoCards.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12 -mt-10 relative z-10">
               {infoCards.map((card, index) => (
@@ -450,10 +414,9 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
             </div>
           )}
 
-          {/* Introduction */}
           <Card className="mb-10 border-0 shadow-xl bg-gradient-to-br from-white to-purple-50/50 backdrop-blur-sm">
             <CardHeader className="text-center pb-6">
-              <div className="inline-flex items-center bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2 rounded-full text-sm font-bold mb-4 mx-auto">
+              <div className="inline-flex items-center bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-4 py-2 rounded-full text-sm font-bold mb-4 mx-auto">
                 <Heart className="mr-2 h-4 w-4" />
                 Why Choose This Program?
               </div>
@@ -469,7 +432,6 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
           </Card>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Content Sections */}
             <div className="space-y-6">
               <div className="text-center lg:text-left">
                 <div className="inline-flex items-center bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-4 py-2 rounded-full text-sm font-bold mb-4">
@@ -504,7 +466,6 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
               ))}
             </div>
 
-            {/* Subscription Plans */}
             <div className="space-y-5">
               <div className="text-center lg:text-left">
                 <div className="inline-flex items-center bg-gradient-to-r from-yellow-500 to-orange-500 text-white px-4 py-2 rounded-full text-sm font-bold mb-4">
@@ -519,7 +480,6 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
                   key={linkedPlan.id}
                   className="hover:shadow-lg transition-all duration-300 border-0 shadow-md hover:scale-102 bg-gradient-to-br from-white to-yellow-50/50 backdrop-blur-sm relative overflow-hidden group"
                 >
-                  {/* Popular Badge */}
                   {index === 0 && (
                     <div className="absolute -top-1 -right-1 z-10">
                       <Badge className="bg-gradient-to-r from-yellow-400 to-orange-400 text-black px-2 py-1 text-xs font-bold shadow-md">
@@ -658,7 +618,6 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
                 </CardContent>
               </Card>
 
-              {/* CTA Section */}
               <div className="text-center mt-8">
                 <p className="text-gray-600 mb-4">Ready to start your transformation?</p>
                 <Button
@@ -678,7 +637,6 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
         </div>
       </div>
 
-      {/* Authentication Modal */}
       <Dialog open={showAuthModal} onOpenChange={setShowAuthModal}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
