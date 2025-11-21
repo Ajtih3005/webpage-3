@@ -118,9 +118,9 @@ export default function UserRegister() {
         .select("*")
         .eq("code", code.toUpperCase())
         .eq("is_active", true)
-        .single()
+        .limit(1)
 
-      if (error || !data) {
+      if (error || !data || data.length === 0) {
         setReferralValidation({
           isValid: false,
           discount: 0,
@@ -129,8 +129,9 @@ export default function UserRegister() {
         return
       }
 
-      // Check if expired
-      if (data.valid_until && new Date(data.valid_until) < new Date()) {
+      const referralCode = data[0]
+
+      if (referralCode.expires_at && new Date(referralCode.expires_at) < new Date()) {
         setReferralValidation({
           isValid: false,
           discount: 0,
@@ -139,8 +140,7 @@ export default function UserRegister() {
         return
       }
 
-      // Check usage limit
-      if (data.usage_limit && data.times_used >= data.usage_limit) {
+      if (referralCode.usage_limit && referralCode.times_used >= referralCode.usage_limit) {
         setReferralValidation({
           isValid: false,
           discount: 0,
@@ -151,8 +151,8 @@ export default function UserRegister() {
 
       setReferralValidation({
         isValid: true,
-        discount: data.discount_percentage,
-        message: `Valid! Get ${data.discount_percentage}% discount`,
+        discount: referralCode.discount_percentage,
+        message: `Valid! Get ${referralCode.discount_percentage}% discount`,
       })
     } catch (error) {
       console.error("Error validating referral code:", error)
@@ -174,7 +174,6 @@ export default function UserRegister() {
 
       const supabase = getSupabaseBrowserClient()
 
-      // Check if phone number already exists
       const { data: existingUser, error: checkError } = await supabase
         .from("users")
         .select("id")
@@ -186,7 +185,6 @@ export default function UserRegister() {
         return
       }
 
-      // Generate a unique user ID
       const userId = generateUserId()
 
       const userData: any = {
@@ -198,19 +196,17 @@ export default function UserRegister() {
         preferred_batch: preferredBatch || null,
         password,
         country,
+        referral_code: referralCode && referralValidation?.isValid ? referralCode.toUpperCase() : null,
       }
 
-      // Store referral code in localStorage to apply during subscription purchase
       if (referralCode && referralValidation?.isValid) {
         localStorage.setItem("pendingReferralCode", referralCode.toUpperCase())
       }
 
-      // Insert the new user
       const { data, error } = await supabase.from("users").insert([userData]).select()
 
       if (error) throw error
 
-      // Assign the free subscription to the new user
       try {
         const response = await fetch("/api/auto-assign-free-subscription", {
           method: "POST",
@@ -229,7 +225,6 @@ export default function UserRegister() {
         console.error("Error assigning free subscription:", subscriptionError)
       }
 
-      // Set user session data
       localStorage.setItem("userId", data[0].id.toString())
       localStorage.setItem("userAuthenticated", "true")
       localStorage.setItem("userName", data[0].name || "User")
@@ -240,22 +235,17 @@ export default function UserRegister() {
       const pendingPlan = sessionStorage.getItem("pendingSubscriptionPlan")
       if (pendingPlan) {
         sessionStorage.removeItem("pendingSubscriptionPlan")
-        // For subscription plans, skip WhatsApp dialog and go directly to payment
         router.push(`/user/subscribe?plan=${pendingPlan}`)
         return
       }
 
-      // Handle post-registration flow based on link type
       if (redirectUrl) {
         if (isWhatsAppLink) {
-          // For WhatsApp links, show the WhatsApp dialog but DON'T redirect to link
           setShowWhatsAppDialog(true)
         } else {
-          // For course/other links, show WhatsApp dialog then redirect to link
           setShowWhatsAppDialog(true)
         }
       } else {
-        // No redirect URL, show normal WhatsApp dialog
         setShowWhatsAppDialog(true)
       }
     } catch (error) {
@@ -270,20 +260,16 @@ export default function UserRegister() {
     window.open("https://chat.whatsapp.com/G68uJzPssx1CZE2WphRmzP", "_blank")
 
     if (redirectUrl && !isWhatsAppLink) {
-      // For non-WhatsApp links, redirect to the original link after WhatsApp
       router.push(redirectUrl)
     } else {
-      // For WhatsApp links or no redirect, go to login with success message
       router.push("/user/login?registered=true")
     }
   }
 
   const handleSkipWhatsApp = () => {
     if (redirectUrl && !isWhatsAppLink) {
-      // For non-WhatsApp links, go directly to the link
       router.push(redirectUrl)
     } else {
-      // For WhatsApp links or no redirect, go to login
       router.push("/user/login?registered=true")
     }
   }

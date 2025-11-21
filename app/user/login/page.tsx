@@ -10,8 +10,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2, ArrowLeft, Phone, Lock, Leaf, User } from "lucide-react"
 import Image from "next/image"
 import { isUserLoggedIn } from "@/lib/auth-client"
-import { getSupabaseBrowserClient } from "@/lib/supabase"
-import bcrypt from "bcryptjs"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -60,124 +58,37 @@ export default function LoginPage() {
         return
       }
 
-      console.log("[v0] Getting Supabase client...")
-      const supabase = getSupabaseBrowserClient()
-      console.log("[v0] Supabase client obtained")
+      console.log("[v0] Calling login API route...")
+      const response = await fetch("/api/user/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ phone, password }),
+      })
 
-      // Clean phone number
-      const cleanPhone = phone.replace(/\s+|-|$$|$$|\+|\./g, "")
-      console.log("[v0] Cleaned phone:", cleanPhone)
+      const result = await response.json()
+      console.log("[v0] Login API response:", result)
 
-      // Try different phone formats
-      const phoneVariants = [
-        phone,
-        cleanPhone,
-        `+91${cleanPhone}`,
-        `91${cleanPhone}`,
-        cleanPhone.startsWith("91") ? cleanPhone.substring(2) : cleanPhone,
-      ]
-
-      console.log("[v0] Trying phone variants:", phoneVariants)
-
-      let user = null
-
-      for (const phoneVariant of phoneVariants) {
-        console.log("[v0] Querying database for phone variant:", phoneVariant)
-
-        const { data: userData, error: queryError } = await supabase
-          .from("users")
-          .select("id, user_id, name, email, phone_number, phone, whatsapp_number, password")
-          .or(`phone_number.eq.${phoneVariant},phone.eq.${phoneVariant},whatsapp_number.eq.${phoneVariant}`)
-          .limit(1)
-
-        console.log("[v0] Query result:", { userData, queryError })
-
-        if (queryError) {
-          console.error("[v0] Database query error:", queryError)
-          setError("Database error. Please try again.")
-          setLoading(false)
-          return
-        }
-
-        if (userData && userData.length > 0) {
-          user = userData[0]
-          console.log("[v0] User found with phone variant:", phoneVariant)
-          console.log("[v0] User data (password hidden):", { ...user, password: user.password ? "***" : "null" })
-          break
-        }
-      }
-
-      if (!user) {
-        console.log("[v0] No user found for any phone variant")
-        setError("Invalid phone number or password")
-        setLoading(false)
-        return
-      }
-
-      console.log("[v0] Starting password verification...")
-      console.log("[v0] Password exists:", !!user.password)
-      console.log("[v0] Password starts with $2:", user.password?.startsWith("$2"))
-
-      // Verify password
-      let isValidPassword = false
-
-      if (user.password) {
-        try {
-          if (user.password.startsWith("$2")) {
-            console.log("[v0] Using bcrypt comparison...")
-            isValidPassword = await bcrypt.compare(password, user.password)
-            console.log("[v0] Bcrypt comparison result:", isValidPassword)
-          } else {
-            console.log("[v0] Using plain text comparison...")
-            isValidPassword = password === user.password
-            console.log("[v0] Plain text comparison result:", isValidPassword)
-          }
-        } catch (passwordError) {
-          console.error("[v0] Password comparison error:", passwordError)
-          console.log("[v0] Falling back to plain text comparison...")
-          isValidPassword = password === user.password
-          console.log("[v0] Fallback comparison result:", isValidPassword)
-        }
-      } else {
-        console.log("[v0] No password stored for user")
-      }
-
-      if (!isValidPassword) {
-        console.log("[v0] Password validation failed")
-        setError("Invalid phone number or password")
+      if (!response.ok) {
+        console.log("[v0] Login failed:", result.error)
+        setError(result.error || "Invalid phone number or password")
         setLoading(false)
         return
       }
 
       console.log("[v0] Login successful! Setting up session...")
 
+      const user = result.user
+
       // Store user data
       localStorage.setItem("userId", user.id.toString())
       localStorage.setItem("userAuthenticated", "true")
       localStorage.setItem("userName", user.name || "User")
       localStorage.setItem("userEmail", user.email || "")
-      localStorage.setItem("userPhone", user.phone_number || user.phone || user.whatsapp_number || "")
+      localStorage.setItem("userPhone", user.phone_number || "")
 
       console.log("[v0] LocalStorage set")
-
-      // Set cookie
-      document.cookie = `userId=${user.id}; path=/; max-age=604800; ${
-        process.env.NODE_ENV === "production" ? "secure;" : ""
-      } samesite=lax`
-
-      console.log("[v0] Cookie set")
-
-      // Log successful login
-      try {
-        await supabase.from("auth_logs").insert({
-          event_type: "user_login_success",
-          user_id: user.id,
-          success: true,
-        })
-        console.log("[v0] Auth log inserted")
-      } catch (logErr) {
-        console.warn("[v0] Auth logging error:", logErr)
-      }
 
       // Clear form
       setPhone("")

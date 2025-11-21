@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { notFound, useSearchParams, useRouter } from 'next/navigation'
+import { notFound, useSearchParams, useRouter } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,7 +9,27 @@ import { Button } from "@/components/ui/button"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
-import { ChevronDown, ChevronRight, Star, Users, Clock, CheckCircle, ArrowLeft, Sparkles, Crown, Heart, Zap, Flame, Calendar, PlayCircle, BookOpen, TrendingUp, Home, FileText, User } from 'lucide-react'
+import {
+  ChevronDown,
+  ChevronRight,
+  Star,
+  Users,
+  Clock,
+  CheckCircle,
+  ArrowLeft,
+  Sparkles,
+  Crown,
+  Heart,
+  Zap,
+  Flame,
+  Calendar,
+  PlayCircle,
+  BookOpen,
+  TrendingUp,
+  Home,
+  FileText,
+  User,
+} from "lucide-react"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { Logo } from "@/components/logo"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -52,6 +72,8 @@ interface LinkedPlan {
     price: number
     duration_days: number
     features: string[]
+    has_discount: boolean
+    discount_percentage: number
   }
 }
 
@@ -80,6 +102,8 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
   const [comparisonValues, setComparisonValues] = useState<ComparisonValue[]>([])
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null)
+  const [referralDiscounts, setReferralDiscounts] = useState<{ [key: string]: number }>({})
+  const [userId, setUserId] = useState<string | null>(null)
 
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -90,6 +114,53 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
   const fromHome = searchParams.get("from") === "home"
   const fromPlans = searchParams.get("from") === "plans"
   const fromUserPlans = searchParams.get("from") === "user-plans"
+
+  useEffect(() => {
+    const storedUserId = localStorage.getItem("userId")
+    setUserId(storedUserId)
+  }, [])
+
+  useEffect(() => {
+    if (userId && linkedPlans.length > 0) {
+      fetchReferralDiscounts()
+    }
+  }, [userId, linkedPlans])
+
+  const fetchReferralDiscounts = async () => {
+    if (!userId) return
+
+    const discounts: { [key: string]: number } = {}
+
+    for (const plan of linkedPlans) {
+      try {
+        const response = await fetch("/api/user-referral-discount", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            userId: userId,
+            subscriptionId: plan.subscription_id,
+          }),
+        })
+
+        if (!response.ok) {
+          console.error(`API error for plan ${plan.subscription_id}:`, response.status)
+          continue
+        }
+
+        const data = await response.json()
+
+        if (data.hasDiscount) {
+          discounts[plan.subscription_id] = data.discount
+        }
+      } catch (error) {
+        console.error(`Error fetching referral discount for plan ${plan.subscription_id}:`, error)
+      }
+    }
+
+    setReferralDiscounts(discounts)
+  }
 
   useEffect(() => {
     window.scrollTo(0, 0)
@@ -140,7 +211,9 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
             description,
             price,
             duration_days,
-            features
+            features,
+            has_discount,
+            discount_percentage
           )
         `)
         .eq("page_id", pageData.id)
@@ -242,9 +315,7 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
   const handleSubscribeClick = (planId: string) => {
     console.log("[v0] Subscribe button clicked for plan:", planId)
 
-    const userId = localStorage.getItem("userId")
     const isLoggedIn = !!userId
-    console.log("[v0] User ID found:", userId)
     console.log("[v0] User logged in status:", isLoggedIn)
 
     if (isLoggedIn) {
@@ -278,6 +349,12 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
     } else {
       console.error("[v0] No plan ID selected!")
     }
+  }
+
+  const calculateFinalPrice = (plan: LinkedPlan["subscriptions"]) => {
+    const baseDiscount = plan.has_discount ? (plan.price * plan.discount_percentage) / 100 : 0
+    const referralDiscount = referralDiscounts[plan.id] ? (plan.price * referralDiscounts[plan.id]) / 100 : 0
+    return plan.price - baseDiscount - referralDiscount
   }
 
   if (loading) {
@@ -502,10 +579,33 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
                         </CardDescription>
                       </div>
                       <div className="text-right ml-3">
-                        <div className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-600 to-orange-600">
-                          ₹{linkedPlan.subscriptions.price}
+                        <div className="flex flex-col items-end">
+                          {linkedPlan.subscriptions.has_discount || referralDiscounts[linkedPlan.subscription_id] ? (
+                            <>
+                              <div className="text-sm text-gray-400 line-through">
+                                ₹{linkedPlan.subscriptions.price}
+                              </div>
+                              <div className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-600 to-orange-600">
+                                ₹{calculateFinalPrice(linkedPlan.subscriptions).toFixed(2)}
+                              </div>
+                              {linkedPlan.subscriptions.has_discount && (
+                                <Badge variant="secondary" className="text-xs mt-1 bg-green-100 text-green-700">
+                                  {linkedPlan.subscriptions.discount_percentage}% OFF
+                                </Badge>
+                              )}
+                              {referralDiscounts[linkedPlan.subscription_id] && (
+                                <Badge variant="secondary" className="text-xs mt-1 bg-purple-100 text-purple-700">
+                                  Referral {referralDiscounts[linkedPlan.subscription_id]}% OFF
+                                </Badge>
+                              )}
+                            </>
+                          ) : (
+                            <div className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-600 to-orange-600">
+                              ₹{linkedPlan.subscriptions.price}
+                            </div>
+                          )}
                         </div>
-                        <div className="text-xs text-gray-500 font-medium">
+                        <div className="text-xs text-gray-500 font-medium mt-1">
                           {linkedPlan.subscriptions.duration_days} days
                         </div>
                       </div>
@@ -568,7 +668,18 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
                             <th key={plan.id} className="text-center p-4 text-white font-bold text-sm min-w-[150px]">
                               <div className="flex flex-col items-center">
                                 <span className="mb-1">{plan.subscriptions.name}</span>
-                                <span className="text-xs font-normal opacity-90">₹{plan.subscriptions.price}</span>
+                                {plan.subscriptions.has_discount || referralDiscounts[plan.subscription_id] ? (
+                                  <div className="flex flex-col items-center">
+                                    <span className="text-xs font-normal opacity-60 line-through">
+                                      ₹{plan.subscriptions.price}
+                                    </span>
+                                    <span className="text-xs font-bold opacity-90">
+                                      ₹{calculateFinalPrice(plan.subscriptions).toFixed(2)}
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <span className="text-xs font-normal opacity-90">₹{plan.subscriptions.price}</span>
+                                )}
                               </div>
                             </th>
                           ))}
