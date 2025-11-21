@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
-import { Trash2, Copy, Check } from "lucide-react"
+import { Trash2, Copy, Check, Users } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Switch } from "@/components/ui/switch"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -37,6 +37,22 @@ interface SubscriptionDiscount {
   discount: number
 }
 
+interface ReferralUser {
+  id: number
+  name: string
+  email: string
+  created_at: string
+  subscriptions: Array<{
+    is_active: boolean
+    start_date: string
+    end_date: string
+    subscription: {
+      name: string
+      price: number
+    }
+  }>
+}
+
 export default function ReferralCodesAdmin() {
   const [codes, setCodes] = useState<ReferralCode[]>([])
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([])
@@ -54,6 +70,11 @@ export default function ReferralCodesAdmin() {
     expires_at: "",
     notes: "",
   })
+
+  const [viewingCode, setViewingCode] = useState<string | null>(null)
+  const [registrationUsers, setRegistrationUsers] = useState<ReferralUser[]>([])
+  const [loadingUsers, setLoadingUsers] = useState(false)
+  const [showRegistrationsDialog, setShowRegistrationsDialog] = useState(false)
 
   useEffect(() => {
     fetchCodes()
@@ -239,6 +260,26 @@ export default function ReferralCodesAdmin() {
     }
   }
 
+  const fetchCodeUsers = async (code: string) => {
+    setLoadingUsers(true)
+    setViewingCode(code)
+    setShowRegistrationsDialog(true)
+
+    try {
+      const response = await fetch(`/api/referral-code-users?code=${encodeURIComponent(code)}`)
+      const data = await response.json()
+
+      if (!response.ok) throw new Error(data.error)
+
+      setRegistrationUsers(data.users || [])
+    } catch (error) {
+      console.error("Error fetching code users:", error)
+      alert("Failed to fetch users for this code")
+    } finally {
+      setLoadingUsers(false)
+    }
+  }
+
   const groupedCodes = codes.reduce(
     (acc, code) => {
       if (!acc[code.code]) {
@@ -406,6 +447,10 @@ export default function ReferralCodesAdmin() {
                   <CardDescription>Total uses: {codeEntries.reduce((sum, c) => sum + c.times_used, 0)}</CardDescription>
                 </div>
                 <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => fetchCodeUsers(code)}>
+                    <Users className="h-4 w-4 mr-1" />
+                    View Registrations
+                  </Button>
                   <Button variant="outline" size="sm" onClick={() => handleDeleteAllByCode(code)}>
                     <Trash2 className="h-4 w-4 mr-1" />
                     Delete All
@@ -450,7 +495,6 @@ export default function ReferralCodesAdmin() {
             </CardContent>
           </Card>
         ))}
-
         {codes.length === 0 && (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
@@ -459,6 +503,84 @@ export default function ReferralCodesAdmin() {
           </Card>
         )}
       </div>
+
+      <Dialog open={showRegistrationsDialog} onOpenChange={setShowRegistrationsDialog}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Registrations for Code: <span className="font-mono">{viewingCode}</span>
+            </DialogTitle>
+          </DialogHeader>
+
+          {loadingUsers ? (
+            <div className="flex items-center justify-center py-12">
+              <p className="text-muted-foreground">Loading users...</p>
+            </div>
+          ) : registrationUsers.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12">
+              <p className="text-muted-foreground">No users have registered with this code yet</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                <div className="flex items-center gap-2">
+                  <Users className="h-5 w-5 text-primary" />
+                  <span className="font-semibold text-lg">{registrationUsers.length} Total Registrations</span>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {registrationUsers.map((user) => (
+                  <Card key={user.id}>
+                    <CardHeader className="pb-3">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <CardTitle className="text-lg">{user.name}</CardTitle>
+                          <CardDescription>{user.email}</CardDescription>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Registered: {new Date(user.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <span className="text-xs px-2 py-1 rounded bg-purple-100 text-purple-800">
+                          {user.subscriptions.length} subscription(s)
+                        </span>
+                      </div>
+                    </CardHeader>
+                    {user.subscriptions.length > 0 && (
+                      <CardContent>
+                        <div className="space-y-2">
+                          {user.subscriptions.map((sub, idx) => (
+                            <div
+                              key={idx}
+                              className="flex items-center justify-between p-3 border rounded-lg bg-muted/50"
+                            >
+                              <div>
+                                <p className="font-medium">{sub.subscription?.name || "Unknown Plan"}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  ₹{sub.subscription?.price || 0} • {new Date(sub.start_date).toLocaleDateString()} -{" "}
+                                  {new Date(sub.end_date).toLocaleDateString()}
+                                </p>
+                              </div>
+                              <span
+                                className={`text-xs px-2 py-1 rounded ${
+                                  sub.is_active ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
+                                }`}
+                              >
+                                {sub.is_active ? "Active" : "Inactive"}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    )}
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

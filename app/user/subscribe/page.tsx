@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from "next/navigation"
 import { UserLayout } from "@/components/user-layout"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Checkbox } from "@/components/ui/checkbox"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
-import { Check, AlertCircle, Loader2, Star, Clock, Users, Gift, ShoppingCart, ArrowLeft, FileText } from 'lucide-react'
+import { Check, AlertCircle, Loader2, Star, Clock, Users, Gift, ShoppingCart, ArrowLeft, FileText } from "lucide-react"
 import { RazorpayPaymentButton } from "@/components/razorpay-payment-button"
 
 interface Subscription {
@@ -27,6 +27,12 @@ interface Subscription {
   whatsapp_group_link: string | null
 }
 
+interface ReferralDiscount {
+  hasDiscount: boolean
+  discount: number
+  code?: string
+}
+
 export default function SubscribePage() {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([])
   const [loading, setLoading] = useState(true)
@@ -35,7 +41,9 @@ export default function SubscribePage() {
   const [userId, setUserId] = useState<string | null>(null)
   const [termsAccepted, setTermsAccepted] = useState(false)
   const [showDirectPayment, setShowDirectPayment] = useState(false)
-  
+  const [referralDiscount, setReferralDiscount] = useState<ReferralDiscount>({ hasDiscount: false, discount: 0 })
+  const [loadingReferral, setLoadingReferral] = useState(false)
+
   const router = useRouter()
   const searchParams = useSearchParams()
   const planId = searchParams.get("plan")
@@ -46,6 +54,37 @@ export default function SubscribePage() {
 
     fetchSubscriptions()
   }, [])
+
+  useEffect(() => {
+    if (selectedSubscription && userId && showDirectPayment) {
+      fetchReferralDiscount()
+    }
+  }, [selectedSubscription, userId, showDirectPayment])
+
+  const fetchReferralDiscount = async () => {
+    if (!userId || !selectedSubscription) return
+
+    try {
+      setLoadingReferral(true)
+      const response = await fetch("/api/user-referral-discount", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: userId,
+          subscriptionId: selectedSubscription.id,
+        }),
+      })
+
+      const data = await response.json()
+      console.log("[v0] Referral discount data:", data)
+      setReferralDiscount(data)
+    } catch (error) {
+      console.error("[v0] Error fetching referral discount:", error)
+      setReferralDiscount({ hasDiscount: false, discount: 0 })
+    } finally {
+      setLoadingReferral(false)
+    }
+  }
 
   const fetchSubscriptions = async () => {
     try {
@@ -134,18 +173,55 @@ export default function SubscribePage() {
     return null
   }
 
+  const calculateFinalPrice = () => {
+    if (!selectedSubscription) return 0
+
+    // Start with original price (before any discounts)
+    const basePrice =
+      selectedSubscription.has_discount && selectedSubscription.original_price
+        ? selectedSubscription.original_price
+        : selectedSubscription.price
+
+    let subscriptionDiscount = 0
+    let referralDiscountAmount = 0
+
+    // Calculate subscription discount (from original price)
+    if (
+      selectedSubscription.has_discount &&
+      selectedSubscription.discount_percentage &&
+      selectedSubscription.original_price
+    ) {
+      subscriptionDiscount = (basePrice * selectedSubscription.discount_percentage) / 100
+    }
+
+    // Calculate referral discount (from original price) - Option B: Additive
+    if (referralDiscount.hasDiscount && referralDiscount.discount) {
+      referralDiscountAmount = (basePrice * referralDiscount.discount) / 100
+    }
+
+    // Final price = original - both discounts
+    const finalPrice = basePrice - subscriptionDiscount - referralDiscountAmount
+
+    return {
+      originalPrice: basePrice,
+      subscriptionDiscount,
+      referralDiscountAmount,
+      finalPrice: Math.max(0, finalPrice),
+    }
+  }
+
   if (showDirectPayment && selectedSubscription && userId) {
     const features =
-      selectedSubscription.features || selectedSubscription.features_list || getDefaultFeatures(selectedSubscription.duration_days)
+      selectedSubscription.features ||
+      selectedSubscription.features_list ||
+      getDefaultFeatures(selectedSubscription.duration_days)
+
+    const priceBreakdown = calculateFinalPrice()
 
     return (
       <UserLayout>
         <div className="container mx-auto py-8 max-w-4xl">
-          <Button
-            variant="ghost"
-            onClick={() => router.back()}
-            className="mb-6"
-          >
+          <Button variant="ghost" onClick={() => router.back()} className="mb-6">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back
           </Button>
@@ -167,29 +243,52 @@ export default function SubscribePage() {
               <CardContent className="pt-6">
                 <div className="space-y-4">
                   <div className="bg-green-50 p-4 rounded-lg">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-gray-600">Plan Price</span>
-                      {selectedSubscription.has_discount && selectedSubscription.original_price && (
-                        <span className="text-gray-500 line-through text-sm">
-                          {formatPrice(selectedSubscription.original_price)}
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Original Price</span>
+                        <span className="text-gray-500 line-through text-lg">
+                          {formatPrice(priceBreakdown.originalPrice)}
                         </span>
-                      )}
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-2xl font-bold text-green-600">
-                        {formatPrice(selectedSubscription.price)}
-                      </span>
-                      {selectedSubscription.has_discount && selectedSubscription.discount_percentage && (
-                        <Badge variant="destructive" className="bg-red-500">
-                          {selectedSubscription.discount_percentage}% OFF
-                        </Badge>
-                      )}
-                    </div>
-                    {selectedSubscription.has_discount && selectedSubscription.original_price && (
-                      <div className="text-sm text-green-700 mt-2">
-                        You save {formatPrice(selectedSubscription.original_price - selectedSubscription.price)}!
                       </div>
-                    )}
+
+                      {priceBreakdown.subscriptionDiscount > 0 && (
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-green-700">
+                            Plan Discount ({selectedSubscription.discount_percentage}%)
+                          </span>
+                          <span className="text-green-700 font-medium">
+                            -{formatPrice(priceBreakdown.subscriptionDiscount)}
+                          </span>
+                        </div>
+                      )}
+
+                      {referralDiscount.hasDiscount && priceBreakdown.referralDiscountAmount > 0 && (
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-purple-700">
+                            Referral Discount ({referralDiscount.discount}%) - {referralDiscount.code}
+                          </span>
+                          <span className="text-purple-700 font-medium">
+                            -{formatPrice(priceBreakdown.referralDiscountAmount)}
+                          </span>
+                        </div>
+                      )}
+
+                      <div className="border-t pt-2 mt-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-xl font-bold text-gray-900">Final Price</span>
+                          <span className="text-2xl font-bold text-green-600">
+                            {formatPrice(priceBreakdown.finalPrice)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {(priceBreakdown.subscriptionDiscount > 0 || priceBreakdown.referralDiscountAmount > 0) && (
+                        <div className="text-sm text-green-700 mt-2 font-medium">
+                          Total Savings:{" "}
+                          {formatPrice(priceBreakdown.subscriptionDiscount + priceBreakdown.referralDiscountAmount)}!
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   <div className="flex items-center justify-between py-3 border-b">
@@ -233,9 +332,32 @@ export default function SubscribePage() {
                   <h4 className="font-semibold text-gray-900">Bill Summary</h4>
                   <div className="bg-gray-50 p-4 rounded-lg space-y-2">
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Subtotal</span>
-                      <span className="font-medium">{formatPrice(selectedSubscription.price)}</span>
+                      <span className="text-gray-600">Original Price</span>
+                      <span
+                        className={
+                          priceBreakdown.subscriptionDiscount > 0 || priceBreakdown.referralDiscountAmount > 0
+                            ? "line-through text-gray-500"
+                            : "font-medium"
+                        }
+                      >
+                        {formatPrice(priceBreakdown.originalPrice)}
+                      </span>
                     </div>
+
+                    {priceBreakdown.subscriptionDiscount > 0 && (
+                      <div className="flex justify-between text-green-600">
+                        <span>Plan Discount</span>
+                        <span>-{formatPrice(priceBreakdown.subscriptionDiscount)}</span>
+                      </div>
+                    )}
+
+                    {referralDiscount.hasDiscount && priceBreakdown.referralDiscountAmount > 0 && (
+                      <div className="flex justify-between text-purple-600">
+                        <span>Referral Code ({referralDiscount.code})</span>
+                        <span>-{formatPrice(priceBreakdown.referralDiscountAmount)}</span>
+                      </div>
+                    )}
+
                     <div className="flex justify-between">
                       <span className="text-gray-600">Taxes & Fees</span>
                       <span className="font-medium">Included</span>
@@ -244,7 +366,7 @@ export default function SubscribePage() {
                       <div className="flex justify-between">
                         <span className="font-bold text-gray-900">Total Amount</span>
                         <span className="font-bold text-green-600 text-lg">
-                          {formatPrice(selectedSubscription.price)}
+                          {formatPrice(priceBreakdown.finalPrice)}
                         </span>
                       </div>
                     </div>
@@ -259,7 +381,9 @@ export default function SubscribePage() {
                   <div className="bg-gray-50 p-4 rounded-lg text-sm text-gray-700 space-y-2 max-h-48 overflow-y-auto">
                     <p>• Payment is non-refundable once the subscription is activated.</p>
                     <p>• Access to the course will be granted immediately after successful payment.</p>
-                    <p>• Subscription is valid for {selectedSubscription.duration_days} days from the date of activation.</p>
+                    <p>
+                      • Subscription is valid for {selectedSubscription.duration_days} days from the date of activation.
+                    </p>
                     <p>• You will receive access to all features mentioned in the plan.</p>
                     <p>• No automatic renewal - you can choose to renew manually.</p>
                     <p>• For any issues, please contact our support team.</p>
@@ -288,12 +412,15 @@ export default function SubscribePage() {
                   ) : (
                     <RazorpayPaymentButton
                       subscriptionId={selectedSubscription.id}
-                      amount={selectedSubscription.price}
+                      amount={priceBreakdown.finalPrice}
                       userId={userId}
                       duration={selectedSubscription.duration_days}
                       buttonText="Proceed to Payment"
                       notes={{
-                        plan_name: selectedSubscription.name
+                        plan_name: selectedSubscription.name,
+                        referral_code: referralDiscount.code || "",
+                        original_price: priceBreakdown.originalPrice,
+                        discount_applied: priceBreakdown.subscriptionDiscount + priceBreakdown.referralDiscountAmount,
                       }}
                       className="w-full h-12 text-base font-semibold bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
                     />
@@ -511,7 +638,7 @@ export default function SubscribePage() {
                           duration={subscription.duration_days}
                           buttonText="Proceed to Payment"
                           notes={{
-                            plan_name: subscription.name
+                            plan_name: subscription.name,
                           }}
                           className="w-full"
                         />
