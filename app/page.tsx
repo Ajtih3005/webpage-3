@@ -380,7 +380,7 @@ export default function Home() {
             <div className="h-px w-8 sm:w-12 md:w-20 bg-gradient-to-r from-emerald-400 via-green-400 to-transparent"></div>
           </div>
           <p className="text-sm sm:text-base md:text-xl text-green-700 font-semibold px-3 sm:px-5 mt-2 md:mt-3">
-            Next batch starting from November 15, 2025
+            Next batch starting from December 1, 2025
           </p>
         </div>
       </section>

@@ -26,6 +26,7 @@ import {
   Grid3X3,
   X,
   Brain,
+  Ticket,
 } from "lucide-react"
 
 interface AdminLayoutProps {
@@ -167,6 +168,12 @@ function AdminLayout({ children }: AdminLayoutProps) {
       href: "/admin/subscription-pages",
       icon: Layers,
       active: pathname.startsWith("/admin/subscription-pages"),
+    },
+    {
+      title: "Referral Codes",
+      href: "/admin/referral-codes",
+      icon: Ticket,
+      active: pathname.startsWith("/admin/referral-codes"),
     },
     {
       title: "Link Generator",

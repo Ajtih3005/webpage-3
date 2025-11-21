@@ -1,0 +1,464 @@
+"use client"
+
+import type React from "react"
+
+import { useState, useEffect } from "react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Label } from "@/components/ui/label"
+import { getSupabaseBrowserClient } from "@/lib/supabase"
+import { Trash2, Copy, Check } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Switch } from "@/components/ui/switch"
+import { Checkbox } from "@/components/ui/checkbox"
+
+interface ReferralCode {
+  id: number
+  code: string
+  discount_percentage: number
+  subscription_id: number
+  is_active: boolean
+  usage_limit: number | null
+  times_used: number
+  valid_from: string
+  expires_at: string | null
+  notes: string | null
+  subscription?: { name: string }
+}
+
+interface Subscription {
+  id: number
+  name: string
+}
+
+interface SubscriptionDiscount {
+  subscriptionId: number
+  discount: number
+}
+
+export default function ReferralCodesAdmin() {
+  const [codes, setCodes] = useState<ReferralCode[]>([])
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([])
+  const [loading, setLoading] = useState(false)
+  const [copiedCode, setCopiedCode] = useState<string | null>(null)
+
+  const [showDialog, setShowDialog] = useState(false)
+  const [editingCode, setEditingCode] = useState<ReferralCode | null>(null)
+  const [formData, setFormData] = useState({
+    code: "",
+    selectedSubscriptions: [] as number[],
+    subscriptionDiscounts: {} as Record<number, number>,
+    is_active: true,
+    usage_limit: "",
+    expires_at: "",
+    notes: "",
+  })
+
+  useEffect(() => {
+    fetchCodes()
+    fetchSubscriptions()
+  }, [])
+
+  const fetchCodes = async () => {
+    try {
+      const supabase = getSupabaseBrowserClient()
+      const { data, error } = await supabase
+        .from("referral_codes")
+        .select("*")
+        .order("created_at", { ascending: false })
+
+      if (error) throw error
+
+      if (data && data.length > 0) {
+        const subscriptionIds = data.filter((code) => code.subscription_id).map((code) => code.subscription_id)
+
+        if (subscriptionIds.length > 0) {
+          const { data: subs } = await supabase.from("subscriptions").select("id, name").in("id", subscriptionIds)
+
+          const codesWithSubs = data.map((code) => ({
+            ...code,
+            subscription: code.subscription_id ? subs?.find((s) => s.id === code.subscription_id) : null,
+          }))
+          setCodes(codesWithSubs)
+        } else {
+          setCodes(data)
+        }
+      } else {
+        setCodes(data || [])
+      }
+    } catch (error) {
+      console.error("Error fetching codes:", error)
+    }
+  }
+
+  const fetchSubscriptions = async () => {
+    try {
+      const supabase = getSupabaseBrowserClient()
+      const { data, error } = await supabase.from("subscriptions").select("id, name").order("name")
+
+      if (error) throw error
+      setSubscriptions(data || [])
+    } catch (error) {
+      console.error("Error fetching subscriptions:", error)
+    }
+  }
+
+  const generateCode = () => {
+    const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+    let code = ""
+    for (let i = 0; i < 8; i++) {
+      code += characters.charAt(Math.floor(Math.random() * characters.length))
+    }
+    setFormData({ ...formData, code })
+  }
+
+  const handleSubscriptionToggle = (subscriptionId: number, checked: boolean) => {
+    if (checked) {
+      setFormData({
+        ...formData,
+        selectedSubscriptions: [...formData.selectedSubscriptions, subscriptionId],
+        subscriptionDiscounts: {
+          ...formData.subscriptionDiscounts,
+          [subscriptionId]: 10, // Default discount
+        },
+      })
+    } else {
+      const newDiscounts = { ...formData.subscriptionDiscounts }
+      delete newDiscounts[subscriptionId]
+      setFormData({
+        ...formData,
+        selectedSubscriptions: formData.selectedSubscriptions.filter((id) => id !== subscriptionId),
+        subscriptionDiscounts: newDiscounts,
+      })
+    }
+  }
+
+  const handleDiscountChange = (subscriptionId: number, discount: number) => {
+    setFormData({
+      ...formData,
+      subscriptionDiscounts: {
+        ...formData.subscriptionDiscounts,
+        [subscriptionId]: discount,
+      },
+    })
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (formData.selectedSubscriptions.length === 0) {
+      alert("Please select at least one subscription")
+      return
+    }
+
+    setLoading(true)
+
+    try {
+      const supabase = getSupabaseBrowserClient()
+
+      const payloads = formData.selectedSubscriptions.map((subscriptionId) => ({
+        code: formData.code.toUpperCase(),
+        discount_percentage: formData.subscriptionDiscounts[subscriptionId],
+        subscription_id: subscriptionId,
+        is_active: formData.is_active,
+        usage_limit: formData.usage_limit ? Number(formData.usage_limit) : null,
+        expires_at: formData.expires_at || null,
+        notes: formData.notes || null,
+      }))
+
+      const { error } = await supabase.from("referral_codes").insert(payloads)
+
+      if (error) throw error
+
+      setShowDialog(false)
+      setEditingCode(null)
+      setFormData({
+        code: "",
+        selectedSubscriptions: [],
+        subscriptionDiscounts: {},
+        is_active: true,
+        usage_limit: "",
+        expires_at: "",
+        notes: "",
+      })
+      fetchCodes()
+    } catch (error: any) {
+      console.error("Error saving code:", error)
+      alert(error.message || "Failed to save referral code")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDelete = async (id: number) => {
+    if (!confirm("Are you sure you want to delete this referral code?")) return
+
+    try {
+      const supabase = getSupabaseBrowserClient()
+      const { error } = await supabase.from("referral_codes").delete().eq("id", id)
+
+      if (error) throw error
+      fetchCodes()
+    } catch (error) {
+      console.error("Error deleting code:", error)
+      alert("Failed to delete referral code")
+    }
+  }
+
+  const handleDeleteAllByCode = async (code: string) => {
+    if (!confirm(`Delete ALL entries for code "${code}"?`)) return
+
+    try {
+      const supabase = getSupabaseBrowserClient()
+      const { error } = await supabase.from("referral_codes").delete().eq("code", code)
+
+      if (error) throw error
+      fetchCodes()
+    } catch (error) {
+      console.error("Error deleting codes:", error)
+      alert("Failed to delete referral codes")
+    }
+  }
+
+  const copyToClipboard = (code: string) => {
+    navigator.clipboard.writeText(code)
+    setCopiedCode(code)
+    setTimeout(() => setCopiedCode(null), 2000)
+  }
+
+  const toggleActive = async (id: number, isActive: boolean) => {
+    try {
+      const supabase = getSupabaseBrowserClient()
+      const { error } = await supabase.from("referral_codes").update({ is_active: !isActive }).eq("id", id)
+
+      if (error) throw error
+      fetchCodes()
+    } catch (error) {
+      console.error("Error toggling code:", error)
+    }
+  }
+
+  const groupedCodes = codes.reduce(
+    (acc, code) => {
+      if (!acc[code.code]) {
+        acc[code.code] = []
+      }
+      acc[code.code].push(code)
+      return acc
+    },
+    {} as Record<string, ReferralCode[]>,
+  )
+
+  return (
+    <div className="container mx-auto p-6 max-w-7xl">
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h1 className="text-3xl font-bold">Referral Codes</h1>
+          <p className="text-muted-foreground">Create discount codes with different percentages per subscription</p>
+        </div>
+        <Dialog open={showDialog} onOpenChange={setShowDialog}>
+          <DialogTrigger asChild>
+            <Button
+              onClick={() => {
+                setEditingCode(null)
+                setFormData({
+                  code: "",
+                  selectedSubscriptions: [],
+                  subscriptionDiscounts: {},
+                  is_active: true,
+                  usage_limit: "",
+                  expires_at: "",
+                  notes: "",
+                })
+              }}
+            >
+              Create Referral Code
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Create Referral Code</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label>Code</Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={formData.code}
+                    onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+                    placeholder="SAVE20"
+                    required
+                  />
+                  <Button type="button" variant="outline" onClick={generateCode}>
+                    Generate
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <Label>Select Subscriptions & Set Discounts</Label>
+                <div className="border rounded-lg p-4 space-y-3 max-h-[400px] overflow-y-auto">
+                  {subscriptions.length === 0 && (
+                    <p className="text-sm text-muted-foreground">No subscriptions found</p>
+                  )}
+                  {subscriptions.map((sub) => (
+                    <div key={sub.id} className="flex items-center gap-3 p-3 border rounded-lg">
+                      <Checkbox
+                        checked={formData.selectedSubscriptions.includes(sub.id)}
+                        onCheckedChange={(checked) => handleSubscriptionToggle(sub.id, checked as boolean)}
+                      />
+                      <div className="flex-1">
+                        <Label className="font-medium">{sub.name}</Label>
+                      </div>
+                      {formData.selectedSubscriptions.includes(sub.id) && (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={formData.subscriptionDiscounts[sub.id] || 10}
+                            onChange={(e) => handleDiscountChange(sub.id, Number(e.target.value))}
+                            className="w-20"
+                          />
+                          <span className="text-sm text-muted-foreground">%</span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                {formData.selectedSubscriptions.length > 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    {formData.selectedSubscriptions.length} subscription(s) selected
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label>Usage Limit (Optional)</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={formData.usage_limit}
+                  onChange={(e) => setFormData({ ...formData, usage_limit: e.target.value })}
+                  placeholder="Leave empty for unlimited"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Expires At (Optional)</Label>
+                <Input
+                  type="date"
+                  value={formData.expires_at}
+                  onChange={(e) => setFormData({ ...formData, expires_at: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Notes (Optional)</Label>
+                <Input
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  placeholder="Internal notes about this code"
+                />
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Switch
+                  checked={formData.is_active}
+                  onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
+                />
+                <Label>Active</Label>
+              </div>
+
+              <div className="flex gap-2">
+                <Button type="submit" disabled={loading} className="flex-1">
+                  {loading ? "Saving..." : "Create Code"}
+                </Button>
+                <Button type="button" variant="outline" onClick={() => setShowDialog(false)}>
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      <div className="grid gap-4">
+        {Object.entries(groupedCodes).map(([code, codeEntries]) => (
+          <Card key={code}>
+            <CardHeader>
+              <div className="flex justify-between items-start">
+                <div className="flex-1">
+                  <CardTitle className="flex items-center gap-2">
+                    <span className="font-mono text-2xl">{code}</span>
+                    <Button variant="ghost" size="sm" onClick={() => copyToClipboard(code)} className="h-8 w-8 p-0">
+                      {copiedCode === code ? (
+                        <Check className="h-4 w-4 text-green-600" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
+                    </Button>
+                    <span className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-800">
+                      {codeEntries.length} subscription(s)
+                    </span>
+                  </CardTitle>
+                  <CardDescription>Total uses: {codeEntries.reduce((sum, c) => sum + c.times_used, 0)}</CardDescription>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => handleDeleteAllByCode(code)}>
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    Delete All
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {codeEntries.map((entry) => (
+                  <div key={entry.id} className="flex items-center justify-between p-3 border rounded-lg bg-muted/50">
+                    <div className="flex-1">
+                      <p className="font-semibold">
+                        {entry.subscription?.name || `Subscription ${entry.subscription_id}`}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {entry.discount_percentage}% discount • Used {entry.times_used} times
+                        {entry.usage_limit && ` / ${entry.usage_limit}`}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`text-xs px-2 py-1 rounded ${entry.is_active ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}`}
+                      >
+                        {entry.is_active ? "Active" : "Inactive"}
+                      </span>
+                      <Button variant="ghost" size="sm" onClick={() => toggleActive(entry.id, entry.is_active)}>
+                        {entry.is_active ? "Deactivate" : "Activate"}
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => handleDelete(entry.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {codeEntries[0]?.notes && (
+                <div className="mt-4 pt-4 border-t">
+                  <p className="text-sm text-muted-foreground">Notes: {codeEntries[0].notes}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+
+        {codes.length === 0 && (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <p className="text-muted-foreground">No referral codes created yet</p>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    </div>
+  )
+}

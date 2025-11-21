@@ -39,6 +39,12 @@ export default function UserRegister() {
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [preferredBatch, setPreferredBatch] = useState("")
+  const [referralCode, setReferralCode] = useState("")
+  const [referralValidation, setReferralValidation] = useState<{
+    isValid: boolean
+    discount: number
+    message: string
+  } | null>(null)
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
@@ -47,7 +53,6 @@ export default function UserRegister() {
   const [isWhatsAppLink, setIsWhatsAppLink] = useState(false)
   const [linkData, setLinkData] = useState<any>(null)
 
-  // Check if redirect URL is a WhatsApp link
   useEffect(() => {
     async function checkLinkType() {
       if (redirectUrl && redirectUrl.startsWith("/l/")) {
@@ -100,6 +105,60 @@ export default function UserRegister() {
     return null
   }
 
+  const validateReferralCode = async (code: string) => {
+    if (!code.trim()) {
+      setReferralValidation(null)
+      return
+    }
+
+    try {
+      const supabase = getSupabaseBrowserClient()
+      const { data, error } = await supabase
+        .from("referral_codes")
+        .select("*")
+        .eq("code", code.toUpperCase())
+        .eq("is_active", true)
+        .single()
+
+      if (error || !data) {
+        setReferralValidation({
+          isValid: false,
+          discount: 0,
+          message: "Invalid referral code",
+        })
+        return
+      }
+
+      // Check if expired
+      if (data.valid_until && new Date(data.valid_until) < new Date()) {
+        setReferralValidation({
+          isValid: false,
+          discount: 0,
+          message: "Referral code has expired",
+        })
+        return
+      }
+
+      // Check usage limit
+      if (data.usage_limit && data.times_used >= data.usage_limit) {
+        setReferralValidation({
+          isValid: false,
+          discount: 0,
+          message: "Referral code usage limit reached",
+        })
+        return
+      }
+
+      setReferralValidation({
+        isValid: true,
+        discount: data.discount_percentage,
+        message: `Valid! Get ${data.discount_percentage}% discount`,
+      })
+    } catch (error) {
+      console.error("Error validating referral code:", error)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -130,22 +189,24 @@ export default function UserRegister() {
       // Generate a unique user ID
       const userId = generateUserId()
 
+      const userData: any = {
+        user_id: userId,
+        name,
+        email,
+        phone_number: phoneNumber,
+        whatsapp_number: whatsappSameAsPhone ? phoneNumber : whatsappNumber,
+        preferred_batch: preferredBatch || null,
+        password,
+        country,
+      }
+
+      // Store referral code in localStorage to apply during subscription purchase
+      if (referralCode && referralValidation?.isValid) {
+        localStorage.setItem("pendingReferralCode", referralCode.toUpperCase())
+      }
+
       // Insert the new user
-      const { data, error } = await supabase
-        .from("users")
-        .insert([
-          {
-            user_id: userId,
-            name,
-            email,
-            phone_number: phoneNumber,
-            whatsapp_number: whatsappSameAsPhone ? phoneNumber : whatsappNumber,
-            preferred_batch: preferredBatch || null,
-            password, // In a real app, you'd hash this
-            country,
-          },
-        ])
-        .select()
+      const { data, error } = await supabase.from("users").insert([userData]).select()
 
       if (error) throw error
 
@@ -342,6 +403,30 @@ export default function UserRegister() {
                       <SelectItem value="6">Evening Batch 6 (7:50 to 8:50)</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+
+                {/* Referral Code */}
+                <div className="space-y-2">
+                  <Label htmlFor="referral-code">Referral Code (Optional)</Label>
+                  <Input
+                    id="referral-code"
+                    placeholder="Enter referral code"
+                    value={referralCode}
+                    onChange={(e) => {
+                      const code = e.target.value.toUpperCase()
+                      setReferralCode(code)
+                      if (code.length >= 3) {
+                        validateReferralCode(code)
+                      } else {
+                        setReferralValidation(null)
+                      }
+                    }}
+                  />
+                  {referralValidation && (
+                    <p className={`text-sm ${referralValidation.isValid ? "text-green-600" : "text-red-600"}`}>
+                      {referralValidation.message}
+                    </p>
+                  )}
                 </div>
 
                 {/* Password */}
