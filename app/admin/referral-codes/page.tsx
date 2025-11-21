@@ -60,7 +60,7 @@ export default function ReferralCodesAdmin() {
   const [copiedCode, setCopiedCode] = useState<string | null>(null)
 
   const [showDialog, setShowDialog] = useState(false)
-  const [editingCode, setEditingCode] = useState<ReferralCode | null>(null)
+  const [editingCode, setEditingCode] = useState<string | null>(null) // Changed to track code string instead of single entry
   const [formData, setFormData] = useState({
     code: "",
     selectedSubscriptions: [] as number[],
@@ -71,10 +71,16 @@ export default function ReferralCodesAdmin() {
     notes: "",
   })
 
-  const [viewingCode, setViewingCode] = useState<string | null>(null)
-  const [registrationUsers, setRegistrationUsers] = useState<ReferralUser[]>([])
-  const [loadingUsers, setLoadingUsers] = useState(false)
-  const [showRegistrationsDialog, setShowRegistrationsDialog] = useState(false)
+  const [showBulkDialog, setShowBulkDialog] = useState(false)
+  const [bulkFormData, setBulkFormData] = useState({
+    count: 5,
+    selectedSubscriptions: [] as number[],
+    subscriptionDiscounts: {} as Record<number, number>,
+    is_active: true,
+    usage_limit: "",
+    expires_at: "",
+    notes: "",
+  })
 
   useEffect(() => {
     fetchCodes()
@@ -177,6 +183,11 @@ export default function ReferralCodesAdmin() {
 
     try {
       const supabase = getSupabaseBrowserClient()
+
+      if (editingCode) {
+        const { error: deleteError } = await supabase.from("referral_codes").delete().eq("code", editingCode)
+        if (deleteError) throw deleteError
+      }
 
       const payloads = formData.selectedSubscriptions.map((subscriptionId) => ({
         code: formData.code.toUpperCase(),
@@ -291,6 +302,100 @@ export default function ReferralCodesAdmin() {
     {} as Record<string, ReferralCode[]>,
   )
 
+  const handleEdit = (code: string) => {
+    const codeEntries = codes.filter((c) => c.code === code)
+    if (codeEntries.length === 0) return
+
+    const firstEntry = codeEntries[0]
+    const selectedSubs = codeEntries.map((c) => c.subscription_id)
+    const discounts: Record<number, number> = {}
+    codeEntries.forEach((c) => {
+      discounts[c.subscription_id] = c.discount_percentage
+    })
+
+    setEditingCode(code)
+    setFormData({
+      code: code,
+      selectedSubscriptions: selectedSubs,
+      subscriptionDiscounts: discounts,
+      is_active: firstEntry.is_active,
+      usage_limit: firstEntry.usage_limit?.toString() || "",
+      expires_at: firstEntry.expires_at ? firstEntry.expires_at.split("T")[0] : "",
+      notes: firstEntry.notes || "",
+    })
+    setShowDialog(true)
+  }
+
+  const handleBulkSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (bulkFormData.selectedSubscriptions.length === 0) {
+      alert("Please select at least one subscription")
+      return
+    }
+
+    if (bulkFormData.count < 1 || bulkFormData.count > 100) {
+      alert("Please enter a count between 1 and 100")
+      return
+    }
+
+    setLoading(true)
+
+    try {
+      const supabase = getSupabaseBrowserClient()
+      const allPayloads = []
+
+      // Generate multiple unique codes
+      for (let i = 0; i < bulkFormData.count; i++) {
+        const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+        let code = ""
+        for (let j = 0; j < 8; j++) {
+          code += characters.charAt(Math.floor(Math.random() * characters.length))
+        }
+
+        // Create entries for each selected subscription
+        bulkFormData.selectedSubscriptions.forEach((subscriptionId) => {
+          allPayloads.push({
+            code: code,
+            discount_percentage: bulkFormData.subscriptionDiscounts[subscriptionId],
+            subscription_id: subscriptionId,
+            is_active: bulkFormData.is_active,
+            usage_limit: bulkFormData.usage_limit ? Number(bulkFormData.usage_limit) : null,
+            expires_at: bulkFormData.expires_at || null,
+            notes: bulkFormData.notes || null,
+          })
+        })
+      }
+
+      const { error } = await supabase.from("referral_codes").insert(allPayloads)
+
+      if (error) throw error
+
+      alert(`Successfully created ${bulkFormData.count} referral codes!`)
+      setShowBulkDialog(false)
+      setBulkFormData({
+        count: 5,
+        selectedSubscriptions: [],
+        subscriptionDiscounts: {},
+        is_active: true,
+        usage_limit: "",
+        expires_at: "",
+        notes: "",
+      })
+      fetchCodes()
+    } catch (error: any) {
+      console.error("Error creating bulk codes:", error)
+      alert(error.message || "Failed to create bulk referral codes")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const [viewingCode, setViewingCode] = useState<string | null>(null)
+  const [registrationUsers, setRegistrationUsers] = useState<ReferralUser[]>([])
+  const [loadingUsers, setLoadingUsers] = useState(false)
+  const [showRegistrationsDialog, setShowRegistrationsDialog] = useState(false)
+
   return (
     <div className="container mx-auto p-6 max-w-7xl">
       <div className="flex justify-between items-center mb-6">
@@ -298,131 +403,262 @@ export default function ReferralCodesAdmin() {
           <h1 className="text-3xl font-bold">Referral Codes</h1>
           <p className="text-muted-foreground">Create discount codes with different percentages per subscription</p>
         </div>
-        <Dialog open={showDialog} onOpenChange={setShowDialog}>
-          <DialogTrigger asChild>
-            <Button
-              onClick={() => {
-                setEditingCode(null)
-                setFormData({
-                  code: "",
-                  selectedSubscriptions: [],
-                  subscriptionDiscounts: {},
-                  is_active: true,
-                  usage_limit: "",
-                  expires_at: "",
-                  notes: "",
-                })
-              }}
-            >
-              Create Referral Code
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Create Referral Code</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label>Code</Label>
-                <div className="flex gap-2">
+        <div className="flex gap-2">
+          <Dialog open={showBulkDialog} onOpenChange={setShowBulkDialog}>
+            <DialogTrigger asChild>
+              <Button variant="outline">Bulk Create Codes</Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Bulk Create Referral Codes</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleBulkSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Number of Codes to Generate</Label>
                   <Input
-                    value={formData.code}
-                    onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
-                    placeholder="SAVE20"
+                    type="number"
+                    min="1"
+                    max="100"
+                    value={bulkFormData.count}
+                    onChange={(e) => setBulkFormData({ ...bulkFormData, count: Number(e.target.value) })}
                     required
                   />
-                  <Button type="button" variant="outline" onClick={generateCode}>
-                    Generate
+                  <p className="text-xs text-muted-foreground">Codes will be auto-generated (max 100)</p>
+                </div>
+
+                <div className="space-y-3">
+                  <Label>Select Subscriptions & Set Discounts</Label>
+                  <div className="border rounded-lg p-4 space-y-3 max-h-[400px] overflow-y-auto">
+                    {subscriptions.map((sub) => (
+                      <div key={sub.id} className="flex items-center gap-3 p-3 border rounded-lg">
+                        <Checkbox
+                          checked={bulkFormData.selectedSubscriptions.includes(sub.id)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setBulkFormData({
+                                ...bulkFormData,
+                                selectedSubscriptions: [...bulkFormData.selectedSubscriptions, sub.id],
+                                subscriptionDiscounts: { ...bulkFormData.subscriptionDiscounts, [sub.id]: 10 },
+                              })
+                            } else {
+                              const newDiscounts = { ...bulkFormData.subscriptionDiscounts }
+                              delete newDiscounts[sub.id]
+                              setBulkFormData({
+                                ...bulkFormData,
+                                selectedSubscriptions: bulkFormData.selectedSubscriptions.filter((id) => id !== sub.id),
+                                subscriptionDiscounts: newDiscounts,
+                              })
+                            }
+                          }}
+                        />
+                        <div className="flex-1">
+                          <Label className="font-medium">{sub.name}</Label>
+                        </div>
+                        {bulkFormData.selectedSubscriptions.includes(sub.id) && (
+                          <div className="flex items-center gap-2">
+                            <Input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={bulkFormData.subscriptionDiscounts[sub.id] || 10}
+                              onChange={(e) =>
+                                setBulkFormData({
+                                  ...bulkFormData,
+                                  subscriptionDiscounts: {
+                                    ...bulkFormData.subscriptionDiscounts,
+                                    [sub.id]: Number(e.target.value),
+                                  },
+                                })
+                              }
+                              className="w-20"
+                            />
+                            <span className="text-sm text-muted-foreground">%</span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Usage Limit per Code (Optional)</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={bulkFormData.usage_limit}
+                    onChange={(e) => setBulkFormData({ ...bulkFormData, usage_limit: e.target.value })}
+                    placeholder="Leave empty for unlimited"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Expires At (Optional)</Label>
+                  <Input
+                    type="date"
+                    value={bulkFormData.expires_at}
+                    onChange={(e) => setBulkFormData({ ...bulkFormData, expires_at: e.target.value })}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Notes (Optional)</Label>
+                  <Input
+                    value={bulkFormData.notes}
+                    onChange={(e) => setBulkFormData({ ...bulkFormData, notes: e.target.value })}
+                    placeholder="Internal notes"
+                  />
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    checked={bulkFormData.is_active}
+                    onCheckedChange={(checked) => setBulkFormData({ ...bulkFormData, is_active: checked })}
+                  />
+                  <Label>Active</Label>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button type="submit" disabled={loading} className="flex-1">
+                    {loading ? "Creating..." : `Create ${bulkFormData.count} Codes`}
+                  </Button>
+                  <Button type="button" variant="outline" onClick={() => setShowBulkDialog(false)}>
+                    Cancel
                   </Button>
                 </div>
-              </div>
+              </form>
+            </DialogContent>
+          </Dialog>
 
-              <div className="space-y-3">
-                <Label>Select Subscriptions & Set Discounts</Label>
-                <div className="border rounded-lg p-4 space-y-3 max-h-[400px] overflow-y-auto">
-                  {subscriptions.length === 0 && (
-                    <p className="text-sm text-muted-foreground">No subscriptions found</p>
-                  )}
-                  {subscriptions.map((sub) => (
-                    <div key={sub.id} className="flex items-center gap-3 p-3 border rounded-lg">
-                      <Checkbox
-                        checked={formData.selectedSubscriptions.includes(sub.id)}
-                        onCheckedChange={(checked) => handleSubscriptionToggle(sub.id, checked as boolean)}
-                      />
-                      <div className="flex-1">
-                        <Label className="font-medium">{sub.name}</Label>
-                      </div>
-                      {formData.selectedSubscriptions.includes(sub.id) && (
-                        <div className="flex items-center gap-2">
-                          <Input
-                            type="number"
-                            min="0"
-                            max="100"
-                            value={formData.subscriptionDiscounts[sub.id] || 10}
-                            onChange={(e) => handleDiscountChange(sub.id, Number(e.target.value))}
-                            className="w-20"
-                          />
-                          <span className="text-sm text-muted-foreground">%</span>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+          <Dialog open={showDialog} onOpenChange={setShowDialog}>
+            <DialogTrigger asChild>
+              <Button
+                onClick={() => {
+                  setEditingCode(null)
+                  setFormData({
+                    code: "",
+                    selectedSubscriptions: [],
+                    subscriptionDiscounts: {},
+                    is_active: true,
+                    usage_limit: "",
+                    expires_at: "",
+                    notes: "",
+                  })
+                }}
+              >
+                Create Referral Code
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>{editingCode ? "Edit Referral Code" : "Create Referral Code"}</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Code</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={formData.code}
+                      onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+                      placeholder="SAVE20"
+                      required
+                      disabled={!!editingCode} // Disable code editing when in edit mode
+                    />
+                    {!editingCode && (
+                      <Button type="button" variant="outline" onClick={generateCode}>
+                        Generate
+                      </Button>
+                    )}
+                  </div>
+                  {editingCode && <p className="text-xs text-muted-foreground">Code cannot be changed while editing</p>}
                 </div>
-                {formData.selectedSubscriptions.length > 0 && (
-                  <p className="text-sm text-muted-foreground">
-                    {formData.selectedSubscriptions.length} subscription(s) selected
-                  </p>
-                )}
-              </div>
 
-              <div className="space-y-2">
-                <Label>Usage Limit (Optional)</Label>
-                <Input
-                  type="number"
-                  min="1"
-                  value={formData.usage_limit}
-                  onChange={(e) => setFormData({ ...formData, usage_limit: e.target.value })}
-                  placeholder="Leave empty for unlimited"
-                />
-              </div>
+                <div className="space-y-3">
+                  <Label>Select Subscriptions & Set Discounts</Label>
+                  <div className="border rounded-lg p-4 space-y-3 max-h-[400px] overflow-y-auto">
+                    {subscriptions.length === 0 && (
+                      <p className="text-sm text-muted-foreground">No subscriptions found</p>
+                    )}
+                    {subscriptions.map((sub) => (
+                      <div key={sub.id} className="flex items-center gap-3 p-3 border rounded-lg">
+                        <Checkbox
+                          checked={formData.selectedSubscriptions.includes(sub.id)}
+                          onCheckedChange={(checked) => handleSubscriptionToggle(sub.id, checked as boolean)}
+                        />
+                        <div className="flex-1">
+                          <Label className="font-medium">{sub.name}</Label>
+                        </div>
+                        {formData.selectedSubscriptions.includes(sub.id) && (
+                          <div className="flex items-center gap-2">
+                            <Input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={formData.subscriptionDiscounts[sub.id] || 10}
+                              onChange={(e) => handleDiscountChange(sub.id, Number(e.target.value))}
+                              className="w-20"
+                            />
+                            <span className="text-sm text-muted-foreground">%</span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  {formData.selectedSubscriptions.length > 0 && (
+                    <p className="text-sm text-muted-foreground">
+                      {formData.selectedSubscriptions.length} subscription(s) selected
+                    </p>
+                  )}
+                </div>
 
-              <div className="space-y-2">
-                <Label>Expires At (Optional)</Label>
-                <Input
-                  type="date"
-                  value={formData.expires_at}
-                  onChange={(e) => setFormData({ ...formData, expires_at: e.target.value })}
-                />
-              </div>
+                <div className="space-y-2">
+                  <Label>Usage Limit (Optional)</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={formData.usage_limit}
+                    onChange={(e) => setFormData({ ...formData, usage_limit: e.target.value })}
+                    placeholder="Leave empty for unlimited"
+                  />
+                </div>
 
-              <div className="space-y-2">
-                <Label>Notes (Optional)</Label>
-                <Input
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  placeholder="Internal notes about this code"
-                />
-              </div>
+                <div className="space-y-2">
+                  <Label>Expires At (Optional)</Label>
+                  <Input
+                    type="date"
+                    value={formData.expires_at}
+                    onChange={(e) => setFormData({ ...formData, expires_at: e.target.value })}
+                  />
+                </div>
 
-              <div className="flex items-center space-x-2">
-                <Switch
-                  checked={formData.is_active}
-                  onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
-                />
-                <Label>Active</Label>
-              </div>
+                <div className="space-y-2">
+                  <Label>Notes (Optional)</Label>
+                  <Input
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    placeholder="Internal notes about this code"
+                  />
+                </div>
 
-              <div className="flex gap-2">
-                <Button type="submit" disabled={loading} className="flex-1">
-                  {loading ? "Saving..." : "Create Code"}
-                </Button>
-                <Button type="button" variant="outline" onClick={() => setShowDialog(false)}>
-                  Cancel
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    checked={formData.is_active}
+                    onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
+                  />
+                  <Label>Active</Label>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button type="submit" disabled={loading} className="flex-1">
+                    {loading ? "Saving..." : editingCode ? "Update Code" : "Create Code"}
+                  </Button>
+                  <Button type="button" variant="outline" onClick={() => setShowDialog(false)}>
+                    Cancel
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <div className="grid gap-4">
@@ -447,6 +683,9 @@ export default function ReferralCodesAdmin() {
                   <CardDescription>Total uses: {codeEntries.reduce((sum, c) => sum + c.times_used, 0)}</CardDescription>
                 </div>
                 <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => handleEdit(code)}>
+                    Edit
+                  </Button>
                   <Button variant="outline" size="sm" onClick={() => fetchCodeUsers(code)}>
                     <Users className="h-4 w-4 mr-1" />
                     View Registrations
