@@ -7,6 +7,7 @@ import { useParams, useRouter } from "next/navigation"
 import { createBrowserClient } from "@supabase/ssr"
 import { Camera, Eye, Maximize, X } from "lucide-react"
 import { extractYoutubeVideoId } from "@/lib/utils"
+import { ZoomPlayer } from "@/components/zoom-player"
 
 export default function LiveSessionPage() {
   const params = useParams()
@@ -15,6 +16,12 @@ export default function LiveSessionPage() {
 
   const [courseData, setCourseData] = useState<any>(null)
   const [videoId, setVideoId] = useState<string>("")
+  const [videoType, setVideoType] = useState<"youtube" | "zoom">("youtube")
+  const [zoomMeetingId, setZoomMeetingId] = useState("")
+  const [zoomPasscode, setZoomPasscode] = useState("")
+  const [userName, setUserName] = useState("")
+  const [userEmail, setUserEmail] = useState("")
+
   const [cameraEnabled, setCameraEnabled] = useState(false)
   const [previewVisible, setPreviewVisible] = useState(true)
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -50,35 +57,54 @@ export default function LiveSessionPage() {
       if (data) {
         console.log("[v0] Course data fetched:", data)
         setCourseData(data)
-        const videoUrl = data.youtube_link || data.video_url || data.youtube_url || ""
-        console.log("[v0] Video URL from database:", videoUrl)
-        const ytId = extractYoutubeVideoId(videoUrl)
-        console.log("[v0] Extracted YouTube ID using utility:", ytId)
-        if (ytId) {
-          setVideoId(ytId)
-          const scheduledDate = new Date(data.scheduled_date)
-          const timeMatch = data.custom_batch_time?.match(/(\d+):(\d+)\s*(AM|PM)/)
-          if (timeMatch) {
-            let hours = Number.parseInt(timeMatch[1])
-            const minutes = Number.parseInt(timeMatch[2])
-            const period = timeMatch[3]
 
-            if (period === "PM" && hours !== 12) hours += 12
-            if (period === "AM" && hours === 12) hours = 0
+        const courseVideoType = data.video_type || "youtube"
+        setVideoType(courseVideoType)
+        console.log("[v0] Video type:", courseVideoType)
 
-            scheduledDate.setHours(hours, minutes, 0, 0)
-            setSessionStartTime(scheduledDate)
-          }
+        if (courseVideoType === "zoom") {
+          // Load Zoom meeting details
+          setZoomMeetingId(data.zoom_meeting_id || "")
+          setZoomPasscode(data.zoom_passcode || "")
+          console.log("[v0] Zoom meeting ID:", data.zoom_meeting_id)
         } else {
-          console.error("[v0] Failed to extract video ID from URL:", videoUrl)
+          // Load YouTube video
+          const videoUrl = data.youtube_link || data.video_url || data.youtube_url || ""
+          console.log("[v0] Video URL from database:", videoUrl)
+          const ytId = extractYoutubeVideoId(videoUrl)
+          console.log("[v0] Extracted YouTube ID using utility:", ytId)
+          if (ytId) {
+            setVideoId(ytId)
+            const scheduledDate = new Date(data.scheduled_date)
+            const timeMatch = data.custom_batch_time?.match(/(\d+):(\d+)\s*(AM|PM)/)
+            if (timeMatch) {
+              let hours = Number.parseInt(timeMatch[1])
+              const minutes = Number.parseInt(timeMatch[2])
+              const period = timeMatch[3]
+
+              if (period === "PM" && hours !== 12) hours += 12
+              if (period === "AM" && hours === 12) hours = 0
+
+              scheduledDate.setHours(hours, minutes, 0, 0)
+              setSessionStartTime(scheduledDate)
+            }
+          } else {
+            console.error("[v0] Failed to extract video ID from URL:", videoUrl)
+          }
         }
       }
     }
+
     fetchCourse()
+
+    const storedUserName = localStorage.getItem("userName") || localStorage.getItem("userAuthenticated") || "User"
+    const storedUserEmail = localStorage.getItem("userEmail") || ""
+    setUserName(storedUserName)
+    setUserEmail(storedUserEmail)
   }, [courseId])
 
   useEffect(() => {
-    if (!videoId || !sessionStartTime) return
+    if (videoType !== "youtube" || !videoId || !sessionStartTime) return
 
     const loadYouTubeAPI = () => {
       if (window.YT && window.YT.Player) {
@@ -153,21 +179,13 @@ export default function LiveSessionPage() {
         playerRef.current = null
       }
     }
-  }, [videoId, sessionStartTime])
+  }, [videoId, sessionStartTime, videoType])
 
   useEffect(() => {
-    if (accessExpired) {
-      alert("The session has ended. You will be redirected to the dashboard.")
-      handleExit()
-    }
-  }, [accessExpired])
-
-  useEffect(() => {
-    // Auto-request camera only once on initial load
-    if (!stream && !cameraEnabled) {
+    if (videoType === "youtube" && !stream && !cameraEnabled) {
       requestCamera()
     }
-  }, [])
+  }, [videoType])
 
   async function requestCamera() {
     if (stream || cameraEnabled) {
@@ -286,144 +304,156 @@ export default function LiveSessionPage() {
 
   return (
     <div className="relative w-full h-screen bg-black overflow-hidden">
-      <div className="absolute top-4 left-4 z-50 bg-red-600 text-white px-3 py-1 rounded-full flex items-center gap-2 text-sm font-bold">
-        <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
-        LIVE
-      </div>
-
-      <div className="absolute inset-0 w-full h-full z-10">
-        {videoId ? (
-          <>
-            <div id="youtube-player" className="w-full h-full" />
-            {/* Invisible overlay to block all clicks on YouTube player */}
-            <div className="absolute inset-0 w-full h-full z-20 cursor-default" style={{ pointerEvents: "all" }} />
-          </>
-        ) : (
-          <div className="flex items-center justify-center w-full h-full text-white">
-            <p>Loading video...</p>
-          </div>
-        )}
-      </div>
-
-      <style jsx global>{`
-        #youtube-player iframe {
-          pointer-events: none !important;
-          user-select: none !important;
-          -webkit-user-select: none !important;
-          -moz-user-select: none !important;
-          -ms-user-select: none !important;
-        }
-        #youtube-player {
-          pointer-events: none !important;
-        }
-        /* Block context menu */
-        #youtube-player iframe * {
-          pointer-events: none !important;
-          user-select: none !important;
-        }
-        @keyframes float {
-          0% {
-            transform: translateY(0) scale(1);
-            opacity: 1;
-          }
-          100% {
-            transform: translateY(-400px) scale(1.5);
-            opacity: 0;
-          }
-        }
-        .animate-float {
-          animation: float 3s ease-out forwards;
-        }
-      `}</style>
-
-      {cameraEnabled && previewVisible && (
-        <div
-          ref={previewRef}
-          className="absolute z-50 w-48 h-36 bg-gray-900 border-2 border-blue-500 rounded-lg overflow-hidden shadow-2xl cursor-move"
-          style={{
-            left: `${previewPosition.x}px`,
-            top: `${previewPosition.y}px`,
-          }}
-          onMouseDown={handleMouseDown}
-        >
-          <video
-            ref={videoRef}
-            autoPlay
-            muted
-            playsInline
-            className="w-full h-full object-cover"
-            style={{ transform: "scaleX(-1)" }}
-          />
-          <div className="absolute top-2 right-2 text-white text-xs bg-black/50 px-2 py-1 rounded">You</div>
-        </div>
-      )}
-
-      <div className="absolute bottom-0 left-0 right-0 z-30 bg-gradient-to-t from-black/80 to-transparent p-4">
-        <div className="flex items-center justify-between max-w-5xl mx-auto">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={toggleCamera}
-              className={`px-4 py-2 rounded-lg flex items-center gap-2 transition ${
-                cameraEnabled ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300"
-              }`}
-            >
-              <Camera className="w-5 h-5" />
-              {cameraEnabled ? "Camera ON" : "Camera OFF"}
-            </button>
-            <button
-              onClick={() => setPreviewVisible(!previewVisible)}
-              className="px-4 py-2 bg-gray-700 text-white rounded-lg flex items-center gap-2 hover:bg-gray-600 transition"
-            >
-              <Eye className="w-5 h-5" />
-              Preview
-            </button>
+      {videoType === "zoom" ? (
+        // Zoom Player
+        <ZoomPlayer
+          meetingNumber={zoomMeetingId}
+          passcode={zoomPasscode}
+          userName={userName}
+          userEmail={userEmail}
+          onEnd={handleExit}
+        />
+      ) : (
+        // YouTube Player (existing code)
+        <>
+          <div className="absolute top-4 left-4 z-50 bg-red-600 text-white px-3 py-1 rounded-full flex items-center gap-2 text-sm font-bold">
+            <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+            LIVE
           </div>
 
-          <div className="relative">
-            <button
-              onClick={() => setShowEmojiPanel(!showEmojiPanel)}
-              className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition"
-            >
-              😊 Emoji
-            </button>
-
-            {showEmojiPanel && (
-              <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 rounded-lg p-3 shadow-2xl border border-gray-700">
-                <div className="flex items-center gap-2">
-                  {["😊", "❤️", "👍", "🔥", "💯", "😂", "🎉", "👏"].map((emoji) => (
-                    <button
-                      key={emoji}
-                      onClick={() => {
-                        sendEmoji(emoji)
-                        setShowEmojiPanel(false)
-                      }}
-                      className="text-3xl hover:scale-125 transition-transform p-2 hover:bg-gray-700 rounded"
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
+          <div className="absolute inset-0 w-full h-full z-10">
+            {videoId ? (
+              <>
+                <div id="youtube-player" className="w-full h-full" />
+                <div className="absolute inset-0 w-full h-full z-20 cursor-default" style={{ pointerEvents: "all" }} />
+              </>
+            ) : (
+              <div className="flex items-center justify-center w-full h-full text-white">
+                <p>Loading video...</p>
               </div>
             )}
           </div>
 
-          <div className="flex items-center gap-3">
-            <button
-              onClick={toggleFullscreen}
-              className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition"
+          <style jsx global>{`
+            #youtube-player iframe {
+              pointer-events: none !important;
+              user-select: none !important;
+              -webkit-user-select: none !important;
+              -moz-user-select: none !important;
+              -ms-user-select: none !important;
+            }
+            #youtube-player {
+              pointer-events: none !important;
+            }
+            #youtube-player iframe * {
+              pointer-events: none !important;
+              user-select: none !important;
+            }
+            @keyframes float {
+              0% {
+                transform: translateY(0) scale(1);
+                opacity: 1;
+              }
+              100% {
+                transform: translateY(-400px) scale(1.5);
+                opacity: 0;
+              }
+            }
+            .animate-float {
+              animation: float 3s ease-out forwards;
+            }
+          `}</style>
+
+          {cameraEnabled && previewVisible && (
+            <div
+              ref={previewRef}
+              className="absolute z-50 w-48 h-36 bg-gray-900 border-2 border-blue-500 rounded-lg overflow-hidden shadow-2xl cursor-move"
+              style={{
+                left: `${previewPosition.x}px`,
+                top: `${previewPosition.y}px`,
+              }}
+              onMouseDown={handleMouseDown}
             >
-              <Maximize className="w-5 h-5" />
-            </button>
-            <button
-              onClick={handleExit}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg flex items-center gap-2 hover:bg-red-700 transition"
-            >
-              <X className="w-5 h-5" />
-              Exit
-            </button>
+              <video
+                ref={videoRef}
+                autoPlay
+                muted
+                playsInline
+                className="w-full h-full object-cover"
+                style={{ transform: "scaleX(-1)" }}
+              />
+              <div className="absolute top-2 right-2 text-white text-xs bg-black/50 px-2 py-1 rounded">You</div>
+            </div>
+          )}
+
+          <div className="absolute bottom-0 left-0 right-0 z-30 bg-gradient-to-t from-black/80 to-transparent p-4">
+            <div className="flex items-center justify-between max-w-5xl mx-auto">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={toggleCamera}
+                  className={`px-4 py-2 rounded-lg flex items-center gap-2 transition ${
+                    cameraEnabled ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300"
+                  }`}
+                >
+                  <Camera className="w-5 h-5" />
+                  {cameraEnabled ? "Camera ON" : "Camera OFF"}
+                </button>
+                <button
+                  onClick={() => setPreviewVisible(!previewVisible)}
+                  className="px-4 py-2 bg-gray-700 text-white rounded-lg flex items-center gap-2 hover:bg-gray-600 transition"
+                >
+                  <Eye className="w-5 h-5" />
+                  Preview
+                </button>
+              </div>
+
+              <div className="relative">
+                <button
+                  onClick={() => setShowEmojiPanel(!showEmojiPanel)}
+                  className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition"
+                >
+                  😊 Emoji
+                </button>
+
+                {showEmojiPanel && (
+                  <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 rounded-lg p-3 shadow-2xl border border-gray-700">
+                    <div className="flex items-center gap-2">
+                      {["😊", "❤️", "👍", "🔥", "💯", "😂", "🎉", "👏"].map((emoji) => (
+                        <button
+                          key={emoji}
+                          onClick={() => {
+                            sendEmoji(emoji)
+                            setShowEmojiPanel(false)
+                          }}
+                          className="text-3xl hover:scale-125 transition-transform p-2 hover:bg-gray-700 rounded"
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={toggleFullscreen}
+                  className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition"
+                >
+                  <Maximize className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={handleExit}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg flex items-center gap-2 hover:bg-red-700 transition"
+                >
+                  <X className="w-5 h-5" />
+                  Exit
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
+        </>
+      )}
     </div>
   )
 }

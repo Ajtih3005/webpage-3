@@ -22,12 +22,18 @@ export default function AdminLogin() {
     setError("")
 
     try {
-      // Check if password matches environment variable or fallback
-      const validPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || "admin123"
+      const response = await fetch("/api/admin/verify-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      })
 
-      if (password === validPassword) {
-        // Store password in localStorage for authentication
+      const data = await response.json()
+
+      if (data.valid) {
+        // Store authentication flag in localStorage
         localStorage.setItem("adminPassword", password)
+        localStorage.setItem("adminAuthenticated", "true")
 
         // Redirect to admin dashboard
         router.push("/admin/dashboard")
@@ -35,6 +41,7 @@ export default function AdminLogin() {
         setError("Invalid admin password")
       }
     } catch (err) {
+      console.error("[v0] Admin login error:", err)
       setError("Login failed. Please try again.")
     } finally {
       setLoading(false)
@@ -109,7 +116,7 @@ export default function AdminLogin() {
 
           {/* Footer */}
           <div className="mt-6 text-center">
-            <p className="text-xs text-gray-500">© 2024 Sthavishtah Yoga. All rights reserved.</p>
+            <p className="text-xs text-gray-500">© 2025 Sthavishtah Yoga. All rights reserved.</p>
           </div>
         </CardContent>
       </Card>

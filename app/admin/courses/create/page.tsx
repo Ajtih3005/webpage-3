@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { AdminLayout } from "@/components/admin-layout"
@@ -20,13 +19,16 @@ import { cn, isValidYoutubeUrl } from "@/lib/utils"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 
-// Update the component to include multiple batches functionality
+// Update the component to include multiple batches functionality and video type selection
 export default function CreateCourse() {
   const router = useRouter()
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
   const [youtubeLink, setYoutubeLink] = useState("")
+  const [zoomMeetingId, setZoomMeetingId] = useState("")
+  const [zoomPasscode, setZoomPasscode] = useState("")
   const [date, setDate] = useState<Date | undefined>(new Date())
   const [isPredefinedBatch, setIsPredefinedBatch] = useState(true)
   const [isScheduledSession, setIsScheduledSession] = useState(false)
@@ -45,6 +47,7 @@ export default function CreateCourse() {
   const [subscriptionDay, setSubscriptionDay] = useState<number>(1)
   const [subscriptionWeek, setSubscriptionWeek] = useState<number>(1)
   const [scheduledDate, setScheduledDate] = useState<Date | undefined>(new Date())
+  const [videoType, setVideoType] = useState<"youtube" | "zoom">("youtube")
   const handleDateSelect = (date: Date | undefined) => {
     setScheduledDate(date)
   }
@@ -134,21 +137,28 @@ export default function CreateCourse() {
     console.log("Validating form with values:", {
       title,
       youtubeLink,
+      zoomMeetingId,
       date,
       selectedLanguages,
       isPredefinedBatch,
       selectedBatches,
       customBatches,
+      videoType,
     })
 
     if (!title.trim()) newErrors.title = "Title is required"
 
-    // More detailed YouTube validation
-    if (!youtubeLink.trim()) {
-      newErrors.youtubeLink = "YouTube link is required"
-    } else if (!isValidYoutubeUrl(youtubeLink)) {
-      console.error("Invalid YouTube URL:", youtubeLink)
-      newErrors.youtubeLink = "Please enter a valid YouTube URL (e.g., https://www.youtube.com/watch?v=XXXX)"
+    if (videoType === "youtube") {
+      if (!youtubeLink.trim()) {
+        newErrors.youtubeLink = "YouTube link is required"
+      } else if (!isValidYoutubeUrl(youtubeLink)) {
+        console.error("Invalid YouTube URL:", youtubeLink)
+        newErrors.youtubeLink = "Please enter a valid YouTube URL (e.g., https://www.youtube.com/watch?v=XXXX)"
+      }
+    } else if (videoType === "zoom") {
+      if (!zoomMeetingId.trim()) {
+        newErrors.zoom = "Zoom Meeting ID is required"
+      }
     }
 
     if (!date) newErrors.date = "Date is required"
@@ -218,8 +228,18 @@ export default function CreateCourse() {
         throw new Error("Title is required")
       }
 
-      if (!youtubeLink) {
-        throw new Error("YouTube link is required")
+      if (videoType === "youtube") {
+        if (!youtubeLink) {
+          throw new Error("YouTube link is required")
+        }
+
+        if (!isValidYoutubeUrl(youtubeLink)) {
+          throw new Error("Please enter a valid YouTube URL (e.g., https://www.youtube.com/watch?v=XXXX)")
+        }
+      } else if (videoType === "zoom") {
+        if (!zoomMeetingId) {
+          throw new Error("Zoom Meeting ID is required")
+        }
       }
 
       if (schedulingType === "date" && !scheduledDate) {
@@ -238,10 +258,10 @@ export default function CreateCourse() {
       const courseData: any = {
         title,
         description,
-        youtube_link: youtubeLink,
         language: selectedLanguages[0], // Assuming only one language is selected
         scheduling_type: schedulingType,
         is_predefined_batch: isPredefinedBatch, // Set the is_predefined_batch flag
+        video_type: videoType,
       }
 
       // Add the appropriate scheduling field based on type
@@ -258,6 +278,17 @@ export default function CreateCourse() {
         courseData.scheduled_date = null
         courseData.subscription_day = null
         courseData.subscription_week = subscriptionWeek
+      }
+
+      // Add video type specific fields
+      if (videoType === "youtube") {
+        courseData.youtube_link = youtubeLink
+        courseData.zoom_meeting_id = null
+        courseData.zoom_passcode = null
+      } else if (videoType === "zoom") {
+        courseData.youtube_link = null
+        courseData.zoom_meeting_id = zoomMeetingId
+        courseData.zoom_passcode = zoomPasscode
       }
 
       // Add subscription IDs if selected
@@ -303,11 +334,6 @@ export default function CreateCourse() {
         router.push("/admin/courses")
         return
       }
-
-      // Add subscription ID if selected
-      // if (subscriptionId && subscriptionId !== "none") {
-      //   courseData.subscription_id = Number.parseInt(subscriptionId)
-      // }
 
       // Handle batch information based on whether it's predefined or custom
       if (isPredefinedBatch) {
@@ -439,17 +465,67 @@ export default function CreateCourse() {
                 />
               </div>
 
-              {/* YouTube Link */}
               <div className="space-y-2">
-                <Label htmlFor="youtubeLink">YouTube Video Link</Label>
-                <Input
-                  id="youtubeLink"
-                  value={youtubeLink}
-                  onChange={(e) => setYoutubeLink(e.target.value)}
-                  placeholder="https://www.youtube.com/watch?v=..."
-                />
-                {errors.youtubeLink && <p className="text-sm text-red-500">{errors.youtubeLink}</p>}
+                <Label>Video Type</Label>
+                <RadioGroup value={videoType} onValueChange={(value) => setVideoType(value as "youtube" | "zoom")}>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="youtube" id="youtube" />
+                    <Label htmlFor="youtube" className="cursor-pointer">
+                      YouTube Video
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="zoom" id="zoom" />
+                    <Label htmlFor="zoom" className="cursor-pointer">
+                      Zoom Meeting
+                    </Label>
+                  </div>
+                </RadioGroup>
               </div>
+
+              {/* YouTube Link */}
+              {videoType === "youtube" && (
+                <div className="space-y-2">
+                  <Label htmlFor="youtubeLink">YouTube Link *</Label>
+                  <Input
+                    id="youtubeLink"
+                    value={youtubeLink}
+                    onChange={(e) => setYoutubeLink(e.target.value)}
+                    placeholder="https://www.youtube.com/watch?v=..."
+                    required
+                  />
+                  {errors.youtubeLink && <p className="text-sm text-red-600">{errors.youtubeLink}</p>}
+                </div>
+              )}
+
+              {/* Zoom Meeting ID and Passcode */}
+              {videoType === "zoom" && (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="zoomMeetingId">Zoom Meeting ID *</Label>
+                    <Input
+                      id="zoomMeetingId"
+                      value={zoomMeetingId}
+                      onChange={(e) => setZoomMeetingId(e.target.value)}
+                      placeholder="123-456-7890"
+                      required
+                    />
+                    <p className="text-sm text-gray-500">
+                      Get this from your Zoom meeting details (e.g., 123-456-7890)
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="zoomPasscode">Zoom Passcode (Optional)</Label>
+                    <Input
+                      id="zoomPasscode"
+                      value={zoomPasscode}
+                      onChange={(e) => setZoomPasscode(e.target.value)}
+                      placeholder="abc123"
+                    />
+                  </div>
+                  {errors.zoom && <p className="text-sm text-red-600">{errors.zoom}</p>}
+                </div>
+              )}
 
               {/* Language Selection - Updated to allow multiple languages */}
               <div className="space-y-2">
