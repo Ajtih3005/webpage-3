@@ -223,6 +223,9 @@ export default function CreateCourse() {
     setError("")
 
     try {
+      console.log("[v0] Starting form submission...")
+      console.log("[v0] Video type selected:", videoType)
+
       // Validate form
       if (!title) {
         throw new Error("Title is required")
@@ -237,6 +240,10 @@ export default function CreateCourse() {
           throw new Error("Please enter a valid YouTube URL (e.g., https://www.youtube.com/watch?v=XXXX)")
         }
       } else if (videoType === "zoom") {
+        console.log("[v0] Validating Zoom fields...")
+        console.log("[v0] Zoom Meeting ID:", zoomMeetingId)
+        console.log("[v0] Zoom Passcode:", zoomPasscode)
+
         if (!zoomMeetingId) {
           throw new Error("Zoom Meeting ID is required")
         }
@@ -264,6 +271,8 @@ export default function CreateCourse() {
         video_type: videoType,
       }
 
+      console.log("[v0] Base course data:", courseData)
+
       // Add the appropriate scheduling field based on type
       if (schedulingType === "date") {
         // Ensure we're using the full date with time
@@ -280,16 +289,21 @@ export default function CreateCourse() {
         courseData.subscription_week = subscriptionWeek
       }
 
-      // Add video type specific fields
+      console.log("[v0] Adding video type specific fields...")
+
       if (videoType === "youtube") {
         courseData.youtube_link = youtubeLink
         courseData.zoom_meeting_id = null
         courseData.zoom_passcode = null
+        console.log("[v0] YouTube mode - youtube_link:", youtubeLink)
       } else if (videoType === "zoom") {
         courseData.youtube_link = null
-        courseData.zoom_meeting_id = zoomMeetingId
+        courseData.zoom_meeting_id = zoomMeetingId.replace(/[\s-]/g, "")
         courseData.zoom_passcode = zoomPasscode
+        console.log("[v0] Zoom mode - cleaned meeting_id:", courseData.zoom_meeting_id, "passcode:", zoomPasscode)
       }
+
+      console.log("[v0] Final course data before insert:", courseData)
 
       // Add subscription IDs if selected
       if (selectedSubscriptions.length > 0 && !selectedSubscriptions.includes("none")) {
@@ -324,13 +338,16 @@ export default function CreateCourse() {
           }
         }
 
-        console.log(`Creating ${courseEntries.length} course entries for multiple subscriptions:`, courseEntries)
+        console.log(`[v0] Creating ${courseEntries.length} course entries for multiple subscriptions:`, courseEntries)
 
         const { data, error } = await getSupabaseBrowserClient().from("courses").insert(courseEntries).select()
 
-        if (error) throw error
+        if (error) {
+          console.error("[v0] Database error:", error)
+          throw error
+        }
 
-        console.log("Courses created successfully:", data)
+        console.log("[v0] Courses created successfully:", data)
         router.push("/admin/courses")
         return
       }
@@ -352,14 +369,17 @@ export default function CreateCourse() {
             courseEntries.push(batchCourseData)
           }
 
-          console.log(`Creating ${courseEntries.length} course entries for selected batches:`, courseEntries)
+          console.log(`[v0] Creating ${courseEntries.length} course entries for selected batches:`, courseEntries)
 
           // Insert all course entries
           const { data, error } = await getSupabaseBrowserClient().from("courses").insert(courseEntries).select()
 
-          if (error) throw error
+          if (error) {
+            console.error("[v0] Database error during batch insert:", error)
+            throw error
+          }
 
-          console.log("Courses created successfully:", data)
+          console.log("[v0] Courses created successfully:", data)
           router.push("/admin/courses")
           return // Exit early since we've handled the insert
         }
@@ -382,31 +402,37 @@ export default function CreateCourse() {
             }
           }
 
-          console.log(`Creating ${courseEntries.length} course entries for custom batches:`, courseEntries)
+          console.log(`[v0] Creating ${courseEntries.length} course entries for custom batches:`, courseEntries)
 
           // Insert all course entries
           const { data, error } = await getSupabaseBrowserClient().from("courses").insert(courseEntries).select()
 
-          if (error) throw error
+          if (error) {
+            console.error("[v0] Database error during custom batch insert:", error)
+            throw error
+          }
 
-          console.log("Courses created successfully:", data)
+          console.log("[v0] Courses created successfully:", data)
           router.push("/admin/courses")
           return // Exit early since we've handled the insert
         }
       }
 
       // This code will only run if no batches were selected (which shouldn't happen due to validation)
-      console.log("No batches selected, submitting single course data:", courseData)
+      console.log("[v0] No batches selected, submitting single course data:", courseData)
 
       // Insert course
       const { data, error } = await getSupabaseBrowserClient().from("courses").insert([courseData]).select()
 
-      if (error) throw error
+      if (error) {
+        console.error("[v0] Database error during single course insert:", error)
+        throw error
+      }
 
-      console.log("Course created successfully:", data)
+      console.log("[v0] Course created successfully:", data)
       router.push("/admin/courses")
     } catch (error) {
-      console.error("Error creating course:", error)
+      console.error("[v0] Error creating course:", error)
       setError(error instanceof Error ? error.message : "An unknown error occurred")
     } finally {
       setIsSubmitting(false)

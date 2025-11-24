@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { X } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { getZoomSdkKey } from "@/app/actions/get-zoom-sdk-key"
 
 declare global {
   interface Window {
@@ -22,10 +23,23 @@ export function ZoomPlayer({ meetingNumber, passcode = "", userName, userEmail, 
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const zoomContainerRef = useRef<HTMLDivElement>(null)
+  const [sdkKey, setSdkKey] = useState<string | null>(null)
 
   useEffect(() => {
-    loadZoomSDK()
+    fetchSdkKeyAndLoad()
   }, [])
+
+  const fetchSdkKeyAndLoad = async () => {
+    try {
+      const key = await getZoomSdkKey()
+      setSdkKey(key)
+      loadZoomSDK()
+    } catch (err) {
+      console.error("[v0] Error fetching SDK key:", err)
+      setError("Failed to load Zoom configuration")
+      setIsLoading(false)
+    }
+  }
 
   const loadZoomSDK = async () => {
     try {
@@ -87,18 +101,48 @@ export function ZoomPlayer({ meetingNumber, passcode = "", userName, userEmail, 
     try {
       console.log("[v0] Initializing Zoom meeting...")
 
+      const cleanMeetingNumber = meetingNumber.replace(/\s+/g, "").replace(/[^0-9]/g, "")
+      console.log("[v0] Clean meeting number:", cleanMeetingNumber)
+
       // Get Zoom signature from your API
       const response = await fetch("/api/zoom/signature", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ meetingNumber }),
+        body: JSON.stringify({ meetingNumber: cleanMeetingNumber, role: 0 }),
       })
 
+      console.log("[v0] Zoom signature response status:", response.status)
+
       if (!response.ok) {
-        throw new Error("Failed to get Zoom signature")
+        const contentType = response.headers.get("content-type")
+        let errorMessage = "Failed to get Zoom signature"
+
+        if (contentType && contentType.includes("application/json")) {
+          const errorData = await response.json()
+          errorMessage = errorData.error || errorMessage
+          console.error("[v0] Zoom signature error (JSON):", errorData)
+        } else {
+          const errorText = await response.text()
+          console.error("[v0] Zoom signature error (Text):", errorText)
+        }
+
+        throw new Error(errorMessage)
       }
 
-      const { signature } = await response.json()
+      const data = await response.json()
+      const signature = data.signature
+
+      if (!signature) {
+        throw new Error("No signature received from API")
+      }
+
+      console.log("[v0] Zoom signature received successfully")
+
+      if (!sdkKey) {
+        throw new Error("SDK Key not available")
+      }
+
+      console.log("[v0] SDK Key available:", !!sdkKey)
 
       // Initialize Zoom
       window.ZoomMtg.setZoomJSLib("https://source.zoom.us/2.18.0/lib", "/av")
@@ -112,8 +156,9 @@ export function ZoomPlayer({ meetingNumber, passcode = "", userName, userEmail, 
           console.log("[v0] Zoom init success:", success)
 
           window.ZoomMtg.join({
+            sdkKey: sdkKey,
             signature: signature,
-            meetingNumber: meetingNumber,
+            meetingNumber: cleanMeetingNumber,
             userName: userName,
             userEmail: userEmail || "",
             passWord: passcode,
