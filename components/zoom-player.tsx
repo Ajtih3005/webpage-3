@@ -32,8 +32,9 @@ export function ZoomPlayer({ meetingNumber, passcode = "", userName, userEmail, 
   const fetchSdkKeyAndLoad = async () => {
     try {
       const key = await getZoomSdkKey()
+      console.log("[v0] SDK Key fetched:", !!key)
       setSdkKey(key)
-      loadZoomSDK()
+      await loadZoomSDK(key)
     } catch (err) {
       console.error("[v0] Error fetching SDK key:", err)
       setError("Failed to load Zoom configuration")
@@ -41,9 +42,8 @@ export function ZoomPlayer({ meetingNumber, passcode = "", userName, userEmail, 
     }
   }
 
-  const loadZoomSDK = async () => {
+  const loadZoomSDK = async (key: string) => {
     try {
-      // Load Zoom Web SDK CSS
       const link = document.createElement("link")
       link.href = "https://source.zoom.us/2.18.0/css/bootstrap.css"
       link.rel = "stylesheet"
@@ -54,7 +54,6 @@ export function ZoomPlayer({ meetingNumber, passcode = "", userName, userEmail, 
       link2.rel = "stylesheet"
       document.head.appendChild(link2)
 
-      // Load Zoom Web SDK JS
       const script = document.createElement("script")
       script.src = "https://source.zoom.us/2.18.0/lib/vendor/react.min.js"
       script.async = true
@@ -80,11 +79,10 @@ export function ZoomPlayer({ meetingNumber, passcode = "", userName, userEmail, 
       script5.async = true
       document.body.appendChild(script5)
 
-      // Main Zoom SDK
       const mainScript = document.createElement("script")
       mainScript.src = "https://source.zoom.us/zoom-meeting-2.18.0.min.js"
       mainScript.async = true
-      mainScript.onload = () => initializeZoom()
+      mainScript.onload = () => initializeZoom(key)
       mainScript.onerror = () => {
         setError("Failed to load Zoom SDK")
         setIsLoading(false)
@@ -97,14 +95,13 @@ export function ZoomPlayer({ meetingNumber, passcode = "", userName, userEmail, 
     }
   }
 
-  const initializeZoom = async () => {
+  const initializeZoom = async (key: string) => {
     try {
       console.log("[v0] Initializing Zoom meeting...")
 
       const cleanMeetingNumber = meetingNumber.replace(/\s+/g, "").replace(/[^0-9]/g, "")
       console.log("[v0] Clean meeting number:", cleanMeetingNumber)
 
-      // Get Zoom signature from your API
       const response = await fetch("/api/zoom/signature", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -138,25 +135,23 @@ export function ZoomPlayer({ meetingNumber, passcode = "", userName, userEmail, 
 
       console.log("[v0] Zoom signature received successfully")
 
-      if (!sdkKey) {
+      if (!key) {
         throw new Error("SDK Key not available")
       }
 
-      console.log("[v0] SDK Key available:", !!sdkKey)
+      console.log("[v0] SDK Key available:", !!key)
 
-      // Initialize Zoom
       window.ZoomMtg.setZoomJSLib("https://source.zoom.us/2.18.0/lib", "/av")
       window.ZoomMtg.preLoadWasm()
       window.ZoomMtg.prepareWebSDK()
 
-      // Join meeting
       window.ZoomMtg.init({
         leaveUrl: window.location.origin + "/user/access-course",
         success: (success: any) => {
           console.log("[v0] Zoom init success:", success)
 
           window.ZoomMtg.join({
-            sdkKey: sdkKey,
+            sdkKey: key,
             signature: signature,
             meetingNumber: cleanMeetingNumber,
             userName: userName,
@@ -211,10 +206,8 @@ export function ZoomPlayer({ meetingNumber, passcode = "", userName, userEmail, 
         </div>
       )}
 
-      {/* Zoom Meeting Container */}
       <div ref={zoomContainerRef} id="zmmtg-root" className="w-full h-full"></div>
 
-      {/* Custom Exit Button */}
       {!isLoading && (
         <Button onClick={onEnd} className="absolute top-4 right-4 z-50 bg-red-600 hover:bg-red-700" size="sm">
           <X className="w-4 h-4 mr-2" />
