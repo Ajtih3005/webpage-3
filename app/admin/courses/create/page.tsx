@@ -29,6 +29,7 @@ export default function CreateCourse() {
   const [youtubeLink, setYoutubeLink] = useState("")
   const [zoomMeetingId, setZoomMeetingId] = useState("")
   const [zoomPasscode, setZoomPasscode] = useState("")
+  const [zoomJoinUrl, setZoomJoinUrl] = useState("") // Add state for Zoom join URL
   const [date, setDate] = useState<Date | undefined>(new Date())
   const [isPredefinedBatch, setIsPredefinedBatch] = useState(true)
   const [isScheduledSession, setIsScheduledSession] = useState(false)
@@ -300,7 +301,15 @@ export default function CreateCourse() {
         courseData.youtube_link = null
         courseData.zoom_meeting_id = zoomMeetingId.replace(/[\s-]/g, "")
         courseData.zoom_passcode = zoomPasscode
-        console.log("[v0] Zoom mode - cleaned meeting_id:", courseData.zoom_meeting_id, "passcode:", zoomPasscode)
+        courseData.zoom_join_url = zoomJoinUrl || null // Add zoom_join_url to course data
+        console.log(
+          "[v0] Zoom mode - cleaned meeting_id:",
+          courseData.zoom_meeting_id,
+          "passcode:",
+          zoomPasscode,
+          "join_url:",
+          zoomJoinUrl,
+        )
       }
 
       console.log("[v0] Final course data before insert:", courseData)
@@ -548,6 +557,19 @@ export default function CreateCourse() {
                       onChange={(e) => setZoomPasscode(e.target.value)}
                       placeholder="abc123"
                     />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="zoomJoinUrl">Zoom Join URL (Optional - For Invite Link)</Label>
+                    <Input
+                      id="zoomJoinUrl"
+                      value={zoomJoinUrl}
+                      onChange={(e) => setZoomJoinUrl(e.target.value)}
+                      placeholder="https://zoom.us/j/1234567890?pwd=..."
+                      type="url"
+                    />
+                    <p className="text-sm text-gray-500">
+                      Paste the Zoom invite link here. Used when Meeting SDK credentials are not available.
+                    </p>
                   </div>
                   {errors.zoom && <p className="text-sm text-red-600">{errors.zoom}</p>}
                 </div>
