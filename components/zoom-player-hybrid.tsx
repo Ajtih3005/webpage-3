@@ -34,11 +34,22 @@ export function ZoomPlayerHybrid({
   const zoomContainerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    console.log("[v0] ZoomPlayerHybrid mounted with props:", {
+      meetingNumber,
+      passcode,
+      userName,
+      userEmail,
+      joinUrl,
+    })
+  }, [])
+
+  useEffect(() => {
     checkCredentialsAndLoad()
   }, [])
 
   const checkCredentialsAndLoad = async () => {
     try {
+      console.log("[v0] Checking for SDK credentials...")
       // Try to get SDK key first
       const key = await getZoomSdkKey()
 
@@ -47,14 +58,14 @@ export function ZoomPlayerHybrid({
         setEmbedMethod("sdk")
         await loadMeetingSDK(key)
       } else {
-        console.log("[v0] SDK Key not available, falling back to iframe")
+        console.log("[v0] SDK Key not available, falling back to iframe immediately")
         setEmbedMethod("iframe")
-        setIsLoading(false)
+        setTimeout(() => setIsLoading(false), 1000)
       }
     } catch (err) {
       console.log("[v0] SDK not available, using iframe fallback:", err)
       setEmbedMethod("iframe")
-      setIsLoading(false)
+      setTimeout(() => setIsLoading(false), 1000)
     }
   }
 
@@ -166,7 +177,10 @@ export function ZoomPlayerHybrid({
   }
 
   const getIframeUrl = () => {
-    if (joinUrl) return joinUrl
+    if (joinUrl) {
+      console.log("[v0] Using provided join URL:", joinUrl)
+      return joinUrl
+    }
 
     const cleanMeetingNumber = meetingNumber.replace(/[\s-]/g, "")
     let url = `https://zoom.us/wc/join/${cleanMeetingNumber}`
@@ -179,6 +193,26 @@ export function ZoomPlayerHybrid({
 
     console.log("[v0] Generated iframe URL:", url)
     return url
+  }
+
+  useEffect(() => {
+    console.log("[v0] Embed method set to:", embedMethod)
+    console.log("[v0] Loading state:", isLoading)
+  }, [embedMethod, isLoading])
+
+  if (!meetingNumber || meetingNumber.trim() === "") {
+    console.error("[v0] No meeting number provided!")
+    return (
+      <div className="flex items-center justify-center h-full bg-gray-900 text-white">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold mb-4">Meeting Not Available</h2>
+          <p className="text-gray-400 mb-6">No meeting ID was provided for this course.</p>
+          <Button onClick={onEnd} variant="outline">
+            Back to Courses
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   if (error) {
@@ -205,6 +239,9 @@ export function ZoomPlayerHybrid({
             <p className="text-sm text-gray-400 mt-2">
               {embedMethod === "sdk" ? "Loading Meeting SDK..." : "Preparing meeting room..."}
             </p>
+            <p className="text-xs text-gray-500 mt-4">
+              Meeting: {meetingNumber} | Method: {embedMethod}
+            </p>
           </div>
         </div>
       )}
@@ -215,6 +252,7 @@ export function ZoomPlayerHybrid({
       ) : (
         // Simple iframe embed
         <>
+          {console.log("[v0] Rendering iframe with URL:", getIframeUrl())}
           <iframe
             src={getIframeUrl()}
             className="w-full h-full border-0"
@@ -222,6 +260,11 @@ export function ZoomPlayerHybrid({
             title="Zoom Meeting"
             onLoad={() => {
               console.log("[v0] Zoom iframe loaded successfully")
+              setIsLoading(false)
+            }}
+            onError={(e) => {
+              console.error("[v0] Zoom iframe error:", e)
+              setError("Failed to load Zoom meeting. Please try again.")
               setIsLoading(false)
             }}
           />

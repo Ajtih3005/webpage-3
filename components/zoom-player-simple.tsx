@@ -5,34 +5,43 @@ import { useEffect, useState } from "react"
 interface ZoomPlayerSimpleProps {
   meetingNumber: string
   passcode: string
-  userName?: string
+  joinUrl?: string
+  userName?: string // Added userName prop
 }
 
-export default function ZoomPlayerSimple({ meetingNumber, passcode, userName = "Student" }: ZoomPlayerSimpleProps) {
+export default function ZoomPlayerSimple({ meetingNumber, passcode, joinUrl, userName }: ZoomPlayerSimpleProps) {
   const [iframeUrl, setIframeUrl] = useState<string>("")
 
   useEffect(() => {
-    // Clean the meeting number
-    const cleanMeetingNumber = meetingNumber.replace(/[\s-]/g, "")
+    if (joinUrl) {
+      console.log("[v0] Using provided Zoom join URL:", joinUrl)
+      const urlWithName = userName ? `${joinUrl}&uname=${encodeURIComponent(userName)}` : joinUrl
+      setIframeUrl(urlWithName)
+    } else {
+      // Clean the meeting number (remove spaces and hyphens)
+      const cleanMeetingNumber = meetingNumber.replace(/[\s-]/g, "")
 
-    // Build the Zoom web client URL
-    const zoomUrl = `https://zoom.us/wc/${cleanMeetingNumber}/join?prefer=1&un=${encodeURIComponent(userName)}&pwd=${encodeURIComponent(passcode)}`
+      const displayName = userName || "User"
+      const zoomUrl = `https://zoom.us/wc/join/${cleanMeetingNumber}?pwd=${encodeURIComponent(passcode)}&uname=${encodeURIComponent(displayName)}`
 
-    console.log("[v0] Zoom iframe URL:", zoomUrl)
-    setIframeUrl(zoomUrl)
-  }, [meetingNumber, passcode, userName])
+      console.log("[v0] Generated Zoom iframe URL with username:", zoomUrl)
+      setIframeUrl(zoomUrl)
+    }
+  }, [meetingNumber, passcode, joinUrl, userName])
 
   return (
-    <div className="relative w-full h-full min-h-[600px] bg-black rounded-lg overflow-hidden">
+    <div className="relative w-full h-full bg-black">
       {iframeUrl ? (
         <iframe
           src={iframeUrl}
-          className="w-full h-full"
-          allow="camera; microphone; fullscreen; speaker; display-capture"
-          sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+          className="w-full h-full border-0"
+          allow="camera; microphone; fullscreen; display-capture; autoplay"
+          title="Zoom Meeting"
         />
       ) : (
-        <div className="flex items-center justify-center h-full text-white">Loading Zoom meeting...</div>
+        <div className="flex items-center justify-center h-full text-white">
+          <p>Loading Zoom meeting...</p>
+        </div>
       )}
     </div>
   )

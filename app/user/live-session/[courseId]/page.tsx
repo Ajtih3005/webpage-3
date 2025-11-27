@@ -7,7 +7,7 @@ import { useParams, useRouter } from "next/navigation"
 import { createBrowserClient } from "@supabase/ssr"
 import { Camera, Eye, Maximize, X } from "lucide-react"
 import { extractYoutubeVideoId } from "@/lib/utils"
-import ZoomPlayerHybrid from "@/components/zoom-player-hybrid"
+import ZoomPlayerSimple from "@/components/zoom-player-simple"
 
 export default function LiveSessionPage() {
   const params = useParams()
@@ -305,14 +305,12 @@ export default function LiveSessionPage() {
   return (
     <div className="relative w-full h-screen bg-black overflow-hidden">
       {videoType === "zoom" ? (
-        // Zoom Player Hybrid
-        <ZoomPlayerHybrid
+        // Zoom Player Simple
+        <ZoomPlayerSimple
           meetingNumber={zoomMeetingId}
           passcode={zoomPasscode}
-          userName={userName}
-          userEmail={userEmail}
           joinUrl={courseData?.zoom_join_url}
-          onEnd={handleExit}
+          userName={userName}
         />
       ) : (
         // YouTube Player (existing code)
