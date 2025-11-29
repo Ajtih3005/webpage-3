@@ -5,8 +5,7 @@ export async function POST() {
   try {
     const supabase = getSupabaseServerClient()
 
-    // Get all user subscriptions that are currently active (is_active = true)
-    const { data: activeSubscriptions, error: fetchError } = await supabase
+    const { data: userSubscriptions, error: fetchError } = await supabase
       .from("user_subscriptions")
       .select(`
         id,
@@ -15,81 +14,79 @@ export async function POST() {
         activation_date,
         total_active_days_used,
         is_active,
-        subscription:subscriptions (duration_days)
+        subscription:subscriptions (
+          duration_days,
+          is_active
+        )
       `)
-      .eq("is_active", true) // Only process active subscriptions
+      .not("activation_date", "is", null)
 
     if (fetchError) {
-      console.error("Error fetching active subscriptions:", fetchError)
+      console.error("Error fetching subscriptions:", fetchError)
       return NextResponse.json({ error: "Failed to fetch subscriptions" }, { status: 500 })
     }
 
-    if (!activeSubscriptions || activeSubscriptions.length === 0) {
+    if (!userSubscriptions || userSubscriptions.length === 0) {
       return NextResponse.json({
-        message: "No active subscriptions to update",
+        message: "No subscriptions to update",
         updated: 0,
       })
     }
 
     const today = new Date()
-    today.setHours(0, 0, 0, 0) // Set to start of day for consistent comparison
+    today.setHours(0, 0, 0, 0)
 
     let updatedCount = 0
+    let skippedDueToInactiveSubscription = 0
+    let alreadyExpiredCount = 0
 
-    for (const subscription of activeSubscriptions) {
+    for (const subscription of userSubscriptions) {
       try {
-        // Skip if no activation date
-        if (!subscription.activation_date) {
-          continue
-        }
+        const baseDurationDays = subscription.subscription?.duration_days || 30
+        const durationDays = baseDurationDays + 3 // 30 days becomes 33 days total
+        const currentDaysUsed = subscription.total_active_days_used || 0
 
-        const activationDate = new Date(subscription.activation_date)
-        activationDate.setHours(0, 0, 0, 0)
-
-        // Skip if activation date is in the future
-        if (activationDate > today) {
-          continue
-        }
-
-        // Get the last day we counted (or activation date if never counted)
-        const lastCountedDate = new Date(activationDate)
-        lastCountedDate.setHours(0, 0, 0, 0)
-
-        // Calculate days since last count
-        const daysSinceLastCount = Math.floor((today.getTime() - lastCountedDate.getTime()) / (1000 * 60 * 60 * 24))
-
-        // Only update if there are new days to count
-        if (daysSinceLastCount > 0) {
-          const currentDaysUsed = subscription.total_active_days_used || 0
-          const newDaysUsed = currentDaysUsed + daysSinceLastCount
-          const durationDays = subscription.subscription?.duration_days || 30
-
-          // Check if subscription should be expired
-          const shouldExpire = newDaysUsed >= durationDays
-
-          // Update the subscription
-          const { error: updateError } = await supabase
-            .from("user_subscriptions")
-            .update({
-              total_active_days_used: Math.min(newDaysUsed, durationDays), // Cap at duration
-              is_active: !shouldExpire, // Set to false if expired
-              ...(shouldExpire && {
-                activation_notes: `Automatically expired after ${durationDays} days on ${today.toISOString().split("T")[0]}`,
-              }),
-            })
-            .eq("id", subscription.id)
-
-          if (updateError) {
-            console.error(`Error updating subscription ${subscription.id}:`, updateError)
-            continue
+        // Skip if already fully expired (reached max days including bonus)
+        if (currentDaysUsed >= durationDays) {
+          if (subscription.is_active) {
+            await supabase.from("user_subscriptions").update({ is_active: false }).eq("id", subscription.id)
           }
-
-          updatedCount++
-
-          console.log(
-            `Updated subscription ${subscription.id}: ${currentDaysUsed} -> ${Math.min(newDaysUsed, durationDays)} days${shouldExpire ? " (EXPIRED)" : ""}`,
-          )
+          alreadyExpiredCount++
+          continue
         }
+
+        // This is the ONLY control for whether days should count
+        if (!subscription.subscription?.is_active) {
+          skippedDueToInactiveSubscription++
+          console.log(`[v0] Skipping subscription ${subscription.id}: Admin has turned OFF subscription plan`)
+          continue
+        }
+
+        const newDaysUsed = currentDaysUsed + 1
+        const shouldExpire = newDaysUsed >= durationDays
+
+        // Update the subscription
+        const { error: updateError } = await supabase
+          .from("user_subscriptions")
+          .update({
+            total_active_days_used: newDaysUsed,
+            is_active: !shouldExpire,
+            ...(shouldExpire && {
+              activation_notes: `Expired: Reached ${durationDays} days (${baseDurationDays} + 3 bonus) on ${today.toISOString().split("T")[0]}`,
+            }),
+          })
+          .eq("id", subscription.id)
+
+        if (updateError) {
+          console.error(`Error updating subscription ${subscription.id}:`, updateError)
+          continue
+        }
+
+        updatedCount++
+
+        console.log(
+          `[v0] Subscription ${subscription.id}: ${currentDaysUsed} → ${newDaysUsed} days${shouldExpire ? " (NOW EXPIRED)" : ""}`,
+        )
       } catch (error) {
         console.error(`Error processing subscription ${subscription.id}:`, error)
         continue
@@ -97,9 +94,11 @@ export async function POST() {
     }
 
     return NextResponse.json({
-      message: `Successfully updated ${updatedCount} subscriptions`,
+      message: `Updated ${updatedCount} subscriptions`,
       updated: updatedCount,
-      total_checked: activeSubscriptions.length,
+      total_checked: userSubscriptions.length,
+      skipped_admin_off: skippedDueToInactiveSubscription,
+      already_expired: alreadyExpiredCount,
     })
   } catch (error) {
     console.error("Error in update-subscription-days:", error)
@@ -114,6 +113,5 @@ export async function POST() {
 }
 
 export async function GET() {
-  // Allow GET requests to trigger the update as well
   return POST()
 }

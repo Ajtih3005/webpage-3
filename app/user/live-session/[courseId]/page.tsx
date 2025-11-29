@@ -311,6 +311,7 @@ export default function LiveSessionPage() {
           passcode={zoomPasscode}
           joinUrl={courseData?.zoom_join_url}
           userName={userName}
+          courseId={courseId}
         />
       ) : (
         // YouTube Player (existing code)

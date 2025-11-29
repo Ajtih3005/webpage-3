@@ -487,7 +487,11 @@ export default function SubscriptionDashboard() {
                   <p className="text-sm text-muted-foreground mt-1">Active subscribers</p>
                 </CardContent>
                 <CardFooter className="pt-0">
-                  <Button variant="outline" className="w-full" onClick={() => setActiveTab("users")}>
+                  <Button
+                    variant="outline"
+                    className="w-full bg-transparent"
+                    onClick={() => router.push(`/admin/subscriptions/users/${subscription.id}`)}
+                  >
                     View All Users
                   </Button>
                 </CardFooter>
@@ -505,7 +509,11 @@ export default function SubscriptionDashboard() {
                   <p className="text-sm text-muted-foreground mt-1">Active batches</p>
                 </CardContent>
                 <CardFooter className="pt-0">
-                  <Button variant="outline" className="w-full" onClick={() => setActiveTab("batches")}>
+                  <Button
+                    variant="outline"
+                    className="w-full bg-transparent"
+                    onClick={() => router.push(`/admin/subscriptions/batches/${subscription.id}`)}
+                  >
                     Manage Batches
                   </Button>
                 </CardFooter>
@@ -523,7 +531,11 @@ export default function SubscriptionDashboard() {
                   <p className="text-sm text-muted-foreground mt-1">Associated courses</p>
                 </CardContent>
                 <CardFooter className="pt-0">
-                  <Button variant="outline" className="w-full" onClick={() => setActiveTab("courses")}>
+                  <Button
+                    variant="outline"
+                    className="w-full bg-transparent"
+                    onClick={() => router.push(`/admin/courses?subscription=${subscription.id}`)}
+                  >
                     View All Courses
                   </Button>
                 </CardFooter>
@@ -539,7 +551,7 @@ export default function SubscriptionDashboard() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   <Button
                     variant="outline"
-                    className="h-auto py-4 flex flex-col items-center justify-center"
+                    className="h-auto py-4 flex flex-col items-center justify-center bg-transparent"
                     onClick={() => router.push(`/admin/courses/create?subscription=${subscription.id}`)}
                   >
                     <Video className="h-6 w-6 mb-2" />
@@ -549,7 +561,7 @@ export default function SubscriptionDashboard() {
 
                   <Button
                     variant="outline"
-                    className="h-auto py-4 flex flex-col items-center justify-center"
+                    className="h-auto py-4 flex flex-col items-center justify-center bg-transparent"
                     onClick={() => router.push(`/admin/subscriptions/batches/${subscription.id}`)}
                   >
                     <Layers className="h-6 w-6 mb-2" />
@@ -559,7 +571,7 @@ export default function SubscriptionDashboard() {
 
                   <Button
                     variant="outline"
-                    className="h-auto py-4 flex flex-col items-center justify-center"
+                    className="h-auto py-4 flex flex-col items-center justify-center bg-transparent"
                     onClick={() => router.push(`/admin/subscriptions/users/${subscription.id}`)}
                   >
                     <UserPlus className="h-6 w-6 mb-2" />
@@ -569,7 +581,7 @@ export default function SubscriptionDashboard() {
 
                   <Button
                     variant="outline"
-                    className="h-auto py-4 flex flex-col items-center justify-center"
+                    className="h-auto py-4 flex flex-col items-center justify-center bg-transparent"
                     onClick={() => router.push(`/admin/documents?subscription=${subscription.id}`)}
                   >
                     <FileText className="h-6 w-6 mb-2" />
@@ -579,7 +591,7 @@ export default function SubscriptionDashboard() {
 
                   <Button
                     variant="outline"
-                    className="h-auto py-4 flex flex-col items-center justify-center"
+                    className="h-auto py-4 flex flex-col items-center justify-center bg-transparent"
                     onClick={() => router.push(`/admin/bulk-registration?subscription=${subscription.id}`)}
                   >
                     <Upload className="h-6 w-6 mb-2" />
@@ -589,7 +601,7 @@ export default function SubscriptionDashboard() {
 
                   <Button
                     variant="outline"
-                    className="h-auto py-4 flex flex-col items-center justify-center"
+                    className="h-auto py-4 flex flex-col items-center justify-center bg-transparent"
                     onClick={() => {
                       // This would be implemented to export user data
                       toast({
