@@ -521,6 +521,8 @@ export default function AccessCourse() {
       // Use local date in YYYY-MM-DD format
       const todayLocalDate = new Date().toLocaleDateString("en-CA")
 
+      console.log("[v0] Fetching courses for date:", todayLocalDate)
+
       // Debug info
       let debugLog = `Today's date: ${todayLocalDate}\n`
 
@@ -536,8 +538,7 @@ export default function AccessCourse() {
           subscription:subscriptions (
             id,
             name,
-            description,
-            full_availability
+            description
           )
         `)
         .eq("user_id", userId)
@@ -550,17 +551,13 @@ export default function AccessCourse() {
         userSubscriptions?.map((sub) => ({
           ...sub,
           activation_date: sub.start_date, // Assuming start_date is the activation date
-          subscription: {
-            ...sub.subscription,
-            full_availability: !!sub.subscription.full_availability, // Ensure boolean
-          },
         })) || []
 
       // Store all active subscription IDs
       const activeSubscriptionIds = processedSubscriptions?.map((sub) => sub.subscription_id) || []
 
-      // Check if any subscription has full_availability enabled
-      const hasFullAvailability = processedSubscriptions?.some((sub) => sub.subscription?.full_availability) || false
+      // All courses respect day-wise schedule now
+      const hasFullAvailability = false
 
       debugLog += `Active subscription IDs: ${JSON.stringify(activeSubscriptionIds)}\n`
       debugLog += `Has full availability: ${hasFullAvailability}\n`
@@ -581,6 +578,9 @@ export default function AccessCourse() {
 
       if (coursesError) throw coursesError
 
+      console.log("[v0] Total courses fetched:", allCourses?.length)
+      console.log("[v0] All courses:", allCourses)
+
       debugLog += `Total courses fetched: ${allCourses?.length || 0}\n`
 
       // Get courses for today based on the user's local date
@@ -590,8 +590,15 @@ export default function AccessCourse() {
           if (!course.scheduled_date) return false
 
           const scheduledLocalDate = new Date(course.scheduled_date).toLocaleDateString("en-CA")
-          return scheduledLocalDate === todayLocalDate
+          const matchesDate = scheduledLocalDate === todayLocalDate
+
+          console.log("[v0] Course:", course.title, "Scheduled:", scheduledLocalDate, "Matches today:", matchesDate)
+
+          return matchesDate
         }) || []
+
+      console.log("[v0] Today's courses after filtering:", todayData.length)
+      console.log("[v0] Today's courses:", todayData)
 
       debugLog += `Today's courses: ${todayData.length}\n`
 

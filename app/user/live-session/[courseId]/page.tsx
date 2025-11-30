@@ -104,6 +104,28 @@ export default function LiveSessionPage() {
   }, [courseId])
 
   useEffect(() => {
+    if (!sessionStartTime || !videoDuration || videoDuration === 0) return
+
+    const checkSessionStatus = () => {
+      const now = new Date()
+      const elapsedSeconds = Math.floor((now.getTime() - sessionStartTime.getTime()) / 1000)
+
+      // Session ends when elapsed time exceeds video duration
+      if (elapsedSeconds >= videoDuration) {
+        console.log("[v0] Session expired - elapsed:", elapsedSeconds, "duration:", videoDuration)
+        setAccessExpired(true)
+      }
+    }
+
+    // Check immediately
+    checkSessionStatus()
+
+    // Check every second
+    const interval = setInterval(checkSessionStatus, 1000)
+    return () => clearInterval(interval)
+  }, [sessionStartTime, videoDuration])
+
+  useEffect(() => {
     if (videoType !== "youtube" || !videoId || !sessionStartTime) return
 
     const loadYouTubeAPI = () => {
@@ -144,6 +166,7 @@ export default function LiveSessionPage() {
     const onPlayerReady = (event: any) => {
       const duration = event.target.getDuration()
       setVideoDuration(duration)
+      console.log("[v0] Video duration:", duration, "seconds")
 
       if ("mediaSession" in navigator) {
         navigator.mediaSession.metadata = null
@@ -156,19 +179,27 @@ export default function LiveSessionPage() {
 
       const now = new Date()
       const elapsedSeconds = Math.floor((now.getTime() - sessionStartTime.getTime()) / 1000)
+      console.log("[v0] Session started at:", sessionStartTime, "Elapsed seconds:", elapsedSeconds)
 
-      if (elapsedSeconds > 0 && elapsedSeconds < duration) {
+      if (elapsedSeconds >= duration) {
+        // Session already ended
+        console.log("[v0] Session already ended")
+        setAccessExpired(true)
+        event.target.pauseVideo()
+      } else if (elapsedSeconds > 0) {
+        // User joined late - seek to current time
+        console.log("[v0] User joined late, seeking to:", elapsedSeconds)
         event.target.seekTo(elapsedSeconds, true)
         event.target.playVideo()
-      } else if (elapsedSeconds >= duration) {
-        setAccessExpired(true)
       } else {
+        // User joined on time or early
+        console.log("[v0] User joined on time")
         event.target.playVideo()
       }
     }
 
     const onPlayerStateChange = (event: any) => {
-      setInterval(() => {
+      const monitorInterval = setInterval(() => {
         if (playerRef.current && playerRef.current.getCurrentTime) {
           const currentTime = playerRef.current.getCurrentTime()
           const now = new Date()
@@ -176,7 +207,7 @@ export default function LiveSessionPage() {
 
           // If user is more than 5 seconds ahead, reset to correct position
           if (currentTime > expectedTime + 5) {
-            console.log("[v0] User skipped ahead, resetting to correct time")
+            console.log("[v0] User skipped ahead, resetting from", currentTime, "to", expectedTime)
             playerRef.current.seekTo(expectedTime, true)
             playerRef.current.pauseVideo()
             setTimeout(() => {
@@ -185,12 +216,14 @@ export default function LiveSessionPage() {
           }
 
           setCurrentVideoTime(currentTime)
-
-          if (event.data === window.YT.PlayerState.ENDED) {
-            setAccessExpired(true)
-          }
         }
       }, 1000)
+
+      // Clean up interval when player state changes to ended
+      if (event.data === window.YT.PlayerState.ENDED) {
+        clearInterval(monitorInterval)
+        setAccessExpired(true)
+      }
     }
 
     loadYouTubeAPI()
@@ -222,11 +255,6 @@ export default function LiveSessionPage() {
 
       setStream(mediaStream)
       setCameraEnabled(true)
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream
-        await videoRef.current.play().catch((err) => console.log("[v0] Video play error:", err))
-      }
     } catch (err) {
       console.error("[v0] Camera access denied:", err)
       setCameraEnabled(false)
@@ -323,6 +351,13 @@ export default function LiveSessionPage() {
       }
     }
   }, [])
+
+  useEffect(() => {
+    if (stream && videoRef.current && cameraEnabled && previewVisible) {
+      videoRef.current.srcObject = stream
+      videoRef.current.play().catch((err) => console.log("[v0] Video play error:", err))
+    }
+  }, [stream, previewVisible, cameraEnabled])
 
   return (
     <div className="relative w-full h-screen bg-black overflow-hidden">
@@ -429,32 +464,16 @@ export default function LiveSessionPage() {
                 </button>
               </div>
 
-              <div className="relative">
-                <button
-                  onClick={() => setShowEmojiPanel(!showEmojiPanel)}
-                  className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition"
-                >
-                  😊 Emoji
-                </button>
-
-                {showEmojiPanel && (
-                  <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-800 rounded-lg p-3 shadow-2xl border border-gray-700">
-                    <div className="flex items-center gap-2">
-                      {["😊", "❤️", "👍", "🔥", "💯", "😂", "🎉", "👏"].map((emoji) => (
-                        <button
-                          key={emoji}
-                          onClick={() => {
-                            sendEmoji(emoji)
-                            setShowEmojiPanel(false)
-                          }}
-                          className="text-3xl hover:scale-125 transition-transform p-2 hover:bg-gray-700 rounded"
-                        >
-                          {emoji}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
+              <div className="flex items-center gap-2">
+                {["😊", "❤️", "👍", "🔥", "💯", "😂", "🎉", "👏"].map((emoji) => (
+                  <button
+                    key={emoji}
+                    onClick={() => sendEmoji(emoji)}
+                    className="text-2xl hover:scale-125 transition-transform p-2 hover:bg-gray-700/50 rounded"
+                  >
+                    {emoji}
+                  </button>
+                ))}
               </div>
 
               <div className="flex items-center gap-3">
@@ -474,6 +493,21 @@ export default function LiveSessionPage() {
               </div>
             </div>
           </div>
+
+          {accessExpired && (
+            <div className="absolute inset-0 z-50 bg-black/90 flex items-center justify-center">
+              <div className="bg-gray-800 p-8 rounded-lg text-center">
+                <h2 className="text-2xl font-bold text-white mb-4">Session Ended</h2>
+                <p className="text-gray-300 mb-6">This live session has concluded.</p>
+                <button
+                  onClick={handleExit}
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                >
+                  Return to Dashboard
+                </button>
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>
