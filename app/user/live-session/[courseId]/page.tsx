@@ -31,6 +31,7 @@ export default function LiveSessionPage() {
   const [currentVideoTime, setCurrentVideoTime] = useState<number>(0)
   const [accessExpired, setAccessExpired] = useState(false)
   const [showEmojiPanel, setShowEmojiPanel] = useState(false)
+  const [floatingEmojis, setFloatingEmojis] = useState<Array<{ id: string; emoji: string; left: number }>>([])
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const previewRef = useRef<HTMLDivElement>(null)
@@ -187,9 +188,9 @@ export default function LiveSessionPage() {
         setAccessExpired(true)
         event.target.pauseVideo()
       } else if (elapsedSeconds > 0) {
-        // User joined late - seek to current time
-        console.log("[v0] User joined late, seeking to:", elapsedSeconds)
-        event.target.seekTo(elapsedSeconds, true)
+        const prePlayTime = Math.max(0, elapsedSeconds - 3)
+        console.log("[v0] User joined late, seeking to:", prePlayTime, "(3 sec before current:", elapsedSeconds, ")")
+        event.target.seekTo(prePlayTime, true)
         event.target.playVideo()
       } else {
         // User joined on time or early
@@ -312,14 +313,16 @@ export default function LiveSessionPage() {
     }
   }, [isDragging, dragOffset])
 
-  function sendEmoji(emoji: string) {
-    const emojiEl = document.createElement("div")
-    emojiEl.textContent = emoji
-    emojiEl.className = "fixed text-4xl pointer-events-none animate-float"
-    emojiEl.style.left = Math.random() * 80 + 10 + "%"
-    emojiEl.style.bottom = "10%"
-    document.body.appendChild(emojiEl)
-    setTimeout(() => emojiEl.remove(), 3000)
+  function handleEmojiClick(emoji: string) {
+    const id = Date.now().toString() + Math.random()
+    const left = Math.random() * 80 + 10
+
+    setFloatingEmojis((prev) => [...prev, { id, emoji, left }])
+
+    // Remove emoji after animation completes
+    setTimeout(() => {
+      setFloatingEmojis((prev) => prev.filter((e) => e.id !== id))
+    }, 3000)
   }
 
   function toggleFullscreen() {
@@ -371,7 +374,6 @@ export default function LiveSessionPage() {
           courseId={courseId}
         />
       ) : (
-        // YouTube Player (existing code)
         <>
           <div className="absolute top-4 left-4 z-50 bg-red-600 text-white px-3 py-1 rounded-full flex items-center gap-2 text-sm font-bold">
             <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
@@ -406,18 +408,18 @@ export default function LiveSessionPage() {
               pointer-events: none !important;
               user-select: none !important;
             }
-            @keyframes float {
+            @keyframes floatUp {
               0% {
                 transform: translateY(0) scale(1);
                 opacity: 1;
               }
               100% {
-                transform: translateY(-400px) scale(1.5);
+                transform: translateY(-500px) scale(1.8);
                 opacity: 0;
               }
             }
-            .animate-float {
-              animation: float 3s ease-out forwards;
+            .emoji-float {
+              animation: floatUp 3s ease-out forwards;
             }
           `}</style>
 
@@ -442,6 +444,19 @@ export default function LiveSessionPage() {
               <div className="absolute top-2 right-2 text-white text-xs bg-black/50 px-2 py-1 rounded">You</div>
             </div>
           )}
+
+          {floatingEmojis.map((item) => (
+            <div
+              key={item.id}
+              className="fixed text-5xl pointer-events-none emoji-float z-40"
+              style={{
+                left: `${item.left}%`,
+                bottom: "10%",
+              }}
+            >
+              {item.emoji}
+            </div>
+          ))}
 
           <div className="absolute bottom-0 left-0 right-0 z-30 bg-gradient-to-t from-black/80 to-transparent p-4">
             <div className="flex items-center justify-between max-w-5xl mx-auto">
@@ -468,7 +483,7 @@ export default function LiveSessionPage() {
                 {["😊", "❤️", "👍", "🔥", "💯", "😂", "🎉", "👏"].map((emoji) => (
                   <button
                     key={emoji}
-                    onClick={() => sendEmoji(emoji)}
+                    onClick={() => handleEmojiClick(emoji)}
                     className="text-2xl hover:scale-125 transition-transform p-2 hover:bg-gray-700/50 rounded"
                   >
                     {emoji}
