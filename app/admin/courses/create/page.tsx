@@ -267,7 +267,11 @@ export default function CreateCourse() {
 
       // Add the appropriate scheduling field based on type
       if (schedulingType === "date") {
-        courseData.scheduled_date = scheduledDate ? scheduledDate.toISOString().split("T")[0] : null
+        // Format date as YYYY-MM-DD in local timezone
+        const year = scheduledDate.getFullYear()
+        const month = String(scheduledDate.getMonth() + 1).padStart(2, "0")
+        const day = String(scheduledDate.getDate()).padStart(2, "0")
+        courseData.scheduled_date = `${year}-${month}-${day}`
         courseData.subscription_day = null
         courseData.subscription_week = null
       } else if (schedulingType === "day") {

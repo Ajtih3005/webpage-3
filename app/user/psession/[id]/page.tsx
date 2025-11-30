@@ -76,10 +76,14 @@ export default function PreviousSessionPage() {
       videoId: videoId,
       playerVars: {
         autoplay: 0,
-        controls: 1,
+        controls: 0, // Disable controls
+        disablekb: 1, // Disable keyboard controls
+        fs: 0, // Disable fullscreen button
         modestbranding: 1,
         playsinline: 1,
         rel: 0,
+        iv_load_policy: 3, // Disable annotations
+        enablejsapi: 1,
       },
     })
   }
@@ -98,9 +102,27 @@ export default function PreviousSessionPage() {
   return (
     <div className="relative w-full h-screen bg-black overflow-hidden">
       {/* YouTube Video */}
-      <div className="absolute inset-0 w-full h-full flex items-center justify-center">
+      <div className="absolute inset-0 w-full h-full flex items-center justify-center z-10">
         <div id="youtube-player-prev" className="w-full h-full" />
+        <div className="absolute inset-0 w-full h-full z-20 cursor-default" style={{ pointerEvents: "all" }} />
       </div>
+
+      <style jsx global>{`
+        #youtube-player-prev iframe {
+          pointer-events: none !important;
+          user-select: none !important;
+          -webkit-user-select: none !important;
+          -moz-user-select: none !important;
+          -ms-user-select: none !important;
+        }
+        #youtube-player-prev {
+          pointer-events: none !important;
+        }
+        #youtube-player-prev iframe * {
+          pointer-events: none !important;
+          user-select: none !important;
+        }
+      `}</style>
 
       {/* Bottom Control Bar */}
       <div className="absolute bottom-0 left-0 right-0 z-30 bg-gradient-to-t from-black/80 to-transparent p-4">

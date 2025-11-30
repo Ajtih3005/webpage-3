@@ -536,7 +536,8 @@ export default function AccessCourse() {
           subscription:subscriptions (
             id,
             name,
-            description
+            description,
+            full_availability
           )
         `)
         .eq("user_id", userId)
@@ -544,38 +545,16 @@ export default function AccessCourse() {
 
       if (subError) throw subError
 
-      // Add full_availability property with default value
+      // Extract activation_date for subscription_day logic
       const processedSubscriptions =
         userSubscriptions?.map((sub) => ({
           ...sub,
+          activation_date: sub.start_date, // Assuming start_date is the activation date
           subscription: {
             ...sub.subscription,
-            full_availability: false, // Default value
+            full_availability: !!sub.subscription.full_availability, // Ensure boolean
           },
         })) || []
-
-      // Try to get full_availability from the database
-      try {
-        const { data: fullAvailabilityData, error: fullAvailabilityError } = await supabase
-          .from("subscriptions")
-          .select("id, full_availability")
-          .in(
-            "id",
-            processedSubscriptions.map((sub) => sub.subscription_id),
-          )
-
-        if (!fullAvailabilityError && fullAvailabilityData) {
-          // Update the processed subscriptions with the actual full_availability value
-          fullAvailabilityData.forEach((item) => {
-            const subscription = processedSubscriptions.find((sub) => sub.subscription_id === item.id)
-            if (subscription) {
-              subscription.subscription.full_availability = !!item.full_availability
-            }
-          })
-        }
-      } catch (err) {
-        console.log("Could not fetch full_availability, using default value", err)
-      }
 
       // Store all active subscription IDs
       const activeSubscriptionIds = processedSubscriptions?.map((sub) => sub.subscription_id) || []
@@ -589,7 +568,15 @@ export default function AccessCourse() {
       // Fetch all courses
       const { data: allCourses, error: coursesError } = await supabase
         .from("courses")
-        .select("*")
+        .select(`
+          *,
+          batches: course_batches(
+            id,
+            batch_number,
+            custom_batch_time,
+            is_predefined_batch
+          )
+        `)
         .order("scheduled_date", { ascending: false })
 
       if (coursesError) throw coursesError
@@ -643,55 +630,12 @@ export default function AccessCourse() {
         if (!course.subscription_id) {
           // Free course
           hasAccess = true
-        } else if (activeSubscriptionIds.includes(course.subscription_id)) {
-          // User has required subscription
-          hasAccess = true
-        }
-
-        // For courses with subscription requirements, store which subscriptions
-        let eligibleSubscriptions = []
-        if (course.subscription_id) {
-          eligibleSubscriptions =
-            processedSubscriptions?.filter((sub) => sub.subscription_id === course.subscription_id && sub.is_active) ||
-            []
-        }
-
-        // Check if user has already marked attendance
-        const attended = attendanceMap.has(course.id) ? attendanceMap.get(course.id) : false
-        const completedVideo = completionMap.has(course.id) ? completionMap.get(course.id) : false
-
-        // Set default language if not specified
-        const language = course.language || "English"
-
-        // Set default video duration (in seconds) - in a real app, you would get this from the video metadata
-        const videoDuration = course.video_duration || 1800 // 30 minutes by default
-
-        return {
-          ...course,
-          hasAccess,
-          eligibleSubscriptions,
-          attended,
-          completedVideo,
-          language,
-          videoDuration,
-          batches: [
-            {
-              id: course.id,
-              batch_number: course.batch_number,
-              custom_batch_time: course.custom_batch_time,
-              is_predefined_batch: course.is_predefined_batch,
-            },
-          ],
-        }
-      })
-
-      // Process upcoming courses
-      const processedUpcomingCourses = upcomingData?.map((course) => {
-        let hasAccess = false
-
-        if (!course.subscription_id) {
-          // Free course
-          hasAccess = true
+        } else if (course.scheduling_type === "subscription_day") {
+          // Check access based on subscription day
+          const userSubscription = processedSubscriptions.find((sub) => sub.subscription_id === course.subscription_id)
+          if (userSubscription) {
+            hasAccess = isCourseAvailableBySubscriptionDay(course, userSubscription)
+          }
         } else if (activeSubscriptionIds.includes(course.subscription_id)) {
           // User has required subscription
           hasAccess = true
@@ -723,14 +667,55 @@ export default function AccessCourse() {
           completedVideo,
           language,
           videoDuration,
-          batches: [
-            {
-              id: course.id,
-              batch_number: course.batch_number,
-              custom_batch_time: course.custom_batch_time,
-              is_predefined_batch: course.is_predefined_batch,
-            },
-          ],
+          batches: course.batches || [], // Use fetched batches
+        }
+      })
+
+      // Process upcoming courses
+      const processedUpcomingCourses = upcomingData?.map((course) => {
+        let hasAccess = false
+
+        if (!course.subscription_id) {
+          // Free course
+          hasAccess = true
+        } else if (course.scheduling_type === "subscription_day") {
+          // Check access based on subscription day
+          const userSubscription = processedSubscriptions.find((sub) => sub.subscription_id === course.subscription_id)
+          if (userSubscription) {
+            hasAccess = isCourseAvailableBySubscriptionDay(course, userSubscription)
+          }
+        } else if (activeSubscriptionIds.includes(course.subscription_id)) {
+          // User has required subscription
+          hasAccess = true
+        }
+
+        // For courses with subscription requirements, store which subscriptions give access
+        let eligibleSubscriptions = []
+        if (course.subscription_id) {
+          eligibleSubscriptions =
+            processedSubscriptions?.filter((sub) => sub.subscription_id === course.subscription_id && sub.is_active) ||
+            []
+        }
+
+        // Check if user has already marked attendance
+        const attended = attendanceMap.has(course.id) ? attendanceMap.get(course.id) : false
+        const completedVideo = completionMap.has(course.id) ? completionMap.get(course.id) : false
+
+        // Set default language if not specified
+        const language = course.language || "English"
+
+        // Set default video duration (in seconds) - in a real app, you would get this from the video metadata
+        const videoDuration = course.video_duration || 1800 // 30 minutes by default
+
+        return {
+          ...course,
+          hasAccess,
+          eligibleSubscriptions,
+          attended,
+          completedVideo,
+          language,
+          videoDuration,
+          batches: course.batches || [], // Use fetched batches
         }
       })
 
@@ -768,6 +753,30 @@ export default function AccessCourse() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const isCourseAvailableBySubscriptionDay = (course: GroupedCourse, userSubscription: any): boolean => {
+    if (!course.scheduling_type || course.scheduling_type !== "subscription_day") {
+      return true // Not using subscription day scheduling
+    }
+
+    if (!course.subscription_day || !userSubscription.activation_date) {
+      return false // Missing required data
+    }
+
+    const activationDate = new Date(userSubscription.activation_date)
+    const today = new Date()
+
+    // Set both dates to start of day for accurate comparison
+    activationDate.setHours(0, 0, 0, 0)
+    today.setHours(0, 0, 0, 0)
+
+    const daysPassed = Math.floor((today.getTime() - activationDate.getTime()) / (1000 * 60 * 60 * 24))
+
+    // subscription_day in database is 1-based, but we count from Day 0
+    // So if subscription_day is 1, it's available on Day 0 (activation date)
+    // If subscription_day is 2, it's available on Day 1 (next day), etc.
+    return daysPassed >= course.subscription_day - 1
   }
 
   return (
@@ -872,24 +881,40 @@ export default function AccessCourse() {
                       const activeBatch = findActiveBatch(course)
                       const isLive = activeBatch !== null
 
+                      // Check availability based on scheduling type
+                      let isCourseAvailable = course.hasAccess // Default to existing hasAccess
+                      if (course.scheduling_type === "subscription_day") {
+                        const userSubscription = userSubscriptions.find((sub) => sub.id === course.subscription_id)
+                        if (userSubscription) {
+                          isCourseAvailable = isCourseAvailableBySubscriptionDay(course, userSubscription)
+                        } else {
+                          isCourseAvailable = false // User does not have the required subscription
+                        }
+                      } else if (course.subscription_id && !course.eligibleSubscriptions?.length) {
+                        // If it requires a subscription but no eligible subscriptions found (e.g. expired)
+                        isCourseAvailable = false
+                      }
+
                       return (
                         <Card
                           key={`${course.title}_${course.scheduled_date}`}
                           className={`h-full flex flex-col overflow-hidden transition-all duration-300 hover:shadow-lg ${
-                            isLive ? "border-green-400 shadow-green-100" : "border-gray-200"
+                            isLive && isCourseAvailable ? "border-green-400 shadow-green-100" : "border-gray-200"
                           }`}
                         >
-                          <div className={`h-3 w-full ${isLive ? "bg-green-500" : "bg-gray-200"}`}></div>
+                          <div
+                            className={`h-3 w-full ${isLive && isCourseAvailable ? "bg-green-500" : "bg-gray-200"}`}
+                          ></div>
                           <CardHeader className="pb-2">
                             <div className="flex justify-between items-start">
                               <CardTitle className="text-xl">{course.title}</CardTitle>
-                              {isLive ? (
+                              {isLive && isCourseAvailable ? (
                                 <Badge className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-full">
                                   LIVE NOW
                                 </Badge>
                               ) : (
                                 <Badge variant="outline" className="px-3 py-1 rounded-full">
-                                  OFFLINE
+                                  {isCourseAvailable ? "OFFLINE" : "LOCKED"}
                                 </Badge>
                               )}
                             </div>
@@ -907,15 +932,15 @@ export default function AccessCourse() {
                             {/* Join Now button with enhanced styling */}
                             <Button
                               className={`w-full mb-4 py-6 text-base font-medium transition-all duration-300 ${
-                                isLive && course.hasAccess
+                                isLive && isCourseAvailable
                                   ? "bg-green-600 hover:bg-green-700 shadow-md hover:shadow-lg"
                                   : ""
                               }`}
-                              disabled={!isLive || !course.hasAccess}
+                              disabled={!isLive || !isCourseAvailable}
                               onClick={() => handleJoinSession(course)}
                             >
                               <PlayCircle className="mr-2 h-5 w-5" />
-                              {isLive ? "Join Live Session" : "Session Offline"}
+                              {isLive && isCourseAvailable ? "Join Live Session" : "Unavailable"}
                             </Button>
 
                             <div className="space-y-3">
@@ -959,12 +984,12 @@ export default function AccessCourse() {
                             </div>
                           </CardContent>
 
-                          {!course.hasAccess && (
+                          {!isCourseAvailable && (
                             <CardFooter className="pt-0 bg-amber-50">
                               <Alert className="w-full border-amber-300 bg-amber-50">
                                 <AlertDescription className="text-sm flex items-center text-amber-800">
                                   <Info className="h-4 w-4 mr-2 text-amber-500" />
-                                  Subscription required for access
+                                  {course.subscription_id ? "Subscription required for access" : "Access not available"}
                                 </AlertDescription>
                               </Alert>
                             </CardFooter>
@@ -981,67 +1006,100 @@ export default function AccessCourse() {
               <>
                 <h2 className="text-2xl font-bold mb-4">Upcoming Sessions</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {groupedUpcomingCourses.map((course) => (
-                    <Card
-                      key={`${course.title}_${course.scheduled_date}_${course.language}`}
-                      className="h-full flex flex-col overflow-hidden transition-all duration-300 hover:shadow-lg border-blue-200"
-                    >
-                      <div className="h-3 w-full bg-blue-400"></div>
-                      <CardHeader className="pb-2">
-                        <div className="flex justify-between items-start">
-                          <CardTitle className="text-xl">{course.title}</CardTitle>
-                          <Badge
-                            variant="outline"
-                            className="bg-blue-100 text-blue-800 border-blue-300 px-3 py-1 rounded-full"
-                          >
-                            UPCOMING
-                          </Badge>
-                        </div>
-                        {course.description && (
-                          <CardDescription className="mt-2 text-sm">{course.description}</CardDescription>
-                        )}
-                      </CardHeader>
-                      <CardContent className="flex-grow pt-2">
-                        <div className="flex items-center space-x-2 mb-4 text-sm text-gray-600 bg-blue-50 p-2 rounded-md">
-                          <Calendar className="h-4 w-4 text-blue-500" />
-                          <span>{formatDate(course.scheduled_date)}</span>
-                        </div>
+                  {groupedUpcomingCourses.map((course) => {
+                    // Check availability based on scheduling type
+                    let isCourseAvailable = course.hasAccess // Default to existing hasAccess
+                    if (course.scheduling_type === "subscription_day") {
+                      const userSubscription = userSubscriptions.find((sub) => sub.id === course.subscription_id)
+                      if (userSubscription) {
+                        isCourseAvailable = isCourseAvailableBySubscriptionDay(course, userSubscription)
+                      } else {
+                        isCourseAvailable = false // User does not have the required subscription
+                      }
+                    } else if (course.subscription_id && !course.eligibleSubscriptions?.length) {
+                      // If it requires a subscription but no eligible subscriptions found (e.g. expired)
+                      isCourseAvailable = false
+                    }
 
-                        <div className="space-y-3">
-                          <h3 className="text-sm font-medium flex items-center">
-                            <Clock className="h-4 w-4 mr-1 text-blue-500" />
-                            Batch Details:
-                          </h3>
-                          <div className="space-y-2">
-                            {course.batches.map((batch) => (
-                              <div
-                                key={batch.id}
-                                className="border border-gray-200 rounded-md p-3 hover:border-blue-300 transition-all"
-                              >
-                                <div className="flex justify-between items-center">
-                                  <span className="font-medium">{getBatchLabel(batch)}</span>
-                                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                                    SCHEDULED
-                                  </Badge>
-                                </div>
-                              </div>
-                            ))}
+                    return (
+                      <Card
+                        key={`${course.title}_${course.scheduled_date}_${course.language}`}
+                        className={`h-full flex flex-col overflow-hidden transition-all duration-300 hover:shadow-lg ${
+                          isCourseAvailable ? "border-blue-200" : "border-red-200"
+                        }`}
+                      >
+                        <div className={`h-3 w-full ${isCourseAvailable ? "bg-blue-400" : "bg-red-400"}`}></div>
+                        <CardHeader className="pb-2">
+                          <div className="flex justify-between items-start">
+                            <CardTitle className="text-xl">{course.title}</CardTitle>
+                            <Badge
+                              variant="outline"
+                              className={
+                                isCourseAvailable
+                                  ? "bg-blue-100 text-blue-800 border-blue-300"
+                                  : "bg-red-100 text-red-800 border-red-300"
+                              }
+                            >
+                              {isCourseAvailable ? "UPCOMING" : "LOCKED"}
+                            </Badge>
                           </div>
-                        </div>
-                      </CardContent>
+                          {course.description && (
+                            <CardDescription className="mt-2 text-sm">{course.description}</CardDescription>
+                          )}
+                        </CardHeader>
+                        <CardContent className="flex-grow pt-2">
+                          <div className="flex items-center space-x-2 mb-4 text-sm text-gray-600 bg-blue-50 p-2 rounded-md">
+                            <Calendar className="h-4 w-4 text-blue-500" />
+                            <span>{formatDate(course.scheduled_date)}</span>
+                          </div>
 
-                      {!course.hasAccess && (
-                        <CardFooter className="pt-0 bg-amber-50">
-                          <Alert className="w-full border-amber-300 bg-amber-50">
-                            <AlertDescription className="text-sm flex items-center text-amber-800">
-                              <Info className="h-4 w-4 mr-2 text-amber-500" />
-                              Subscription required for access
-                            </AlertDescription>
-                          </Alert>
-                        </CardFooter>
-                      )}
-                    </Card>
-                  ))}
+                          <div className="space-y-3">
+                            <h3 className="text-sm font-medium flex items-center">
+                              <Clock className="h-4 w-4 mr-1 text-blue-500" />
+                              Batch Details:
+                            </h3>
+                            <div className="space-y-2">
+                              {course.batches.map((batch) => (
+                                <div
+                                  key={batch.id}
+                                  className={`border rounded-md p-3 transition-all ${
+                                    isCourseAvailable
+                                      ? "border-gray-200 hover:border-blue-300"
+                                      : "border-red-200 hover:border-red-300"
+                                  }`}
+                                >
+                                  <div className="flex justify-between items-center">
+                                    <span className="font-medium">{getBatchLabel(batch)}</span>
+                                    <Badge
+                                      variant="outline"
+                                      className={
+                                        isCourseAvailable
+                                          ? "bg-blue-50 text-blue-700 border-blue-200"
+                                          : "bg-red-50 text-red-700 border-red-200"
+                                      }
+                                    >
+                                      {isCourseAvailable ? "SCHEDULED" : "LOCKED"}
+                                    </Badge>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </CardContent>
+
+                        {!isCourseAvailable && (
+                          <CardFooter className="pt-0 bg-amber-50">
+                            <Alert className="w-full border-amber-300 bg-amber-50">
+                              <AlertDescription className="text-sm flex items-center text-amber-800">
+                                <Info className="h-4 w-4 mr-2 text-amber-500" />
+                                {course.subscription_id ? "Subscription required for access" : "Access not available"}
+                              </AlertDescription>
+                            </Alert>
+                          </CardFooter>
+                        )}
+                      </Card>
+                    )
+                  })}
                 </div>
               </>
             )}

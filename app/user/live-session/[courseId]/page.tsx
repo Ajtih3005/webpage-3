@@ -145,6 +145,15 @@ export default function LiveSessionPage() {
       const duration = event.target.getDuration()
       setVideoDuration(duration)
 
+      if ("mediaSession" in navigator) {
+        navigator.mediaSession.metadata = null
+        navigator.mediaSession.setActionHandler("play", null)
+        navigator.mediaSession.setActionHandler("pause", null)
+        navigator.mediaSession.setActionHandler("seekbackward", null)
+        navigator.mediaSession.setActionHandler("seekforward", null)
+        navigator.mediaSession.setActionHandler("seekto", null)
+      }
+
       const now = new Date()
       const elapsedSeconds = Math.floor((now.getTime() - sessionStartTime.getTime()) / 1000)
 
@@ -162,6 +171,19 @@ export default function LiveSessionPage() {
       setInterval(() => {
         if (playerRef.current && playerRef.current.getCurrentTime) {
           const currentTime = playerRef.current.getCurrentTime()
+          const now = new Date()
+          const expectedTime = Math.floor((now.getTime() - sessionStartTime.getTime()) / 1000)
+
+          // If user is more than 5 seconds ahead, reset to correct position
+          if (currentTime > expectedTime + 5) {
+            console.log("[v0] User skipped ahead, resetting to correct time")
+            playerRef.current.seekTo(expectedTime, true)
+            playerRef.current.pauseVideo()
+            setTimeout(() => {
+              playerRef.current.playVideo()
+            }, 500)
+          }
+
           setCurrentVideoTime(currentTime)
 
           if (event.data === window.YT.PlayerState.ENDED) {

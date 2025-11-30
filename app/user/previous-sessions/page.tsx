@@ -173,18 +173,63 @@ export default function PreviousSessions() {
 
       if (error) throw error
 
-      // If no courses found
-      if (!data || data.length === 0) {
-        setPreviousCourses([])
-        setGroupedCourses([])
-        setLoading(false)
-        return
-      }
+      const filteredData =
+        data?.filter((course) => {
+          const scheduledDate = new Date(course.scheduled_date)
+          const now = new Date()
 
-      setPreviousCourses(data)
+          // Get the batch end time
+          const batchEndTime = new Date(scheduledDate)
+
+          if (course.is_predefined_batch && course.batch_number) {
+            const batchNum = Number.parseInt(course.batch_number)
+            let endHour = 0
+            let endMinute = 0
+
+            // Calculate end times (each batch is 60 minutes)
+            if (batchNum === 1) {
+              endHour = 6
+              endMinute = 30
+            } else if (batchNum === 2) {
+              endHour = 7
+              endMinute = 40
+            } else if (batchNum === 3) {
+              endHour = 8
+              endMinute = 50
+            } else if (batchNum === 4) {
+              endHour = 18
+              endMinute = 30
+            } else if (batchNum === 5) {
+              endHour = 19
+              endMinute = 40
+            } else if (batchNum === 6) {
+              endHour = 20
+              endMinute = 50
+            }
+
+            batchEndTime.setHours(endHour, endMinute, 0, 0)
+          } else if (course.custom_batch_time) {
+            const timeMatch = course.custom_batch_time.match(/(\d+):(\d+)\s*(AM|PM)/)
+            if (timeMatch) {
+              let hours = Number.parseInt(timeMatch[1])
+              const minutes = Number.parseInt(timeMatch[2])
+              const period = timeMatch[3]
+
+              if (period === "PM" && hours !== 12) hours += 12
+              if (period === "AM" && hours === 12) hours = 0
+
+              batchEndTime.setHours(hours, minutes + 60, 0, 0) // Add 60 minutes duration
+            }
+          }
+
+          // Only show if the batch end time has passed
+          return now > batchEndTime
+        }) || []
+
+      setPreviousCourses(filteredData)
 
       // Group courses by title, date, and language
-      const grouped = groupCourses(data)
+      const grouped = groupCourses(filteredData)
       setGroupedCourses(grouped)
     } catch (error) {
       console.error("Error fetching previous sessions:", error)
