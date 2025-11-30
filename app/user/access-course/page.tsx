@@ -96,6 +96,16 @@ export default function AccessCourse() {
   const [loadingSubscriptions, setLoadingSubscriptions] = useState(false)
   const [accessCounts, setAccessCounts] = useState<{ [key: string]: number }>({})
 
+  const getBatchDisplayName = (batch: Batch): string => {
+    if (batch.custom_batch_time) {
+      return `Batch ${batch.custom_batch_time}`
+    }
+    if (batch.batch_number) {
+      return getBatchLabel(Number.parseInt(batch.batch_number))
+    }
+    return "Batch"
+  }
+
   useEffect(() => {
     fetchCourses()
 
@@ -970,7 +980,7 @@ export default function AccessCourse() {
                                       }`}
                                     >
                                       <div className="flex justify-between items-center mb-2">
-                                        <span className="font-medium">{getBatchLabel(batch)}</span>
+                                        <span className="font-medium">{getBatchDisplayName(batch)}</span>
                                         {batchIsLive ? (
                                           <Badge className="bg-green-500 text-white">LIVE</Badge>
                                         ) : (
@@ -1076,7 +1086,7 @@ export default function AccessCourse() {
                                   }`}
                                 >
                                   <div className="flex justify-between items-center">
-                                    <span className="font-medium">{getBatchLabel(batch)}</span>
+                                    <span className="font-medium">{getBatchDisplayName(batch)}</span>
                                     <Badge
                                       variant="outline"
                                       className={

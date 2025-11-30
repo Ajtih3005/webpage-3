@@ -188,8 +188,8 @@ export default function LiveSessionPage() {
         setAccessExpired(true)
         event.target.pauseVideo()
       } else if (elapsedSeconds > 0) {
-        const prePlayTime = Math.max(0, elapsedSeconds - 3)
-        console.log("[v0] User joined late, seeking to:", prePlayTime, "(3 sec before current:", elapsedSeconds, ")")
+        const prePlayTime = Math.max(0, elapsedSeconds - 10)
+        console.log("[v0] User joined late, seeking to:", prePlayTime, "(10 sec before current:", elapsedSeconds, ")")
         event.target.seekTo(prePlayTime, true)
         event.target.playVideo()
       } else {
