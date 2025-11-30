@@ -29,7 +29,6 @@ export default function LiveSessionPage() {
   const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null)
   const [videoDuration, setVideoDuration] = useState<number>(0)
   const [currentVideoTime, setCurrentVideoTime] = useState<number>(0)
-  const [accessExpired, setAccessExpired] = useState(false)
   const [showEmojiPanel, setShowEmojiPanel] = useState(false)
   const [floatingEmojis, setFloatingEmojis] = useState<Array<{ id: string; emoji: string; left: number }>>([])
 
@@ -111,10 +110,10 @@ export default function LiveSessionPage() {
       const now = new Date()
       const elapsedSeconds = Math.floor((now.getTime() - sessionStartTime.getTime()) / 1000)
 
-      // Session ends when elapsed time exceeds video duration
-      if (elapsedSeconds >= videoDuration) {
+      if (elapsedSeconds > videoDuration + 5) {
         console.log("[v0] Session expired - elapsed:", elapsedSeconds, "duration:", videoDuration)
-        setAccessExpired(true)
+        // Redirect back to course page
+        router.push(`/user/access-course?sessionEnded=${courseId}`)
       }
     }
 
@@ -124,7 +123,7 @@ export default function LiveSessionPage() {
     // Check every second
     const interval = setInterval(checkSessionStatus, 1000)
     return () => clearInterval(interval)
-  }, [sessionStartTime, videoDuration])
+  }, [sessionStartTime, videoDuration, router, courseId])
 
   useEffect(() => {
     if (videoType !== "youtube" || !videoId || !sessionStartTime) return
@@ -182,18 +181,16 @@ export default function LiveSessionPage() {
       const elapsedSeconds = Math.floor((now.getTime() - sessionStartTime.getTime()) / 1000)
       console.log("[v0] Session started at:", sessionStartTime, "Elapsed seconds:", elapsedSeconds)
 
-      if (elapsedSeconds >= duration) {
-        // Session already ended
+      if (elapsedSeconds > duration) {
         console.log("[v0] Session already ended")
-        setAccessExpired(true)
-        event.target.pauseVideo()
+        router.push(`/user/access-course?sessionEnded=${courseId}`)
+        return
       } else if (elapsedSeconds > 0) {
         const prePlayTime = Math.max(0, elapsedSeconds - 10)
         console.log("[v0] User joined late, seeking to:", prePlayTime, "(10 sec before current:", elapsedSeconds, ")")
         event.target.seekTo(prePlayTime, true)
         event.target.playVideo()
       } else {
-        // User joined on time or early
         console.log("[v0] User joined on time")
         event.target.playVideo()
       }
@@ -205,6 +202,13 @@ export default function LiveSessionPage() {
           const currentTime = playerRef.current.getCurrentTime()
           const now = new Date()
           const expectedTime = Math.floor((now.getTime() - sessionStartTime.getTime()) / 1000)
+
+          if (expectedTime > videoDuration) {
+            console.log("[v0] Session time exceeded, kicking out user")
+            clearInterval(monitorInterval)
+            router.push(`/user/access-course?sessionEnded=${courseId}`)
+            return
+          }
 
           // If user is more than 5 seconds ahead, reset to correct position
           if (currentTime > expectedTime + 5) {
@@ -220,10 +224,9 @@ export default function LiveSessionPage() {
         }
       }, 1000)
 
-      // Clean up interval when player state changes to ended
       if (event.data === window.YT.PlayerState.ENDED) {
         clearInterval(monitorInterval)
-        setAccessExpired(true)
+        router.push(`/user/access-course?sessionEnded=${courseId}`)
       }
     }
 
@@ -508,21 +511,6 @@ export default function LiveSessionPage() {
               </div>
             </div>
           </div>
-
-          {accessExpired && (
-            <div className="absolute inset-0 z-50 bg-black/90 flex items-center justify-center">
-              <div className="bg-gray-800 p-8 rounded-lg text-center">
-                <h2 className="text-2xl font-bold text-white mb-4">Session Ended</h2>
-                <p className="text-gray-300 mb-6">This live session has concluded.</p>
-                <button
-                  onClick={handleExit}
-                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-                >
-                  Return to Dashboard
-                </button>
-              </div>
-            </div>
-          )}
         </>
       )}
     </div>

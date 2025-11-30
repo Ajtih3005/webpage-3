@@ -1,8 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
-import { UserLayout } from "@/components/user-layout"
+import { useEffect, useState, Suspense } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -48,6 +47,7 @@ interface Course {
   scheduling_type?: string
   subscription_day?: number | null
   subscription_week?: number | null
+  video_duration?: number // Added for consistency with fetched data
 }
 
 interface GroupedCourse {
@@ -76,7 +76,7 @@ interface Subscription {
   whatsapp_group_link: string | null
 }
 
-export default function AccessCourse() {
+function AccessCourseContent() {
   const router = useRouter()
   const [todayCourses, setTodayCourses] = useState<Course[]>([])
   const [groupedTodayCourses, setGroupedTodayCourses] = useState<GroupedCourse[]>([])
@@ -95,6 +95,20 @@ export default function AccessCourse() {
   const [userSubscriptions, setUserSubscriptions] = useState<Subscription[]>([])
   const [loadingSubscriptions, setLoadingSubscriptions] = useState(false)
   const [accessCounts, setAccessCounts] = useState<{ [key: string]: number }>({})
+
+  const searchParams = useSearchParams()
+  const [sessionEndedCourseId, setSessionEndedCourseId] = useState<string | null>(null)
+
+  useEffect(() => {
+    const endedId = searchParams.get("sessionEnded")
+    if (endedId) {
+      setSessionEndedCourseId(endedId)
+      // Clear the URL parameter after 5 seconds
+      setTimeout(() => {
+        setSessionEndedCourseId(null)
+      }, 5000)
+    }
+  }, [searchParams])
 
   const getBatchDisplayName = (batch: Batch): string => {
     if (batch.custom_batch_time) {
@@ -246,33 +260,39 @@ export default function AccessCourse() {
     return today
   }
 
-  // Check if a session is currently live
   const isSessionLive = (course: GroupedCourse, batch: Batch): boolean => {
     const now = new Date()
-    const userLocalDate = now.toLocaleDateString("en-CA") // Format as YYYY-MM-DD
+    const userLocalDate = now.toLocaleDateString("en-CA")
     const scheduledLocalDate = new Date(course.scheduled_date).toLocaleDateString("en-CA")
 
-    // Allow access if it's the same calendar date in user's local time zone
     if (scheduledLocalDate !== userLocalDate) {
       return false
     }
 
-    // Get scheduled start time
     const scheduledStart = getScheduledStartTime(course, batch)
 
-    // Calculate video duration (default to 60 minutes if not specified)
-    const duration = course.videoDuration || 3600 // 60 minutes default instead of 30
+    const duration = course.videoDuration || 3600
 
-    // Calculate end time (start time + duration)
     const scheduledEnd = new Date(scheduledStart.getTime() + duration * 1000)
 
-    // Add a 15-minute buffer to the end time to ensure users can access the full session
-    const bufferedEnd = new Date(scheduledEnd.getTime() + 15 * 60 * 1000)
+    return now >= scheduledStart && now <= scheduledEnd
+  }
 
-    // Check if the session is actually live (has started but not ended)
-    // We consider a session "live" if the current time is after the start time
-    // and before the buffered end time
-    return now >= scheduledStart && now < bufferedEnd
+  const isSessionEnded = (course: GroupedCourse, batch: Batch): boolean => {
+    const now = new Date()
+    const userLocalDate = now.toLocaleDateString("en-CA")
+    const scheduledLocalDate = new Date(course.scheduled_date).toLocaleDateString("en-CA")
+
+    if (scheduledLocalDate !== userLocalDate) {
+      return false
+    }
+
+    const scheduledStart = getScheduledStartTime(course, batch)
+    const duration = course.videoDuration || 3600
+    const scheduledEnd = new Date(scheduledStart.getTime() + duration * 1000)
+
+    // Session ended if current time is after end time
+    return now > scheduledEnd
   }
 
   // Find the active batch in a course
@@ -797,10 +817,10 @@ export default function AccessCourse() {
   }
 
   return (
-    <UserLayout>
+    <div className="container mx-auto p-6">
       {/* Hero section with background image */}
       <div
-        className="relative bg-cover bg-center py-12 mb-8"
+        className="relative bg-cover bg-center py-12 mb-8 rounded-lg overflow-hidden"
         style={{
           backgroundImage: "url('/images/yoga-pattern-bg.jpg')",
           backgroundSize: "cover",
@@ -816,7 +836,7 @@ export default function AccessCourse() {
         </div>
       </div>
 
-      <div className="container relative pb-12">
+      <div className="relative pb-12">
         {/* Tab navigation with animated indicator */}
         <div className="relative mb-8 bg-white rounded-lg shadow-md p-2 flex justify-center">
           <div className="flex space-x-2 relative z-10">
@@ -897,6 +917,7 @@ export default function AccessCourse() {
                     .map((course) => {
                       const activeBatch = findActiveBatch(course)
                       const isLive = activeBatch !== null
+                      const hasEnded = activeBatch ? isSessionEnded(course, activeBatch) : false
 
                       // Check availability based on scheduling type
                       let isCourseAvailable = course.hasAccess // Default to existing hasAccess
@@ -916,18 +937,36 @@ export default function AccessCourse() {
                         <Card
                           key={`${course.title}_${course.scheduled_date}`}
                           className={`h-full flex flex-col overflow-hidden transition-all duration-300 hover:shadow-lg ${
-                            isLive && isCourseAvailable ? "border-green-400 shadow-green-100" : "border-gray-200"
+                            isLive && isCourseAvailable && !hasEnded
+                              ? "border-green-400 shadow-green-100"
+                              : hasEnded && isCourseAvailable
+                                ? "border-yellow-400 shadow-yellow-100"
+                                : isCourseAvailable
+                                  ? "border-gray-200"
+                                  : "border-red-200"
                           }`}
                         >
                           <div
-                            className={`h-3 w-full ${isLive && isCourseAvailable ? "bg-green-500" : "bg-gray-200"}`}
+                            className={`h-3 w-full ${
+                              isLive && isCourseAvailable && !hasEnded
+                                ? "bg-green-500"
+                                : hasEnded && isCourseAvailable
+                                  ? "bg-yellow-500"
+                                  : isCourseAvailable
+                                    ? "bg-gray-200"
+                                    : "bg-red-500"
+                            }`}
                           ></div>
                           <CardHeader className="pb-2">
                             <div className="flex justify-between items-start">
                               <CardTitle className="text-xl">{course.title}</CardTitle>
-                              {isLive && isCourseAvailable ? (
+                              {isLive && isCourseAvailable && !hasEnded ? (
                                 <Badge className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-full">
                                   LIVE NOW
+                                </Badge>
+                              ) : hasEnded && isCourseAvailable ? (
+                                <Badge className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded-full">
+                                  ENDED
                                 </Badge>
                               ) : (
                                 <Badge variant="outline" className="px-3 py-1 rounded-full">
@@ -949,15 +988,21 @@ export default function AccessCourse() {
                             {/* Join Now button with enhanced styling */}
                             <Button
                               className={`w-full mb-4 py-6 text-base font-medium transition-all duration-300 ${
-                                isLive && isCourseAvailable
+                                isLive && isCourseAvailable && !hasEnded
                                   ? "bg-green-600 hover:bg-green-700 shadow-md hover:shadow-lg"
-                                  : ""
+                                  : hasEnded && isCourseAvailable
+                                    ? "bg-gray-400 cursor-not-allowed"
+                                    : ""
                               }`}
-                              disabled={!isLive || !isCourseAvailable}
+                              disabled={!isLive || !isCourseAvailable || hasEnded}
                               onClick={() => handleJoinSession(course)}
                             >
                               <PlayCircle className="mr-2 h-5 w-5" />
-                              {isLive && isCourseAvailable ? "Join Live Session" : "Unavailable"}
+                              {hasEnded
+                                ? "Session Ended"
+                                : isLive && isCourseAvailable
+                                  ? "Join Live Session"
+                                  : "Unavailable"}
                             </Button>
 
                             <div className="space-y-3">
@@ -969,26 +1014,33 @@ export default function AccessCourse() {
                                 {course.batches.map((batch) => {
                                   const batchIsLive = isSessionLive(course, batch)
                                   const timeUntil = getTimeUntilSession(course, batch)
+                                  const batchHasEnded = isSessionEnded(course, batch)
 
                                   return (
                                     <div
                                       key={batch.id}
                                       className={`border rounded-md p-3 transition-all ${
-                                        batchIsLive
+                                        batchIsLive && isCourseAvailable
                                           ? "border-green-300 bg-green-50"
-                                          : "border-gray-200 hover:border-gray-300"
+                                          : batchHasEnded && isCourseAvailable
+                                            ? "border-yellow-300 bg-yellow-50"
+                                            : isCourseAvailable
+                                              ? "border-gray-200 hover:border-gray-300"
+                                              : "border-red-200"
                                       }`}
                                     >
                                       <div className="flex justify-between items-center mb-2">
                                         <span className="font-medium">{getBatchDisplayName(batch)}</span>
-                                        {batchIsLive ? (
+                                        {batchIsLive && isCourseAvailable ? (
                                           <Badge className="bg-green-500 text-white">LIVE</Badge>
+                                        ) : batchHasEnded && isCourseAvailable ? (
+                                          <Badge className="bg-yellow-500 text-white">ENDED</Badge>
                                         ) : (
                                           <Badge variant="outline">OFFLINE</Badge>
                                         )}
                                       </div>
 
-                                      {!batchIsLive && timeUntil && (
+                                      {!batchIsLive && !batchHasEnded && timeUntil && isCourseAvailable && (
                                         <div className="flex items-center text-sm text-muted-foreground bg-gray-100 px-2 py-1 rounded">
                                           <Clock className="h-3 w-3 mr-1" />
                                           <span>Starts in {timeUntil}</span>
@@ -1311,6 +1363,14 @@ export default function AccessCourse() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </UserLayout>
+    </div>
+  )
+}
+
+export default function AccessCoursePage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <AccessCourseContent />
+    </Suspense>
   )
 }
