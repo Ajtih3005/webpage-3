@@ -224,9 +224,6 @@ export default function CreateCourse() {
     setError("")
 
     try {
-      console.log("[v0] Starting form submission...")
-      console.log("[v0] Video type selected:", videoType)
-
       // Validate form
       if (!title) {
         throw new Error("Title is required")
@@ -241,10 +238,6 @@ export default function CreateCourse() {
           throw new Error("Please enter a valid YouTube URL (e.g., https://www.youtube.com/watch?v=XXXX)")
         }
       } else if (videoType === "zoom") {
-        console.log("[v0] Validating Zoom fields...")
-        console.log("[v0] Zoom Meeting ID:", zoomMeetingId)
-        console.log("[v0] Zoom Passcode:", zoomPasscode)
-
         if (!zoomMeetingId) {
           throw new Error("Zoom Meeting ID is required")
         }
@@ -272,11 +265,8 @@ export default function CreateCourse() {
         video_type: videoType,
       }
 
-      console.log("[v0] Base course data:", courseData)
-
       // Add the appropriate scheduling field based on type
       if (schedulingType === "date") {
-        // Ensure we're using the full date with time
         courseData.scheduled_date = scheduledDate ? scheduledDate.toISOString().split("T")[0] : null
         courseData.subscription_day = null
         courseData.subscription_week = null
@@ -290,85 +280,23 @@ export default function CreateCourse() {
         courseData.subscription_week = subscriptionWeek
       }
 
-      console.log("[v0] Adding video type specific fields...")
-
       if (videoType === "youtube") {
         courseData.youtube_link = youtubeLink
         courseData.zoom_meeting_id = null
         courseData.zoom_passcode = null
-        console.log("[v0] YouTube mode - youtube_link:", youtubeLink)
+        courseData.zoom_join_url = null
       } else if (videoType === "zoom") {
         courseData.youtube_link = null
         courseData.zoom_meeting_id = zoomMeetingId.replace(/[\s-]/g, "")
         courseData.zoom_passcode = zoomPasscode
-        courseData.zoom_join_url = zoomJoinUrl || null // Add zoom_join_url to course data
-        console.log(
-          "[v0] Zoom mode - cleaned meeting_id:",
-          courseData.zoom_meeting_id,
-          "passcode:",
-          zoomPasscode,
-          "join_url:",
-          zoomJoinUrl,
-        )
-      }
-
-      console.log("[v0] Final course data before insert:", courseData)
-
-      // Add subscription IDs if selected
-      if (selectedSubscriptions.length > 0 && !selectedSubscriptions.includes("none")) {
-        // Create course entries for each selected subscription
-        const courseEntries = []
-
-        for (const subscriptionId of selectedSubscriptions) {
-          if (isPredefinedBatch) {
-            // Create entries for each batch and each subscription
-            for (const batchNumber of selectedBatches) {
-              const batchCourseData = {
-                ...courseData,
-                batch_number: batchNumber,
-                custom_batch_time: null,
-                subscription_id: Number.parseInt(subscriptionId),
-              }
-              courseEntries.push(batchCourseData)
-            }
-          } else {
-            // Create entries for each custom batch and each subscription
-            for (const batch of customBatches) {
-              if (batch.time.trim()) {
-                const customBatchCourseData = {
-                  ...courseData,
-                  batch_number: null,
-                  custom_batch_time: batch.time,
-                  subscription_id: Number.parseInt(subscriptionId),
-                }
-                courseEntries.push(customBatchCourseData)
-              }
-            }
-          }
-        }
-
-        console.log(`[v0] Creating ${courseEntries.length} course entries for multiple subscriptions:`, courseEntries)
-
-        const { data, error } = await getSupabaseBrowserClient().from("courses").insert(courseEntries).select()
-
-        if (error) {
-          console.error("[v0] Database error:", error)
-          throw error
-        }
-
-        console.log("[v0] Courses created successfully:", data)
-        router.push("/admin/courses")
-        return
+        courseData.zoom_join_url = zoomJoinUrl || null
       }
 
       // Handle batch information based on whether it's predefined or custom
       if (isPredefinedBatch) {
-        // For predefined batches, we need to create a course entry for each selected batch
         if (selectedBatches && selectedBatches.length > 0) {
-          // Create an array to hold all course entries
           const courseEntries = []
 
-          // Create a separate course entry for each selected batch
           for (const batchNumber of selectedBatches) {
             const batchCourseData = {
               ...courseData,
@@ -378,30 +306,19 @@ export default function CreateCourse() {
             courseEntries.push(batchCourseData)
           }
 
-          console.log(`[v0] Creating ${courseEntries.length} course entries for selected batches:`, courseEntries)
-
-          // Insert all course entries
           const { data, error } = await getSupabaseBrowserClient().from("courses").insert(courseEntries).select()
 
-          if (error) {
-            console.error("[v0] Database error during batch insert:", error)
-            throw error
-          }
+          if (error) throw error
 
-          console.log("[v0] Courses created successfully:", data)
           router.push("/admin/courses")
-          return // Exit early since we've handled the insert
+          return
         }
       } else {
-        // For custom batches, create a course entry for each custom batch time
         if (customBatches && customBatches.length > 0) {
-          // Create an array to hold all course entries
           const courseEntries = []
 
-          // Create a separate course entry for each custom batch time
           for (const batch of customBatches) {
             if (batch.time.trim()) {
-              // Only include batches with non-empty times
               const customBatchCourseData = {
                 ...courseData,
                 batch_number: null,
@@ -411,37 +328,22 @@ export default function CreateCourse() {
             }
           }
 
-          console.log(`[v0] Creating ${courseEntries.length} course entries for custom batches:`, courseEntries)
-
-          // Insert all course entries
           const { data, error } = await getSupabaseBrowserClient().from("courses").insert(courseEntries).select()
 
-          if (error) {
-            console.error("[v0] Database error during custom batch insert:", error)
-            throw error
-          }
+          if (error) throw error
 
-          console.log("[v0] Courses created successfully:", data)
           router.push("/admin/courses")
-          return // Exit early since we've handled the insert
+          return
         }
       }
 
-      // This code will only run if no batches were selected (which shouldn't happen due to validation)
-      console.log("[v0] No batches selected, submitting single course data:", courseData)
-
-      // Insert course
       const { data, error } = await getSupabaseBrowserClient().from("courses").insert([courseData]).select()
 
-      if (error) {
-        console.error("[v0] Database error during single course insert:", error)
-        throw error
-      }
+      if (error) throw error
 
-      console.log("[v0] Course created successfully:", data)
       router.push("/admin/courses")
     } catch (error) {
-      console.error("[v0] Error creating course:", error)
+      console.error("Error creating course:", error)
       setError(error instanceof Error ? error.message : "An unknown error occurred")
     } finally {
       setIsSubmitting(false)
@@ -652,7 +554,8 @@ export default function CreateCourse() {
                         }}
                       />
                     </div>
-                    {/* Add this right after the manual date input */}
+
+                    {/* Time input */}
                     <div className="flex flex-col space-y-2">
                       <Label htmlFor="manual-time">Time (optional)</Label>
                       <Input

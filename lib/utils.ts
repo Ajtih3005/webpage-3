@@ -63,7 +63,8 @@ export const countries = [
 
 // YouTube URL validation
 export function isValidYoutubeUrl(url: string): boolean {
-  const youtubeRegex = /^(https?:\/\/)?(www\.)?(youtube\.com\/(watch\?v=|embed\/|v\/)|youtu\.be\/)[\w-]+(&[\w=]*)?$/
+  // More flexible regex that accepts various YouTube URL formats
+  const youtubeRegex = /^(https?:\/\/)?(www\.)?(youtube\.com\/(watch\?v=|embed\/|v\/|shorts\/)|youtu\.be\/)[\w-]+/
   return youtubeRegex.test(url)
 }
 
