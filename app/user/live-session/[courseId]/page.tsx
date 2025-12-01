@@ -378,17 +378,14 @@ export default function LiveSessionPage() {
         />
       ) : (
         <>
-          <div className="absolute top-4 left-4 z-50 bg-red-600 text-white px-3 py-1 rounded-full flex items-center gap-2 text-sm font-bold">
+          <div className="absolute top-4 left-4 z-30 bg-red-600 text-white px-3 py-1 rounded-full flex items-center gap-2 text-sm font-bold">
             <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
             LIVE
           </div>
 
           <div className="absolute inset-0 w-full h-full z-10">
             {videoId ? (
-              <>
-                <div id="youtube-player" className="w-full h-full" />
-                <div className="absolute inset-0 w-full h-full z-20 cursor-default" style={{ pointerEvents: "all" }} />
-              </>
+              <div id="youtube-player" className="w-full h-full" />
             ) : (
               <div className="flex items-center justify-center w-full h-full text-white">
                 <p>Loading video...</p>
@@ -398,18 +395,21 @@ export default function LiveSessionPage() {
 
           <style jsx global>{`
             #youtube-player iframe {
-              pointer-events: none !important;
+              pointer-events: all !important;
               user-select: none !important;
               -webkit-user-select: none !important;
               -moz-user-select: none !important;
               -ms-user-select: none !important;
             }
             #youtube-player {
-              pointer-events: none !important;
+              pointer-events: all !important;
             }
-            #youtube-player iframe * {
+            /* Block YouTube controls overlay */
+            #youtube-player iframe .ytp-chrome-bottom,
+            #youtube-player iframe .ytp-gradient-bottom,
+            #youtube-player iframe .ytp-progress-bar-container {
               pointer-events: none !important;
-              user-select: none !important;
+              display: none !important;
             }
             @keyframes floatUp {
               0% {
