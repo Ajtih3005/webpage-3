@@ -29,6 +29,8 @@ export default function LiveSessionPage() {
   const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null)
   const [videoDuration, setVideoDuration] = useState<number>(0)
   const [currentVideoTime, setCurrentVideoTime] = useState<number>(0)
+  const [attendanceRecorded, setAttendanceRecorded] = useState(false)
+  const [completionRecorded, setCompletionRecorded] = useState(false)
   const [showEmojiPanel, setShowEmojiPanel] = useState(false)
   const [floatingEmojis, setFloatingEmojis] = useState<Array<{ id: string; emoji: string; left: number }>>([])
 
@@ -38,7 +40,7 @@ export default function LiveSessionPage() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const previewRef = useRef<HTMLDivElement>(null)
   const playerRef = useRef<any>(null)
-  const [previewPosition, setPreviewPosition] = useState({ x: window.innerWidth - 220, y: window.innerHeight - 200 })
+  const [previewPosition, setPreviewPosition] = useState({ x: 0, y: 0 })
   const [isDragging, setIsDragging] = useState(false)
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
 
@@ -104,7 +106,115 @@ export default function LiveSessionPage() {
     const storedUserEmail = localStorage.getItem("userEmail") || ""
     setUserName(storedUserName)
     setUserEmail(storedUserEmail)
+
+    recordAttendance()
   }, [courseId])
+
+  const recordAttendance = async () => {
+    if (attendanceRecorded) return
+
+    try {
+      const userEmail = localStorage.getItem("userEmail")
+      if (!userEmail) return
+
+      // Get user ID
+      const { data: userData, error: userError } = await supabase
+        .from("users")
+        .select("id")
+        .eq("email", userEmail)
+        .single()
+
+      if (userError || !userData) {
+        console.error("[v0] Error fetching user:", userError)
+        return
+      }
+
+      // Check if user_courses entry exists
+      const { data: existingEntry, error: checkError } = await supabase
+        .from("user_courses")
+        .select("id, attended")
+        .eq("user_id", userData.id)
+        .eq("course_id", courseId)
+        .single()
+
+      if (checkError && checkError.code !== "PGRST116") {
+        console.error("[v0] Error checking user_courses:", checkError)
+        return
+      }
+
+      if (existingEntry) {
+        // Update existing entry
+        if (!existingEntry.attended) {
+          const { error: updateError } = await supabase
+            .from("user_courses")
+            .update({ attended: true, attended_at: new Date().toISOString() })
+            .eq("id", existingEntry.id)
+
+          if (updateError) {
+            console.error("[v0] Error updating attendance:", updateError)
+          } else {
+            console.log("[v0] Attendance recorded successfully")
+            setAttendanceRecorded(true)
+          }
+        }
+      } else {
+        // Create new entry
+        const { error: insertError } = await supabase.from("user_courses").insert({
+          user_id: userData.id,
+          course_id: courseId,
+          attended: true,
+          attended_at: new Date().toISOString(),
+          completed_video: false,
+        })
+
+        if (insertError) {
+          console.error("[v0] Error creating user_courses entry:", insertError)
+        } else {
+          console.log("[v0] Attendance recorded successfully (new entry)")
+          setAttendanceRecorded(true)
+        }
+      }
+    } catch (error) {
+      console.error("[v0] Error in recordAttendance:", error)
+    }
+  }
+
+  const recordCompletion = async () => {
+    if (completionRecorded) return
+
+    try {
+      const userEmail = localStorage.getItem("userEmail")
+      if (!userEmail) return
+
+      // Get user ID
+      const { data: userData, error: userError } = await supabase
+        .from("users")
+        .select("id")
+        .eq("email", userEmail)
+        .single()
+
+      if (userError || !userData) {
+        console.error("[v0] Error fetching user:", userError)
+        return
+      }
+
+      // Update user_courses to mark as completed
+      const { error: updateError } = await supabase
+        .from("user_courses")
+        .update({ completed_video: true })
+        .eq("user_id", userData.id)
+        .eq("course_id", courseId)
+
+      if (updateError) {
+        console.error("[v0] Error recording completion:", updateError)
+      } else {
+        console.log("[v0] Video completion recorded successfully")
+        setCompletionRecorded(true)
+      }
+    } catch (error) {
+      console.error("[v0] Error in recordCompletion:", error)
+    }
+  }
 
   useEffect(() => {
     if (!sessionStartTime || !videoDuration || videoDuration === 0) return
@@ -195,30 +305,25 @@ export default function LiveSessionPage() {
     }
 
     const onPlayerStateChange = (event: any) => {
-      const monitorInterval = setInterval(() => {
-        if (playerRef.current && playerRef.current.getCurrentTime) {
-          const currentTime = playerRef.current.getCurrentTime()
-          const now = new Date()
-          const expectedTime = Math.floor((now.getTime() - sessionStartTime.getTime()) / 1000)
+      console.log("[v0] Player state changed:", event.data)
 
-          // If user is more than 5 seconds ahead, reset to correct position
-          if (currentTime > expectedTime + 5) {
-            console.log("[v0] User skipped ahead, resetting from", currentTime, "to", expectedTime)
-            playerRef.current.seekTo(expectedTime, true)
-            playerRef.current.pauseVideo()
-            setTimeout(() => {
-              playerRef.current.playVideo()
-            }, 500)
-          }
+      if (event.data === 1) {
+        // Playing
+        const currentTime = playerRef.current?.getCurrentTime() || 0
+        const now = new Date()
+        const elapsedSeconds = Math.floor((now.getTime() - (sessionStartTime?.getTime() || now.getTime())) / 1000)
+        const expectedTime = Math.max(0, elapsedSeconds - 10)
 
-          setCurrentVideoTime(currentTime)
+        if (currentTime > expectedTime + 5) {
+          console.log("[v0] User is ahead of live position, resetting...")
+          playerRef.current?.seekTo(expectedTime, true)
         }
-      }, 1000)
-
-      if (event.data === window.YT.PlayerState.ENDED) {
-        console.log("[v0] Video playback ended, redirecting...")
-        clearInterval(monitorInterval)
-        router.push(`/user/access-course?sessionEnded=${courseId}`)
+      } else if (event.data === 0) {
+        console.log("[v0] Video ended, recording completion")
+        recordCompletion()
+        setTimeout(() => {
+          router.push(`/user/access-course?sessionEnded=${courseId}`)
+        }, 2000)
       }
     }
 
@@ -409,8 +514,20 @@ export default function LiveSessionPage() {
     }
   }
 
+  useEffect(() => {
+    const updatePreviewPosition = () => {
+      setPreviewPosition({
+        x: window.innerWidth - 220,
+        y: window.innerHeight - 200,
+      })
+    }
+    updatePreviewPosition()
+    window.addEventListener("resize", updatePreviewPosition)
+    return () => window.removeEventListener("resize", updatePreviewPosition)
+  }, [])
+
   return (
-    <div className="relative w-full h-screen bg-black overflow-hidden">
+    <div className="relative w-full h-screen bg-black overflow-hidden flex flex-col">
       {videoType === "zoom" ? (
         // Zoom Player Simple
         <ZoomPlayerSimple
@@ -422,31 +539,34 @@ export default function LiveSessionPage() {
         />
       ) : (
         <>
-          <div className="absolute top-4 left-4 z-30 bg-red-600 text-white px-3 py-1 rounded-full flex items-center gap-2 text-sm font-bold">
-            <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+          <div className="absolute top-2 left-2 md:top-4 md:left-4 z-30 bg-red-600 text-white px-2 py-1 md:px-3 md:py-1 rounded-full flex items-center gap-1 md:gap-2 text-xs md:text-sm font-bold">
+            <div className="w-1.5 h-1.5 md:w-2 md:h-2 bg-white rounded-full animate-pulse" />
             LIVE
           </div>
 
-          <div className="absolute inset-0 w-full h-full z-10">
-            {videoId ? (
-              <div id="youtube-player" className="w-full h-full" />
-            ) : (
-              <div className="flex items-center justify-center w-full h-full text-white">
-                <p>Loading video...</p>
-              </div>
-            )}
+          <div className="flex-1 w-full relative">
+            <div className="absolute inset-0 w-full h-full z-10">
+              {videoId ? (
+                <div id="youtube-player" className="w-full h-full" />
+              ) : (
+                <div className="flex items-center justify-center w-full h-full text-white">
+                  <p className="text-sm md:text-base">Loading video...</p>
+                </div>
+              )}
+            </div>
           </div>
 
           {needsUserInteraction && (
             <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/50">
               <button
                 onClick={handleManualPlay}
-                className="px-8 py-4 bg-red-600 text-white rounded-full text-xl font-bold flex items-center gap-3 hover:bg-red-700 transition shadow-2xl"
+                className="px-6 py-3 md:px-8 md:py-4 bg-red-600 text-white rounded-full text-lg md:text-xl font-bold flex items-center gap-2 md:gap-3 hover:bg-red-700 transition shadow-2xl"
               >
-                <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                <svg className="w-6 h-6 md:w-8 md:h-8" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M8 5v14l11-7z" />
                 </svg>
-                Start Live Session
+                <span className="hidden sm:inline">Start Live Session</span>
+                <span className="sm:hidden">Start</span>
               </button>
             </div>
           )}
@@ -487,84 +607,66 @@ export default function LiveSessionPage() {
           {cameraEnabled && previewVisible && (
             <div
               ref={previewRef}
-              className="absolute z-50 w-48 h-36 bg-gray-900 border-2 border-blue-500 rounded-lg overflow-hidden shadow-2xl cursor-move"
+              className="absolute z-50 w-32 h-24 md:w-48 md:h-36 bg-gray-900 border-2 border-blue-500 rounded-lg overflow-hidden shadow-2xl cursor-move"
               style={{
                 left: `${previewPosition.x}px`,
                 top: `${previewPosition.y}px`,
               }}
               onMouseDown={handleMouseDown}
             >
-              <video
-                ref={videoRef}
-                autoPlay
-                muted
-                playsInline
-                className="w-full h-full object-cover"
-                style={{ transform: "scaleX(-1)" }}
-              />
-              <div className="absolute top-2 right-2 text-white text-xs bg-black/50 px-2 py-1 rounded">You</div>
+              <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
             </div>
           )}
 
-          {floatingEmojis.map((item) => (
-            <div
-              key={item.id}
-              className="fixed text-5xl pointer-events-none emoji-float z-40"
-              style={{
-                left: `${item.left}%`,
-                bottom: "10%",
-              }}
-            >
-              {item.emoji}
-            </div>
-          ))}
-
-          <div className="absolute bottom-0 left-0 right-0 z-30 bg-gradient-to-t from-black/80 to-transparent p-4">
-            <div className="flex items-center justify-between max-w-5xl mx-auto">
-              <div className="flex items-center gap-3">
+          <div className="relative z-30 bg-gray-800 py-2 md:py-4 px-2 md:px-6">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-2 md:gap-4 max-w-7xl mx-auto">
+              {/* Camera controls */}
+              <div className="flex items-center gap-2 md:gap-3 w-full md:w-auto justify-center md:justify-start">
                 <button
                   onClick={toggleCamera}
-                  className={`px-4 py-2 rounded-lg flex items-center gap-2 transition ${
+                  className={`px-3 py-2 md:px-4 md:py-2 rounded-lg flex items-center gap-1 md:gap-2 transition text-sm md:text-base ${
                     cameraEnabled ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300"
                   }`}
                 >
-                  <Camera className="w-5 h-5" />
-                  {cameraEnabled ? "Camera ON" : "Camera OFF"}
+                  <Camera className="w-4 h-4 md:w-5 md:h-5" />
+                  <span className="hidden sm:inline">{cameraEnabled ? "Camera ON" : "Camera OFF"}</span>
+                  <span className="sm:hidden">Cam</span>
                 </button>
                 <button
                   onClick={() => setPreviewVisible(!previewVisible)}
-                  className="px-4 py-2 bg-gray-700 text-white rounded-lg flex items-center gap-2 hover:bg-gray-600 transition"
+                  className="px-3 py-2 md:px-4 md:py-2 bg-gray-700 text-white rounded-lg flex items-center gap-1 md:gap-2 hover:bg-gray-600 transition text-sm md:text-base"
                 >
-                  <Eye className="w-5 h-5" />
-                  Preview
+                  <Eye className="w-4 h-4 md:w-5 md:h-5" />
+                  <span className="hidden sm:inline">Preview</span>
                 </button>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 md:gap-2 overflow-x-auto max-w-full md:max-w-none">
                 {["😊", "❤️", "👍", "🔥", "💯", "😂", "🎉", "👏"].map((emoji) => (
                   <button
                     key={emoji}
                     onClick={() => handleEmojiClick(emoji)}
-                    className="text-2xl hover:scale-125 transition-transform p-2 hover:bg-gray-700/50 rounded"
+                    className="text-xl md:text-2xl hover:scale-125 transition-transform p-1 md:p-2 hover:bg-gray-700/50 rounded flex-shrink-0"
                   >
                     {emoji}
                   </button>
                 ))}
               </div>
 
-              <div className="flex items-center gap-3">
+              {/* Action buttons */}
+              <div className="flex items-center gap-2 md:gap-3 w-full md:w-auto justify-center md:justify-end">
                 <button
                   onClick={toggleFullscreen}
-                  className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition"
+                  className="px-3 py-2 md:px-4 md:py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition"
                 >
-                  <Maximize className="w-5 h-5" />
+                  <Maximize className="w-4 h-4 md:w-5 md:h-5" />
                 </button>
                 <button
                   onClick={handleExit}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg flex items-center gap-2 hover:bg-red-700 transition"
+                  className="px-3 py-2 md:px-4 md:py-2 bg-red-600 text-white rounded-lg flex items-center gap-1 md:gap-2 hover:bg-red-700 transition text-sm md:text-base"
                 >
-                  <X className="w-5 h-5" />
-                  Exit
+                  <X className="w-4 h-4 md:w-5 md:h-5" />
+                  <span className="hidden sm:inline">Exit</span>
                 </button>
               </div>
             </div>
