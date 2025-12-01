@@ -32,6 +32,9 @@ export default function LiveSessionPage() {
   const [showEmojiPanel, setShowEmojiPanel] = useState(false)
   const [floatingEmojis, setFloatingEmojis] = useState<Array<{ id: string; emoji: string; left: number }>>([])
 
+  const [needsUserInteraction, setNeedsUserInteraction] = useState(false)
+  const [hasUserInteracted, setHasUserInteracted] = useState(false)
+
   const videoRef = useRef<HTMLVideoElement>(null)
   const previewRef = useRef<HTMLDivElement>(null)
   const playerRef = useRef<any>(null)
@@ -186,11 +189,9 @@ export default function LiveSessionPage() {
         const prePlayTime = Math.max(0, elapsedSeconds - 10)
         console.log("[v0] User joined late, seeking to:", prePlayTime, "(10 sec before current:", elapsedSeconds, ")")
         event.target.seekTo(prePlayTime, true)
-        event.target.playVideo()
-      } else {
-        console.log("[v0] User joined on time")
-        event.target.playVideo()
       }
+
+      tryAutoplay(event.target)
     }
 
     const onPlayerStateChange = (event: any) => {
@@ -257,6 +258,7 @@ export default function LiveSessionPage() {
   }
 
   function toggleCamera() {
+    handleUserInteraction() // Enable autoplay on interaction
     if (cameraEnabled) {
       console.log("[v0] Turning camera off")
       if (stream) {
@@ -308,6 +310,7 @@ export default function LiveSessionPage() {
   }, [isDragging, dragOffset])
 
   function handleEmojiClick(emoji: string) {
+    handleUserInteraction() // Enable autoplay on emoji click
     const id = Date.now().toString() + Math.random()
     const left = Math.random() * 80 + 10
 
@@ -356,6 +359,56 @@ export default function LiveSessionPage() {
     }
   }, [stream, previewVisible, cameraEnabled])
 
+  function handleManualPlay() {
+    if (playerRef.current) {
+      console.log("[v0] Manual play triggered")
+      playerRef.current.playVideo()
+      setNeedsUserInteraction(false)
+      setHasUserInteracted(true)
+    }
+  }
+
+  function tryAutoplay(player: any) {
+    console.log("[v0] Attempting autoplay...")
+
+    const playPromise = player.playVideo()
+
+    // Check if playVideo returns a promise (newer YouTube API)
+    if (playPromise !== undefined) {
+      playPromise
+        .then(() => {
+          console.log("[v0] Autoplay succeeded")
+          setNeedsUserInteraction(false)
+        })
+        .catch((error: any) => {
+          console.log("[v0] Autoplay failed, requiring user interaction:", error)
+          setNeedsUserInteraction(true)
+        })
+    } else {
+      // Older API - check if video is playing after a delay
+      setTimeout(() => {
+        const state = player.getPlayerState()
+        if (state !== window.YT.PlayerState.PLAYING) {
+          console.log("[v0] Autoplay failed (detected via state check)")
+          setNeedsUserInteraction(true)
+        }
+      }, 500)
+    }
+  }
+
+  function handleUserInteraction() {
+    if (!hasUserInteracted) {
+      console.log("[v0] User interacted, enabling autoplay")
+      setHasUserInteracted(true)
+
+      // If player is waiting for interaction, play it now
+      if (needsUserInteraction && playerRef.current) {
+        playerRef.current.playVideo()
+        setNeedsUserInteraction(false)
+      }
+    }
+  }
+
   return (
     <div className="relative w-full h-screen bg-black overflow-hidden">
       {videoType === "zoom" ? (
@@ -383,6 +436,20 @@ export default function LiveSessionPage() {
               </div>
             )}
           </div>
+
+          {needsUserInteraction && (
+            <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/50">
+              <button
+                onClick={handleManualPlay}
+                className="px-8 py-4 bg-red-600 text-white rounded-full text-xl font-bold flex items-center gap-3 hover:bg-red-700 transition shadow-2xl"
+              >
+                <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+                Start Live Session
+              </button>
+            </div>
+          )}
 
           <style jsx global>{`
             #youtube-player iframe {
