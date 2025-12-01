@@ -110,18 +110,15 @@ export default function LiveSessionPage() {
       const now = new Date()
       const elapsedSeconds = Math.floor((now.getTime() - sessionStartTime.getTime()) / 1000)
 
-      if (elapsedSeconds > videoDuration + 5) {
+      // Only kick out if elapsed time is significantly past video duration (30 sec buffer)
+      if (elapsedSeconds > videoDuration + 30) {
         console.log("[v0] Session expired - elapsed:", elapsedSeconds, "duration:", videoDuration)
-        // Redirect back to course page
         router.push(`/user/access-course?sessionEnded=${courseId}`)
       }
     }
 
-    // Check immediately
-    checkSessionStatus()
-
-    // Check every second
-    const interval = setInterval(checkSessionStatus, 1000)
+    // Check every 5 seconds instead of every second
+    const interval = setInterval(checkSessionStatus, 5000)
     return () => clearInterval(interval)
   }, [sessionStartTime, videoDuration, router, courseId])
 
@@ -203,13 +200,6 @@ export default function LiveSessionPage() {
           const now = new Date()
           const expectedTime = Math.floor((now.getTime() - sessionStartTime.getTime()) / 1000)
 
-          if (expectedTime > videoDuration) {
-            console.log("[v0] Session time exceeded, kicking out user")
-            clearInterval(monitorInterval)
-            router.push(`/user/access-course?sessionEnded=${courseId}`)
-            return
-          }
-
           // If user is more than 5 seconds ahead, reset to correct position
           if (currentTime > expectedTime + 5) {
             console.log("[v0] User skipped ahead, resetting from", currentTime, "to", expectedTime)
@@ -225,6 +215,7 @@ export default function LiveSessionPage() {
       }, 1000)
 
       if (event.data === window.YT.PlayerState.ENDED) {
+        console.log("[v0] Video playback ended, redirecting...")
         clearInterval(monitorInterval)
         router.push(`/user/access-course?sessionEnded=${courseId}`)
       }
