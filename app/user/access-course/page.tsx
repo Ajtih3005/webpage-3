@@ -19,6 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { extractYoutubeVideoId } from "@/lib/utils"
 
 interface Batch {
   id: number
@@ -47,6 +48,7 @@ interface Course {
   scheduling_type?: string
   subscription_day?: number | null
   subscription_week?: number | null
+  video_type?: string // Added to differentiate video sources
   video_duration?: number // Added for consistency with fetched data
 }
 
@@ -98,6 +100,65 @@ function AccessCourseContent() {
 
   const searchParams = useSearchParams()
   const [sessionEndedCourseId, setSessionEndedCourseId] = useState<string | null>(null)
+
+  async function getYouTubeDuration(youtubeLink: string): Promise<number> {
+    try {
+      const videoId = extractYoutubeVideoId(youtubeLink)
+      if (!videoId) return 3600
+
+      // Use YouTube oEmbed API to get video info
+      const response = await fetch(
+        `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`,
+      )
+
+      if (!response.ok) return 3600
+
+      // For more accurate duration, we need to load the video in an iframe
+      // But for now, we'll use a fallback approach with the IFrame API
+      return new Promise((resolve) => {
+        const iframe = document.createElement("iframe")
+        iframe.style.display = "none"
+        iframe.src = `https://www.youtube.com/embed/${videoId}?enablejsapi=1`
+        document.body.appendChild(iframe)
+
+        const checkPlayer = setInterval(() => {
+          try {
+            // @ts-ignore
+            if (iframe.contentWindow?.YT?.Player) {
+              // @ts-ignore
+              const player = new iframe.contentWindow.YT.Player(iframe, {
+                events: {
+                  onReady: (event: any) => {
+                    const duration = event.target.getDuration()
+                    clearInterval(checkPlayer)
+                    document.body.removeChild(iframe)
+                    resolve(duration || 3600)
+                  },
+                },
+              })
+            }
+          } catch (e) {
+            // Fallback if iframe approach fails
+            clearInterval(checkPlayer)
+            document.body.removeChild(iframe)
+            resolve(3600)
+          }
+        }, 500)
+
+        // Timeout after 5 seconds
+        setTimeout(() => {
+          clearInterval(checkPlayer)
+          if (document.body.contains(iframe)) {
+            document.body.removeChild(iframe)
+          }
+          resolve(3600)
+        }, 5000)
+      })
+    } catch (error) {
+      console.error("[v0] Error fetching YouTube duration:", error)
+      return 3600
+    }
+  }
 
   useEffect(() => {
     const endedId = searchParams.get("sessionEnded")
@@ -272,6 +333,8 @@ function AccessCourseContent() {
     const scheduledStart = getScheduledStartTime(course, batch)
 
     const duration = course.videoDuration || 3600
+
+    console.log("[v0] Checking session live:", course.title, "Duration:", duration, "Start:", scheduledStart)
 
     const scheduledEnd = new Date(scheduledStart.getTime() + duration * 1000)
 
@@ -660,101 +723,131 @@ function AccessCourseContent() {
       })
 
       // Process today's courses
-      const processedTodayCourses = todayData?.map((course) => {
-        // Check if user has access to this course
-        let hasAccess = false
+      const processedTodayCourses = await Promise.all(
+        todayData?.map(async (course) => {
+          // Check if user has access to this course
+          let hasAccess = false
 
-        if (!course.subscription_id) {
-          // Free course
-          hasAccess = true
-        } else if (course.scheduling_type === "subscription_day") {
-          // Check access based on subscription day
-          const userSubscription = processedSubscriptions.find((sub) => sub.subscription_id === course.subscription_id)
-          if (userSubscription) {
-            hasAccess = isCourseAvailableBySubscriptionDay(course, userSubscription)
+          if (!course.subscription_id) {
+            // Free course
+            hasAccess = true
+          } else if (course.scheduling_type === "subscription_day") {
+            // Check access based on subscription day
+            const userSubscription = processedSubscriptions.find(
+              (sub) => sub.subscription_id === course.subscription_id,
+            )
+            if (userSubscription) {
+              hasAccess = isCourseAvailableBySubscriptionDay(course, userSubscription)
+            }
+          } else if (activeSubscriptionIds.includes(course.subscription_id)) {
+            // User has required subscription
+            hasAccess = true
           }
-        } else if (activeSubscriptionIds.includes(course.subscription_id)) {
-          // User has required subscription
-          hasAccess = true
-        }
 
-        // For courses with subscription requirements, store which subscriptions give access
-        let eligibleSubscriptions = []
-        if (course.subscription_id) {
-          eligibleSubscriptions =
-            processedSubscriptions?.filter((sub) => sub.subscription_id === course.subscription_id && sub.is_active) ||
-            []
-        }
+          // For courses with subscription requirements, store which subscriptions give access
+          let eligibleSubscriptions = []
+          if (course.subscription_id) {
+            eligibleSubscriptions =
+              processedSubscriptions?.filter(
+                (sub) => sub.subscription_id === course.subscription_id && sub.is_active,
+              ) || []
+          }
 
-        // Check if user has already marked attendance
-        const attended = attendanceMap.has(course.id) ? attendanceMap.get(course.id) : false
-        const completedVideo = completionMap.has(course.id) ? completionMap.get(course.id) : false
+          // Check if user has already marked attendance
+          const attended = attendanceMap.has(course.id) ? attendanceMap.get(course.id) : false
+          const completedVideo = completionMap.has(course.id) ? completionMap.get(course.id) : false
 
-        // Set default language if not specified
-        const language = course.language || "English"
+          // Set default language if not specified
+          const language = course.language || "English"
 
-        // Set default video duration (in seconds) - in a real app, you would get this from the video metadata
-        const videoDuration = course.video_duration || 1800 // 30 minutes by default
+          let videoDuration = course.video_duration || 3600
+          if (course.youtube_link && course.video_type === "youtube") {
+            try {
+              const actualDuration = await getYouTubeDuration(course.youtube_link)
+              videoDuration = actualDuration
+              console.log("[v0] Course:", course.title, "Actual YouTube duration:", videoDuration, "seconds")
+            } catch (error) {
+              console.error("[v0] Error getting duration for", course.title, error)
+            }
+          } else {
+            console.log("[v0] Course:", course.title, "Using database duration:", videoDuration, "seconds")
+          }
 
-        return {
-          ...course,
-          hasAccess,
-          eligibleSubscriptions,
-          attended,
-          completedVideo,
-          language,
-          videoDuration,
-          batches: course.batches || [], // Use fetched batches
-        }
-      })
+          return {
+            ...course,
+            hasAccess,
+            eligibleSubscriptions,
+            attended,
+            completedVideo,
+            language,
+            videoDuration,
+            batches: course.batches || [], // Use fetched batches
+          }
+        }) || [],
+      )
 
       // Process upcoming courses
-      const processedUpcomingCourses = upcomingData?.map((course) => {
-        let hasAccess = false
+      const processedUpcomingCourses = await Promise.all(
+        upcomingData?.map(async (course) => {
+          let hasAccess = false
 
-        if (!course.subscription_id) {
-          // Free course
-          hasAccess = true
-        } else if (course.scheduling_type === "subscription_day") {
-          // Check access based on subscription day
-          const userSubscription = processedSubscriptions.find((sub) => sub.subscription_id === course.subscription_id)
-          if (userSubscription) {
-            hasAccess = isCourseAvailableBySubscriptionDay(course, userSubscription)
+          if (!course.subscription_id) {
+            // Free course
+            hasAccess = true
+          } else if (course.scheduling_type === "subscription_day") {
+            // Check access based on subscription day
+            const userSubscription = processedSubscriptions.find(
+              (sub) => sub.subscription_id === course.subscription_id,
+            )
+            if (userSubscription) {
+              hasAccess = isCourseAvailableBySubscriptionDay(course, userSubscription)
+            }
+          } else if (activeSubscriptionIds.includes(course.subscription_id)) {
+            // User has required subscription
+            hasAccess = true
           }
-        } else if (activeSubscriptionIds.includes(course.subscription_id)) {
-          // User has required subscription
-          hasAccess = true
-        }
 
-        // For courses with subscription requirements, store which subscriptions give access
-        let eligibleSubscriptions = []
-        if (course.subscription_id) {
-          eligibleSubscriptions =
-            processedSubscriptions?.filter((sub) => sub.subscription_id === course.subscription_id && sub.is_active) ||
-            []
-        }
+          // For courses with subscription requirements, store which subscriptions give access
+          let eligibleSubscriptions = []
+          if (course.subscription_id) {
+            eligibleSubscriptions =
+              processedSubscriptions?.filter(
+                (sub) => sub.subscription_id === course.subscription_id && sub.is_active,
+              ) || []
+          }
 
-        // Check if user has already marked attendance
-        const attended = attendanceMap.has(course.id) ? attendanceMap.get(course.id) : false
-        const completedVideo = completionMap.has(course.id) ? completionMap.get(course.id) : false
+          // Check if user has already marked attendance
+          const attended = attendanceMap.has(course.id) ? attendanceMap.get(course.id) : false
+          const completedVideo = completionMap.has(course.id) ? completionMap.get(course.id) : false
 
-        // Set default language if not specified
-        const language = course.language || "English"
+          // Set default language if not specified
+          const language = course.language || "English"
 
-        // Set default video duration (in seconds) - in a real app, you would get this from the video metadata
-        const videoDuration = course.video_duration || 1800 // 30 minutes by default
+          let videoDuration = course.video_duration || 3600
+          if (course.youtube_link && course.video_type === "youtube") {
+            try {
+              const actualDuration = await getYouTubeDuration(course.youtube_link)
+              videoDuration = actualDuration
+              console.log("[v0] Upcoming course:", course.title, "Actual YouTube duration:", videoDuration, "seconds")
+            } catch (error) {
+              console.error("[v0] Error getting duration for upcoming course", course.title, error)
+            }
+          } else {
+            console.log("[v0] Upcoming course:", course.title, "Using database duration:", videoDuration, "seconds")
+          }
 
-        return {
-          ...course,
-          hasAccess,
-          eligibleSubscriptions,
-          attended,
-          completedVideo,
-          language,
-          videoDuration,
-          batches: course.batches || [], // Use fetched batches
-        }
-      })
+          return {
+            ...course,
+            hasAccess,
+            eligibleSubscriptions,
+            attended,
+            completedVideo,
+            language,
+            videoDuration,
+            batches: course.batches || [], // Use fetched batches
+          }
+        }) || [],
+      )
 
       setTodayCourses(processedTodayCourses)
       setUpcomingCourses(processedUpcomingCourses)
