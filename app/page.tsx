@@ -31,7 +31,6 @@ import {
 import { useState, useEffect } from "react"
 import ReviewCarousel from "@/components/review-carousel"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
-import { SubscriptionAuthModal } from "@/components/subscription-auth-modal"
 
 interface SubscriptionPage {
   id: string
@@ -114,46 +113,8 @@ export default function Home() {
 
   const handleExploreClick = (slug: string) => {
     console.log("[v0] Explore button clicked for page:", slug)
-
-    // Check if user is logged in
-    const isLoggedIn = localStorage.getItem("userAuthenticated") === "true"
-    console.log("[v0] User logged in status:", isLoggedIn)
-
-    if (isLoggedIn) {
-      // User is logged in, navigate to category page
-      console.log("[v0] User is logged in, navigating to category page")
-      window.location.href = `/user/subscription-categories/${slug}`
-    } else {
-      // User not logged in, show auth modal
-      console.log("[v0] User not logged in, showing auth modal")
-      setSelectedPageSlug(slug)
-      setShowAuthModal(true)
-    }
-  }
-
-  const handleAuthChoice = (choice: "login" | "register") => {
-    console.log("[v0] Auth choice selected:", choice)
-    console.log("[v0] Selected page slug:", selectedPageSlug)
-
-    if (selectedPageSlug) {
-      // Store the intended destination
-      sessionStorage.setItem("intendedDestination", `/user/subscription-categories/${selectedPageSlug}`)
-      console.log("[v0] Stored intended destination in sessionStorage")
-
-      // Redirect to login or register with return URL
-      const returnUrl = `/user/subscription-categories/${selectedPageSlug}`
-      console.log("[v0] Return URL:", returnUrl)
-
-      if (choice === "login") {
-        console.log("[v0] Redirecting to login page")
-        window.location.href = `/user/login?redirect=${encodeURIComponent(returnUrl)}`
-      } else {
-        console.log("[v0] Redirecting to register page")
-        window.location.href = `/user/register?redirect=${encodeURIComponent(returnUrl)}`
-      }
-    } else {
-      console.error("[v0] No page slug selected!")
-    }
+    // Direct navigation without auth check
+    window.location.href = `/user/subscription-categories/${slug}`
   }
 
   return (
@@ -168,7 +129,7 @@ export default function Home() {
       >
         <div className="container mx-auto flex items-center justify-between">
           <div className="flex items-center">
-            <div className="relative h-10 w-10 mr-2 sm:h-12 sm:w-12 sm:mr-3 overflow-hidden rounded-full border-2 border-green-100 shadow-md hover:shadow-lg transition-shadow">
+            <div className="relative h-10 w-10 sm:h-12 sm:w-12 sm:mr-3 overflow-hidden rounded-full border-2 border-green-100 shadow-md hover:shadow-lg transition-shadow">
               <Image src="/images/logo.png" alt="Sthavishtah Logo" fill className="object-contain" priority />
             </div>
             <div className="flex flex-col">
@@ -482,7 +443,7 @@ export default function Home() {
         </div>
 
         {/* Light Pattern Overlay */}
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgdmlld0JveD0iMCAwIDYwIDYwIj48ZyBmaWxsPSJub25lIiBBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiMwNDdBMzgiIGZpbGwtb3BhY2l0eT0iMC4wMyI+PHBhdGggZD0iTTM2IDM0di00aC0ydjRoLTR2Mmg0djRoMnYtNGg0di0ySDZ6TT0iLz48L2c+PC9nPjwvc3ZnPg==')] opacity-50 -z-10"></div>
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgdmlld0JveD0iMCAwIDYwIDYwIj48ZyBmaWxsPSJub25lIiBBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiMwNDdBMzgiIGZpbGwtb3BhY2l0eT0iMC4wMyI+PHBhdGggZD0iTTM2IDM0di00aC0ydjRoLTR2Mmg0djRoMnYtNGg0di0ySDZ6T00iLz48L2c+PC9nPjwvc3ZnPg==')] opacity-50 -z-10"></div>
 
         <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-green-200 to-transparent"></div>
 
@@ -840,7 +801,7 @@ export default function Home() {
           </div>
 
           {/* Decorative Pattern Overlay */}
-          <div className="absolute inset-0 opacity-10 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgdmlld0JveD0iMCAwIDYwIDYwIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMSI+PHBhdGggZD0iTTM2IDM0di00aC0ydjRoLTR2Mmg0djRoMnYtNGg0di0yaHQtNHptMC0zMFYwaC0ydjRoLTR2MmgtNHY0aDJWNmg0VjRoLTR6TTYgMzR2LTRINHY0SDB2Mmg0djRoMnYtNGg0di0ySDZ6TTYgNFYwSDR2NEgwdjJoNHY0aDJWNmg0VjRINnoiLz48L2c+PC9nPjwvc3ZnPg==')] -z-10"></div>
+          <div className="absolute inset-0 opacity-10 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgdmlld0JveD0iMCAwIDYwIDYwIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMSI+PHBhdGggZD0iTTM2IDM0di00aC0ydjRoLTR2Mmg0djRoMnYtNGg0di0ySDZ6bT0iLz48L2c+PC9nPjwvc3ZnPg==')] -z-10"></div>
 
           <div className="container mx-auto px-4 relative">
             <div className="text-center mb-12">
@@ -1039,7 +1000,7 @@ export default function Home() {
 
       {/* Footer - Enhanced with better styling */}
       <footer className="bg-gradient-to-br from-green-900 to-green-800 text-white py-14 md:py-16 relative overflow-hidden">
-        <div className="absolute inset-0 opacity-5 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgdmlld0JveD0iMCAwIDYwIDYwIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMSI+PHBhdGggZD0iTTM2IDM0di00aC0ydjRoLTR2Mmg0djRoMnYtNGg0di0yaHQtNHptMC0zMFYwaC0ydjRoLTR2MmgtNHY0aDJWNmg0VjRoLTR6TTYgMzR2LTRINHY0SDB2Mmg0djRoMnYtNGg0di0ySDZ6TTYgNFYwSDR2NEgwdjJoNHY0aDJWNmg0VjRINnoiLz48L2c+PC9nPjwvc3ZnPg==')] -z-10"></div>
+        <div className="absolute inset-0 opacity-5 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgdmlld0JveD0iMCAwIDYwIDYwIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMSI+PHBhdGggZD0iTTM2IDM0di00aC0ydjRoLTR2Mmg0djRoMnYtNGg0di0ySDZ6bT0iLz48L2c+PC9nPjwvc3ZnPg==')] -z-10"></div>
 
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8 md:gap-12">
@@ -1120,9 +1081,6 @@ export default function Home() {
           </div>
         </div>
       </footer>
-
-      {/* Authentication Modal */}
-      <SubscriptionAuthModal open={showAuthModal} onOpenChange={setShowAuthModal} onAuthChoice={handleAuthChoice} />
     </div>
   )
 }

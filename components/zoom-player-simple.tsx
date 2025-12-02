@@ -8,7 +8,7 @@ interface ZoomPlayerSimpleProps {
   passcode: string
   joinUrl?: string
   userName?: string
-  courseId?: string // Added courseId to redirect back to course page
+  courseId?: string
 }
 
 export default function ZoomPlayerSimple({
@@ -36,38 +36,49 @@ export default function ZoomPlayerSimple({
   }, [meetingNumber, passcode, joinUrl, userName])
 
   useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      // Listen for Zoom postMessage events
+      if (
+        event.data?.type === "zoomMeetingEnded" ||
+        event.data?.event === "meetingEnded" ||
+        event.data === "meeting_ended"
+      ) {
+        console.log("[v0] Zoom meeting ended via native controls")
+        handleReturnToCourse()
+      }
+    }
+
+    window.addEventListener("message", handleMessage)
+    return () => window.removeEventListener("message", handleMessage)
+  }, [courseId, router])
+
+  useEffect(() => {
+    let lastUrl = iframeUrl
     const checkIframeNavigation = setInterval(() => {
       try {
         if (iframeRef.current?.contentWindow) {
-          const iframeWindow = iframeRef.current.contentWindow
-          // Try to access the iframe location - if it's changed to Zoom's domain, meeting ended
-          // This will throw CORS error but we can detect the attempt
+          const currentUrl = iframeRef.current.contentWindow.location.href
+          if (currentUrl !== lastUrl) {
+            console.log("[v0] Iframe navigated, likely meeting ended")
+            // Meeting likely ended if URL changed
+            if (currentUrl.includes("success") || currentUrl.includes("left")) {
+              handleReturnToCourse()
+            }
+            lastUrl = currentUrl
+          }
         }
       } catch (e) {
-        // CORS error means iframe navigated to different domain (Zoom redirected)
-        // Likely meeting ended
+        // CORS error - can't access iframe location from different origin
+        // This is expected for Zoom iframe
       }
     }, 2000)
 
     return () => clearInterval(checkIframeNavigation)
-  }, [])
+  }, [iframeUrl])
 
   const handleReturnToCourse = () => {
-    if (courseId) {
-      router.push(`/user/courses/${courseId}`)
-    } else {
-      router.push("/user/courses")
-    }
+    router.push(`/user/access-course?sessionEnded=${courseId}`)
   }
-
-  useEffect(() => {
-    const maxMeetingTime = 3 * 60 * 60 * 1000 // 3 hours
-    const timer = setTimeout(() => {
-      setMeetingEnded(true)
-    }, maxMeetingTime)
-
-    return () => clearTimeout(timer)
-  }, [])
 
   if (meetingEnded) {
     return (

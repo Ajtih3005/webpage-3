@@ -42,6 +42,7 @@ import {
   LineChartIcon,
   RefreshCcw,
 } from "lucide-react"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 export default function VideoAnalyticsPage() {
   const [loading, setLoading] = useState(true)
@@ -59,6 +60,8 @@ export default function VideoAnalyticsPage() {
   const [topCourses, setTopCourses] = useState([])
   const [viewsByDay, setViewsByDay] = useState([])
   const [completionsByDay, setCompletionsByDay] = useState([])
+  const [selectedCourse, setSelectedCourse] = useState(null)
+  const [showUserDetails, setShowUserDetails] = useState(false)
 
   useEffect(() => {
     fetchVideoAnalytics()
@@ -662,7 +665,14 @@ export default function VideoAnalyticsPage() {
                                     {course.totalUsers} registered users
                                   </span>
                                 </div>
-                                <Button variant="outline" size="sm">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedCourse(course)
+                                    setShowUserDetails(true)
+                                  }}
+                                >
                                   View Details
                                 </Button>
                               </div>
@@ -757,6 +767,92 @@ export default function VideoAnalyticsPage() {
           </TabsContent>
         </Tabs>
       </div>
+
+      <Dialog open={showUserDetails} onOpenChange={setShowUserDetails}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Video Analytics - User Details</DialogTitle>
+            <DialogDescription>
+              {selectedCourse?.title} - {formatDate(selectedCourse?.scheduled_date)}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6">
+            {/* Summary Stats */}
+            <div className="grid grid-cols-3 gap-4">
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="text-center">
+                    <p className="text-2xl font-bold">{selectedCourse?.totalUsers || 0}</p>
+                    <p className="text-sm text-muted-foreground">Total Users</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-green-600">{selectedCourse?.viewedUsers || 0}</p>
+                    <p className="text-sm text-muted-foreground">Viewed</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-blue-600">{selectedCourse?.completedUsers || 0}</p>
+                    <p className="text-sm text-muted-foreground">Completed</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* User List */}
+            <div>
+              <h3 className="text-lg font-semibold mb-4">User Activity Details</h3>
+              <div className="border rounded-lg">
+                <div className="grid grid-cols-4 gap-4 p-3 bg-muted font-medium text-sm">
+                  <div>User Name</div>
+                  <div>Email</div>
+                  <div>Status</div>
+                  <div>Last Activity</div>
+                </div>
+                <ScrollArea className="h-[400px]">
+                  <div className="divide-y">
+                    {selectedCourse?.user_courses && selectedCourse.user_courses.length > 0 ? (
+                      selectedCourse.user_courses.map((uc, index) => (
+                        <div key={index} className="grid grid-cols-4 gap-4 p-3 text-sm">
+                          <div className="font-medium">{uc.user?.name || "N/A"}</div>
+                          <div className="text-muted-foreground">{uc.user?.email || "N/A"}</div>
+                          <div>
+                            {uc.completed_video ? (
+                              <Badge className="bg-blue-500">
+                                <CheckCircle className="w-3 h-3 mr-1" />
+                                Completed
+                              </Badge>
+                            ) : uc.attended ? (
+                              <Badge className="bg-green-500">
+                                <Eye className="w-3 h-3 mr-1" />
+                                Viewed
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline">Not Viewed</Badge>
+                            )}
+                          </div>
+                          <div className="text-muted-foreground">
+                            {uc.attended_at ? formatDateTime(uc.attended_at) : "—"}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="p-8 text-center text-muted-foreground">No users registered for this video</div>
+                    )}
+                  </div>
+                </ScrollArea>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </AdminLayout>
   )
 }

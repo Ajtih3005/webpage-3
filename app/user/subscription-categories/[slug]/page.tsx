@@ -322,7 +322,7 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
       console.log("[v0] User is logged in, redirecting to payment page")
       router.push(`/user/subscribe?plan=${planId}`)
     } else {
-      console.log("[v0] User not logged in, showing auth modal")
+      console.log("[v0] User not logged in, showing auth modal on category page")
       setSelectedPlanId(planId)
       setShowAuthModal(true)
     }

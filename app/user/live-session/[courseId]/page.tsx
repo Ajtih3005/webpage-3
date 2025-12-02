@@ -81,17 +81,51 @@ export default function LiveSessionPage() {
           if (ytId) {
             setVideoId(ytId)
             const scheduledDate = new Date(data.scheduled_date)
-            const timeMatch = data.custom_batch_time?.match(/(\d+):(\d+)\s*(AM|PM)/)
-            if (timeMatch) {
-              let hours = Number.parseInt(timeMatch[1])
-              const minutes = Number.parseInt(timeMatch[2])
-              const period = timeMatch[3]
 
-              if (period === "PM" && hours !== 12) hours += 12
-              if (period === "AM" && hours === 12) hours = 0
+            if (data.is_predefined_batch && data.batch_number) {
+              // Parse predefined batch times based on batch number
+              const batchNum = Number.parseInt(data.batch_number)
+              let hours = 0
+              let minutes = 0
+
+              if (batchNum === 1) {
+                hours = 5
+                minutes = 30 // Morning Batch 1 (5:30 to 6:30)
+              } else if (batchNum === 2) {
+                hours = 6
+                minutes = 40 // Morning Batch 2 (6:40 to 7:40)
+              } else if (batchNum === 3) {
+                hours = 7
+                minutes = 50 // Morning Batch 3 (7:50 to 8:50)
+              } else if (batchNum === 4) {
+                hours = 17
+                minutes = 30 // Evening Batch 4 (5:30 to 6:30)
+              } else if (batchNum === 5) {
+                hours = 18
+                minutes = 40 // Evening Batch 5 (6:40 to 7:40)
+              } else if (batchNum === 6) {
+                hours = 19
+                minutes = 50 // Evening Batch 6 (7:50 to 8:50)
+              }
 
               scheduledDate.setHours(hours, minutes, 0, 0)
               setSessionStartTime(scheduledDate)
+              console.log("[v0] Predefined batch session start time:", scheduledDate)
+            } else if (data.custom_batch_time) {
+              // Parse custom batch time (e.g., "9:00 AM")
+              const timeMatch = data.custom_batch_time.match(/(\d+):(\d+)\s*(AM|PM)/)
+              if (timeMatch) {
+                let hours = Number.parseInt(timeMatch[1])
+                const minutes = Number.parseInt(timeMatch[2])
+                const period = timeMatch[3]
+
+                if (period === "PM" && hours !== 12) hours += 12
+                if (period === "AM" && hours === 12) hours = 0
+
+                scheduledDate.setHours(hours, minutes, 0, 0)
+                setSessionStartTime(scheduledDate)
+                console.log("[v0] Custom batch session start time:", scheduledDate)
+              }
             }
           } else {
             console.error("[v0] Failed to extract video ID from URL:", videoUrl)
@@ -344,26 +378,24 @@ export default function LiveSessionPage() {
   }, [videoType])
 
   async function requestCamera() {
-    if (stream || cameraEnabled) {
-      console.log("[v0] Camera already active, skipping request")
-      return
-    }
-
     try {
-      console.log("[v0] Requesting camera access...")
+      console.log("[v0] Requesting camera permissions...")
       const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false })
-      console.log("[v0] Camera access granted")
-
+      console.log("[v0] Camera access granted!")
       setStream(mediaStream)
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream
+      }
       setCameraEnabled(true)
     } catch (err) {
-      console.error("[v0] Camera access denied:", err)
-      setCameraEnabled(false)
+      console.error("[v0] Camera access denied or error:", err)
+      alert("Camera access was denied. Please allow camera permissions in your browser settings.")
     }
   }
 
   function toggleCamera() {
-    handleUserInteraction() // Enable autoplay on interaction
+    handleUserInteraction()
+    console.log("[v0] Camera toggle clicked, current state:", cameraEnabled)
     if (cameraEnabled) {
       console.log("[v0] Turning camera off")
       if (stream) {
@@ -375,7 +407,7 @@ export default function LiveSessionPage() {
       }
       setCameraEnabled(false)
     } else {
-      console.log("[v0] Turning camera on")
+      console.log("[v0] Requesting camera access")
       requestCamera()
     }
   }
@@ -604,6 +636,19 @@ export default function LiveSessionPage() {
             }
           `}</style>
 
+          {floatingEmojis.map((emojiItem) => (
+            <div
+              key={emojiItem.id}
+              className="fixed bottom-0 text-4xl md:text-6xl pointer-events-none z-[100] animate-float"
+              style={{
+                left: `${emojiItem.left}%`,
+                animation: "float-up 3s ease-out forwards",
+              }}
+            >
+              {emojiItem.emoji}
+            </div>
+          ))}
+
           {cameraEnabled && previewVisible && (
             <div
               ref={previewRef}
@@ -618,13 +663,13 @@ export default function LiveSessionPage() {
             </div>
           )}
 
-          <div className="relative z-30 bg-gray-800 py-2 md:py-4 px-2 md:px-6">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-2 md:gap-4 max-w-7xl mx-auto">
+          <div className="relative z-30 bg-gray-800 py-1.5 md:py-4 px-2 md:px-6">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-1.5 md:gap-4 max-w-7xl mx-auto">
               {/* Camera controls */}
-              <div className="flex items-center gap-2 md:gap-3 w-full md:w-auto justify-center md:justify-start">
+              <div className="flex items-center gap-1.5 md:gap-3 w-full md:w-auto justify-center md:justify-start">
                 <button
                   onClick={toggleCamera}
-                  className={`px-3 py-2 md:px-4 md:py-2 rounded-lg flex items-center gap-1 md:gap-2 transition text-sm md:text-base ${
+                  className={`px-2 py-1.5 md:px-4 md:py-2 rounded-lg flex items-center gap-1 md:gap-2 transition text-xs md:text-base ${
                     cameraEnabled ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300"
                   }`}
                 >
@@ -634,19 +679,19 @@ export default function LiveSessionPage() {
                 </button>
                 <button
                   onClick={() => setPreviewVisible(!previewVisible)}
-                  className="px-3 py-2 md:px-4 md:py-2 bg-gray-700 text-white rounded-lg flex items-center gap-1 md:gap-2 hover:bg-gray-600 transition text-sm md:text-base"
+                  className="px-2 py-1.5 md:px-4 md:py-2 bg-gray-700 text-white rounded-lg flex items-center gap-1 md:gap-2 hover:bg-gray-600 transition text-xs md:text-base"
                 >
                   <Eye className="w-4 h-4 md:w-5 md:h-5" />
                   <span className="hidden sm:inline">Preview</span>
                 </button>
               </div>
 
-              <div className="flex items-center gap-1 md:gap-2 overflow-x-auto max-w-full md:max-w-none">
+              <div className="flex items-center gap-0.5 md:gap-2 overflow-x-auto max-w-full md:max-w-none">
                 {["😊", "❤️", "👍", "🔥", "💯", "😂", "🎉", "👏"].map((emoji) => (
                   <button
                     key={emoji}
                     onClick={() => handleEmojiClick(emoji)}
-                    className="text-xl md:text-2xl hover:scale-125 transition-transform p-1 md:p-2 hover:bg-gray-700/50 rounded flex-shrink-0"
+                    className="text-lg md:text-2xl hover:scale-125 transition-transform p-1 md:p-2 hover:bg-gray-700/50 rounded flex-shrink-0"
                   >
                     {emoji}
                   </button>
@@ -654,16 +699,16 @@ export default function LiveSessionPage() {
               </div>
 
               {/* Action buttons */}
-              <div className="flex items-center gap-2 md:gap-3 w-full md:w-auto justify-center md:justify-end">
+              <div className="flex items-center gap-1.5 md:gap-3 w-full md:w-auto justify-center md:justify-end">
                 <button
                   onClick={toggleFullscreen}
-                  className="px-3 py-2 md:px-4 md:py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition"
+                  className="px-2 py-1.5 md:px-4 md:py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition"
                 >
                   <Maximize className="w-4 h-4 md:w-5 md:h-5" />
                 </button>
                 <button
                   onClick={handleExit}
-                  className="px-3 py-2 md:px-4 md:py-2 bg-red-600 text-white rounded-lg flex items-center gap-1 md:gap-2 hover:bg-red-700 transition text-sm md:text-base"
+                  className="px-2 py-1.5 md:px-4 md:py-2 bg-red-600 text-white rounded-lg flex items-center gap-1 md:gap-2 hover:bg-red-700 transition text-xs md:text-base"
                 >
                   <X className="w-4 h-4 md:w-5 md:h-5" />
                   <span className="hidden sm:inline">Exit</span>
@@ -675,4 +720,8 @@ export default function LiveSessionPage() {
       )}
     </div>
   )
+}
+
+function getSupabaseBrowserClient() {
+  return createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 }
