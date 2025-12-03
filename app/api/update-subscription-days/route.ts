@@ -14,6 +14,7 @@ export async function POST() {
         activation_date,
         total_active_days_used,
         is_active,
+        last_day_counted,
         subscription:subscriptions (
           duration_days,
           is_active
@@ -39,14 +40,15 @@ export async function POST() {
     let updatedCount = 0
     let skippedDueToInactiveSubscription = 0
     let alreadyExpiredCount = 0
+    let backfilledCount = 0
 
     for (const subscription of userSubscriptions) {
       try {
         const baseDurationDays = subscription.subscription?.duration_days || 30
-        const durationDays = baseDurationDays + 3 // 30 days becomes 33 days total
+        const durationDays = baseDurationDays + 3 // Add 3 bonus days
         const currentDaysUsed = subscription.total_active_days_used || 0
 
-        // Skip if already fully expired (reached max days including bonus)
+        // Skip if already fully expired
         if (currentDaysUsed >= durationDays) {
           if (subscription.is_active) {
             await supabase.from("user_subscriptions").update({ is_active: false }).eq("id", subscription.id)
@@ -55,22 +57,44 @@ export async function POST() {
           continue
         }
 
-        // This is the ONLY control for whether days should count
+        // Check if subscription plan is active (admin control)
         if (!subscription.subscription?.is_active) {
+          await supabase
+            .from("user_subscriptions")
+            .update({ last_day_counted: today.toISOString().split("T")[0] })
+            .eq("id", subscription.id)
+
           skippedDueToInactiveSubscription++
           console.log(`[v0] Skipping subscription ${subscription.id}: Admin has turned OFF subscription plan`)
           continue
         }
 
-        const newDaysUsed = currentDaysUsed + 1
-        const shouldExpire = newDaysUsed >= durationDays
+        const activationDate = new Date(subscription.activation_date)
+        activationDate.setHours(0, 0, 0, 0)
 
-        // Update the subscription
+        // Calculate total days from activation to today (including Day 0)
+        const daysSinceActivation = Math.floor((today.getTime() - activationDate.getTime()) / (1000 * 60 * 60 * 24))
+
+        // The correct days used should be daysSinceActivation (0-indexed, so day 0, day 1, day 2, etc.)
+        const correctDaysUsed = Math.min(daysSinceActivation, durationDays)
+
+        // If current days is less than what it should be, we need to backfill
+        if (correctDaysUsed > currentDaysUsed) {
+          backfilledCount++
+          console.log(
+            `[v0] BACKFILLING subscription ${subscription.id}: ${currentDaysUsed} → ${correctDaysUsed} days (caught up ${correctDaysUsed - currentDaysUsed} missed days)`,
+          )
+        }
+
+        const shouldExpire = correctDaysUsed >= durationDays
+
+        // Update the subscription with correct days
         const { error: updateError } = await supabase
           .from("user_subscriptions")
           .update({
-            total_active_days_used: newDaysUsed,
+            total_active_days_used: correctDaysUsed,
             is_active: !shouldExpire,
+            last_day_counted: today.toISOString().split("T")[0],
             ...(shouldExpire && {
               activation_notes: `Expired: Reached ${durationDays} days (${baseDurationDays} + 3 bonus) on ${today.toISOString().split("T")[0]}`,
             }),
@@ -85,7 +109,7 @@ export async function POST() {
         updatedCount++
 
         console.log(
-          `[v0] Subscription ${subscription.id}: ${currentDaysUsed} → ${newDaysUsed} days${shouldExpire ? " (NOW EXPIRED)" : ""}`,
+          `[v0] Subscription ${subscription.id}: Days used = ${correctDaysUsed} / ${durationDays}${shouldExpire ? " (NOW EXPIRED)" : ""}`,
         )
       } catch (error) {
         console.error(`Error processing subscription ${subscription.id}:`, error)
@@ -94,8 +118,9 @@ export async function POST() {
     }
 
     return NextResponse.json({
-      message: `Updated ${updatedCount} subscriptions`,
+      message: `Updated ${updatedCount} subscriptions (${backfilledCount} backfilled)`,
       updated: updatedCount,
+      backfilled: backfilledCount,
       total_checked: userSubscriptions.length,
       skipped_admin_off: skippedDueToInactiveSubscription,
       already_expired: alreadyExpiredCount,

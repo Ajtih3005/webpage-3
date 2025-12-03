@@ -145,13 +145,20 @@ export default function LiveSessionPage() {
   }, [courseId])
 
   const recordAttendance = async () => {
+    console.log("[v0] recordAttendance called, attendanceRecorded:", attendanceRecorded)
     if (attendanceRecorded) return
 
     try {
       const userEmail = localStorage.getItem("userEmail")
-      if (!userEmail) return
+      console.log("[v0] User email from localStorage:", userEmail)
+
+      if (!userEmail) {
+        console.error("[v0] No user email found in localStorage")
+        return
+      }
 
       // Get user ID
+      console.log("[v0] Fetching user ID for email:", userEmail)
       const { data: userData, error: userError } = await supabase
         .from("users")
         .select("id")
@@ -163,6 +170,8 @@ export default function LiveSessionPage() {
         return
       }
 
+      console.log("[v0] User ID found:", userData.id, "Course ID:", courseId)
+
       // Check if user_courses entry exists
       const { data: existingEntry, error: checkError } = await supabase
         .from("user_courses")
@@ -171,6 +180,8 @@ export default function LiveSessionPage() {
         .eq("course_id", courseId)
         .single()
 
+      console.log("[v0] Existing entry check:", { existingEntry, checkError })
+
       if (checkError && checkError.code !== "PGRST116") {
         console.error("[v0] Error checking user_courses:", checkError)
         return
@@ -178,7 +189,9 @@ export default function LiveSessionPage() {
 
       if (existingEntry) {
         // Update existing entry
+        console.log("[v0] Found existing entry, attended status:", existingEntry.attended)
         if (!existingEntry.attended) {
+          console.log("[v0] Updating attendance to true")
           const { error: updateError } = await supabase
             .from("user_courses")
             .update({ attended: true, attended_at: new Date().toISOString() })
@@ -187,12 +200,16 @@ export default function LiveSessionPage() {
           if (updateError) {
             console.error("[v0] Error updating attendance:", updateError)
           } else {
-            console.log("[v0] Attendance recorded successfully")
+            console.log("[v0] ✅ Attendance recorded successfully")
             setAttendanceRecorded(true)
           }
+        } else {
+          console.log("[v0] User already marked as attended")
+          setAttendanceRecorded(true)
         }
       } else {
         // Create new entry
+        console.log("[v0] No existing entry, creating new user_courses record")
         const { error: insertError } = await supabase.from("user_courses").insert({
           user_id: userData.id,
           course_id: courseId,
@@ -204,7 +221,7 @@ export default function LiveSessionPage() {
         if (insertError) {
           console.error("[v0] Error creating user_courses entry:", insertError)
         } else {
-          console.log("[v0] Attendance recorded successfully (new entry)")
+          console.log("[v0] ✅ Attendance recorded successfully (new entry)")
           setAttendanceRecorded(true)
         }
       }
@@ -214,11 +231,17 @@ export default function LiveSessionPage() {
   }
 
   const recordCompletion = async () => {
+    console.log("[v0] recordCompletion called, completionRecorded:", completionRecorded)
     if (completionRecorded) return
 
     try {
       const userEmail = localStorage.getItem("userEmail")
-      if (!userEmail) return
+      console.log("[v0] User email for completion:", userEmail)
+
+      if (!userEmail) {
+        console.error("[v0] No user email found for completion tracking")
+        return
+      }
 
       // Get user ID
       const { data: userData, error: userError } = await supabase
@@ -228,9 +251,11 @@ export default function LiveSessionPage() {
         .single()
 
       if (userError || !userData) {
-        console.error("[v0] Error fetching user:", userError)
+        console.error("[v0] Error fetching user for completion:", userError)
         return
       }
+
+      console.log("[v0] Marking video as completed for user:", userData.id, "course:", courseId)
 
       // Update user_courses to mark as completed
       const { error: updateError } = await supabase
@@ -242,7 +267,7 @@ export default function LiveSessionPage() {
       if (updateError) {
         console.error("[v0] Error recording completion:", updateError)
       } else {
-        console.log("[v0] Video completion recorded successfully")
+        console.log("[v0] ✅ Video completion recorded successfully")
         setCompletionRecorded(true)
       }
     } catch (error) {
