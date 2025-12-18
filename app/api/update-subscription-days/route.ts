@@ -3,8 +3,12 @@ import { getSupabaseServerClient } from "@/lib/supabase"
 
 export async function POST() {
   try {
-    const supabase = getSupabaseServerClient()
+    console.log("[v0] 🚀 Starting subscription day update API...")
 
+    const supabase = getSupabaseServerClient()
+    console.log("[v0] ✅ Supabase client created")
+
+    console.log("[v0] 📊 Fetching user subscriptions...")
     const { data: userSubscriptions, error: fetchError } = await supabase
       .from("user_subscriptions")
       .select(`
@@ -23,9 +27,18 @@ export async function POST() {
       .not("activation_date", "is", null)
 
     if (fetchError) {
-      console.error("Error fetching subscriptions:", fetchError)
-      return NextResponse.json({ error: "Failed to fetch subscriptions" }, { status: 500 })
+      console.error("[v0] ❌ Error fetching subscriptions:", fetchError)
+      return NextResponse.json(
+        {
+          error: "Failed to fetch subscriptions",
+          details: fetchError.message,
+          code: fetchError.code,
+        },
+        { status: 500 },
+      )
     }
+
+    console.log("[v0] ✅ Found", userSubscriptions?.length || 0, "subscriptions")
 
     if (!userSubscriptions || userSubscriptions.length === 0) {
       return NextResponse.json({
@@ -36,17 +49,21 @@ export async function POST() {
 
     const today = new Date()
     today.setHours(0, 0, 0, 0)
+    console.log("[v0] 📅 Today's date:", today.toISOString().split("T")[0])
 
     let updatedCount = 0
     let skippedDueToInactiveSubscription = 0
     let alreadyExpiredCount = 0
     let backfilledCount = 0
+    let errorCount = 0
 
     for (const subscription of userSubscriptions) {
       try {
         const baseDurationDays = subscription.subscription?.duration_days || 30
-        const durationDays = baseDurationDays + 3 // Add 3 bonus days
+        const durationDays = baseDurationDays + 3
         const currentDaysUsed = subscription.total_active_days_used || 0
+
+        console.log(`[v0] Processing subscription ${subscription.id}: current days = ${currentDaysUsed}`)
 
         // Skip if already fully expired
         if (currentDaysUsed >= durationDays) {
@@ -54,6 +71,7 @@ export async function POST() {
             await supabase.from("user_subscriptions").update({ is_active: false }).eq("id", subscription.id)
           }
           alreadyExpiredCount++
+          console.log(`[v0] ⏭️  Subscription ${subscription.id} already expired`)
           continue
         }
 
@@ -65,7 +83,7 @@ export async function POST() {
             .eq("id", subscription.id)
 
           skippedDueToInactiveSubscription++
-          console.log(`[v0] Skipping subscription ${subscription.id}: Admin has turned OFF subscription plan`)
+          console.log(`[v0] ⏭️  Subscription ${subscription.id}: Admin turned OFF subscription plan`)
           continue
         }
 
@@ -78,11 +96,18 @@ export async function POST() {
         // The correct days used should be daysSinceActivation (0-indexed, so day 0, day 1, day 2, etc.)
         const correctDaysUsed = Math.min(daysSinceActivation, durationDays)
 
+        console.log(`[v0] 📊 Subscription ${subscription.id}:`)
+        console.log(`      Activation: ${activationDate.toISOString().split("T")[0]}`)
+        console.log(`      Days since activation: ${daysSinceActivation}`)
+        console.log(`      Current days used: ${currentDaysUsed}`)
+        console.log(`      Correct days used: ${correctDaysUsed}`)
+        console.log(`      Duration limit: ${durationDays}`)
+
         // If current days is less than what it should be, we need to backfill
         if (correctDaysUsed > currentDaysUsed) {
           backfilledCount++
           console.log(
-            `[v0] BACKFILLING subscription ${subscription.id}: ${currentDaysUsed} → ${correctDaysUsed} days (caught up ${correctDaysUsed - currentDaysUsed} missed days)`,
+            `[v0] 🔄 BACKFILLING subscription ${subscription.id}: ${currentDaysUsed} → ${correctDaysUsed} days (caught up ${correctDaysUsed - currentDaysUsed} missed days)`,
           )
         }
 
@@ -102,35 +127,42 @@ export async function POST() {
           .eq("id", subscription.id)
 
         if (updateError) {
-          console.error(`Error updating subscription ${subscription.id}:`, updateError)
+          console.error(`[v0] ❌ Error updating subscription ${subscription.id}:`, updateError)
+          errorCount++
           continue
         }
 
         updatedCount++
-
         console.log(
-          `[v0] Subscription ${subscription.id}: Days used = ${correctDaysUsed} / ${durationDays}${shouldExpire ? " (NOW EXPIRED)" : ""}`,
+          `[v0] ✅ Subscription ${subscription.id}: Days used = ${correctDaysUsed} / ${durationDays}${shouldExpire ? " (NOW EXPIRED)" : ""}`,
         )
       } catch (error) {
-        console.error(`Error processing subscription ${subscription.id}:`, error)
+        console.error(`[v0] ❌ Error processing subscription ${subscription.id}:`, error)
+        errorCount++
         continue
       }
     }
 
-    return NextResponse.json({
+    const result = {
       message: `Updated ${updatedCount} subscriptions (${backfilledCount} backfilled)`,
-      updated: updatedCount,
-      backfilled: backfilledCount,
-      total_checked: userSubscriptions.length,
-      skipped_admin_off: skippedDueToInactiveSubscription,
-      already_expired: alreadyExpiredCount,
-    })
+      totalProcessed: userSubscriptions.length,
+      updatedCount,
+      backfilledCount,
+      expiredCount: 0, // Not tracking new expirations separately
+      alreadyExpiredCount,
+      skippedDueToInactiveSubscription,
+      errorCount,
+    }
+
+    console.log("[v0] 🎉 Update complete:", result)
+    return NextResponse.json(result)
   } catch (error) {
-    console.error("Error in update-subscription-days:", error)
+    console.error("[v0] ❌ CRITICAL ERROR in update-subscription-days:", error)
     return NextResponse.json(
       {
         error: "Internal server error",
         details: error instanceof Error ? error.message : "Unknown error",
+        stack: error instanceof Error ? error.stack : undefined,
       },
       { status: 500 },
     )

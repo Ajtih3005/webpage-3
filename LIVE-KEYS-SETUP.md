@@ -9,11 +9,11 @@ This guide will help you set up your application to use Razorpay live keys direc
    - Replace the placeholders with your actual live keys
 
 2. **Add Your Live Keys**:
-   \`\`\`
+   ```
    RAZORPAY_KEY_ID=rzp_live_your_actual_key
    RAZORPAY_KEY_SECRET=your_actual_secret
    RAZORPAY_WEBHOOK_SECRET=your_webhook_secret
-   \`\`\`
+   ```
 
 3. **Restart Your Application**:
    - After updating the `.env.local` file, restart your Next.js server
