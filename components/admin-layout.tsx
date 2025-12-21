@@ -152,10 +152,10 @@ function AdminLayout({ children }: AdminLayoutProps) {
       active: pathname.startsWith("/admin/team"),
     },
     {
-      title: "AI Management",
-      href: "/admin/ai-management",
+      title: "Pose Analytics",
+      href: "/admin/pose-analytics",
       icon: Brain,
-      active: pathname.startsWith("/admin/ai-management"),
+      active: pathname.startsWith("/admin/pose-analytics"),
     },
     {
       title: "Subscriptions",

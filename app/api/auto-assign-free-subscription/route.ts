@@ -123,9 +123,12 @@ export async function POST(request: Request) {
           subscription_id: subscription.id,
           start_date: startDate.toISOString(),
           end_date: endDate.toISOString(),
+          activation_date: startDate.toISOString(), // Required for subscription day counting
           status: "active",
           is_active: true,
           is_one_time_subscription: subscription.is_one_time_only || false,
+          total_active_days_used: 0, // Start at day 0
+          last_day_counted: null, // Will be set by cron job
         })
 
         if (error) {

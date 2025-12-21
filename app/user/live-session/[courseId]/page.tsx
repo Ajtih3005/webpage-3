@@ -3,16 +3,20 @@
 import type React from "react"
 
 import { useEffect, useState, useRef } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { createBrowserClient } from "@supabase/ssr"
 import { Camera, Eye, Maximize, X } from "lucide-react"
 import { extractYoutubeVideoId } from "@/lib/utils"
 import ZoomPlayerSimple from "@/components/zoom-player-simple"
+import { SilentPoseTracker } from "@/components/silent-pose-tracker"
 
-export default function LiveSessionPage() {
-  const params = useParams()
+interface LiveSessionProps {
+  params: { courseId: string }
+}
+
+export default function LiveSessionPage({ params }: LiveSessionProps) {
+  const courseId = params.courseId
   const router = useRouter()
-  const courseId = params.courseId as string
 
   const [courseData, setCourseData] = useState<any>(null)
   const [videoId, setVideoId] = useState<string>("")
@@ -48,6 +52,9 @@ export default function LiveSessionPage() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
   )
+
+  const [user, setUser] = useState<any>(null)
+  const instructorVideoRef = useRef<HTMLVideoElement | null>(null)
 
   useEffect(() => {
     async function fetchCourse() {
@@ -397,6 +404,29 @@ export default function LiveSessionPage() {
   }, [videoId, sessionStartTime, videoType])
 
   useEffect(() => {
+    if (videoType === "youtube" && playerRef.current) {
+      const iframe = document.querySelector("iframe")
+      if (iframe) {
+        instructorVideoRef.current = iframe as any
+      }
+    }
+  }, [videoType, playerRef.current])
+
+  useEffect(() => {
+    async function fetchUser() {
+      const supabase = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      )
+      const {
+        data: { user: authUser },
+      } = await supabase.auth.getUser()
+      setUser(authUser)
+    }
+    fetchUser()
+  }, [])
+
+  useEffect(() => {
     if (videoType === "youtube" && !stream && !cameraEnabled) {
       requestCamera()
     }
@@ -584,7 +614,7 @@ export default function LiveSessionPage() {
   }, [])
 
   return (
-    <div className="relative w-full h-screen bg-black overflow-hidden flex flex-col">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white flex flex-col">
       {videoType === "zoom" ? (
         // Zoom Player Simple
         <ZoomPlayerSimple
@@ -686,6 +716,16 @@ export default function LiveSessionPage() {
             >
               <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
             </div>
+          )}
+
+          {videoType === "youtube" && user && cameraEnabled && (
+            <SilentPoseTracker
+              userEmail={user.email}
+              courseId={courseId}
+              userVideoRef={videoRef.current}
+              instructorVideoElement={instructorVideoRef.current}
+              isActive={cameraEnabled}
+            />
           )}
 
           <div className="relative z-30 bg-gray-800 py-1.5 md:py-4 px-2 md:px-6">

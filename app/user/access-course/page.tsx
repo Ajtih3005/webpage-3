@@ -181,8 +181,21 @@ function AccessCourseContent() {
     return "Batch"
   }
 
+  // Combined the fetchCourses and checkSubscriptionDays logic into one useEffect
   useEffect(() => {
-    fetchCourses()
+    const loadCourses = async () => {
+      await fetchCourses()
+    }
+    loadCourses()
+
+    const checkSubscriptionDays = async () => {
+      try {
+        await fetch("/api/check-and-update-days", { method: "POST" })
+      } catch (error) {
+        console.error("[v0] Error checking subscription days:", error)
+      }
+    }
+    checkSubscriptionDays()
 
     // Set up a timer to refresh the session status every minute
     const intervalId = setInterval(() => {
@@ -190,7 +203,7 @@ function AccessCourseContent() {
     }, 60000)
 
     return () => clearInterval(intervalId)
-  }, [refreshTrigger])
+  }, [refreshTrigger, selectedLanguage]) // Added selectedLanguage to dependency array
 
   // Add this useEffect to fetch subscriptions when dialog opens
   useEffect(() => {

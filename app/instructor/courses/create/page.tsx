@@ -13,14 +13,15 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { CalendarIcon, Plus, Trash2 } from "lucide-react"
+import { CalendarIcon, Plus, Trash2, CheckCircle } from "lucide-react"
 import { format } from "date-fns"
 import { cn, isValidYoutubeUrl } from "@/lib/utils"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { extractPosesFromVideo } from "@/lib/client-pose-extractor"
 
-export default function CreateCourse() {
+export default function InstructorCreateCoursePage() {
   const router = useRouter()
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
@@ -38,6 +39,11 @@ export default function CreateCourse() {
   const [subscriptionDay, setSubscriptionDay] = useState<number>(1)
   const [subscriptionWeek, setSubscriptionWeek] = useState<number>(1)
   const [scheduledDate, setScheduledDate] = useState<Date | undefined>(new Date())
+  const [instructorVideoFile, setInstructorVideoFile] = useState<File | null>(null)
+  const [processingPose, setProcessingPose] = useState(false)
+  const [poseProgress, setPoseProgress] = useState(0)
+  const [poseSessionId, setPoseSessionId] = useState<string | null>(null)
+  const [poseError, setPoseError] = useState<string | null>(null)
 
   const generateId = () => `batch_${Date.now()}_${Math.floor(Math.random() * 1000)}`
 
@@ -168,6 +174,68 @@ export default function CreateCourse() {
     return Object.keys(newErrors).length === 0
   }
 
+  const processPoseVideo = async (videoFile: File) => {
+    try {
+      setProcessingPose(true)
+      setPoseError(null)
+      setPoseProgress(0)
+
+      const poses = await extractPosesFromVideo(videoFile, (progress) => {
+        setPoseProgress(Math.min(progress, 90))
+      })
+
+      const response = await fetch("/api/ai/save-pose-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          videoName: videoFile.name,
+          videoDuration: poses.length > 0 ? poses[poses.length - 1].timestamp : 0,
+          poses: poses,
+        }),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) throw new Error(result.error)
+
+      setPoseSessionId(result.sessionId)
+      setPoseProgress(100)
+      return result.sessionId
+    } catch (error: any) {
+      console.error("Pose processing error:", error)
+      setPoseError(error.message || "Failed to process video")
+      throw error
+    } finally {
+      setProcessingPose(false)
+    }
+  }
+
+  const handleVideoFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validate file type
+    if (!file.type.startsWith("video/")) {
+      setPoseError("Please upload a valid video file")
+      return
+    }
+
+    // Validate file size (max 500MB)
+    if (file.size > 500 * 1024 * 1024) {
+      setPoseError("Video file too large (max 500MB)")
+      return
+    }
+
+    setInstructorVideoFile(file)
+
+    // Automatically start processing
+    try {
+      await processPoseVideo(file)
+    } catch (error) {
+      console.error("Failed to process pose video:", error)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -185,32 +253,7 @@ export default function CreateCourse() {
         scheduling_type: schedulingType,
         instructor_id: instructorId,
         is_predefined_batch: isPredefinedBatch,
-      }
-
-      // Add scheduling fields
-      if (schedulingType === "date") {
-        courseData.scheduled_date = scheduledDate ? scheduledDate.toISOString().split("T")[0] : null
-        courseData.subscription_day = null
-        courseData.subscription_week = null
-      } else if (schedulingType === "day") {
-        courseData.scheduled_date = null
-        courseData.subscription_day = subscriptionDay
-        courseData.subscription_week = null
-      } else if (schedulingType === "week") {
-        courseData.scheduled_date = null
-        courseData.subscription_day = null
-        courseData.subscription_week = subscriptionWeek
-      }
-
-      // Add subscription ID if selected and instructor has access
-      if (subscriptionId && subscriptionId !== "none") {
-        const hasAccess = availableSubscriptions.some((sub) => sub.id.toString() === subscriptionId)
-        if (hasAccess) {
-          courseData.subscription_id = Number.parseInt(subscriptionId)
-        } else {
-          setErrors({ submit: "You don't have access to the selected subscription plan." })
-          return
-        }
+        instructor_pose_session_id: poseSessionId || null,
       }
 
       // Create course entries for each batch
@@ -251,9 +294,7 @@ export default function CreateCourse() {
 
   return (
     <InstructorLayout>
-      <div className="space-y-6">
-        <h1 className="text-2xl font-bold">Create Course</h1>
-
+      <div className="container mx-auto p-6">
         <Card>
           <form onSubmit={handleSubmit}>
             <CardHeader>
@@ -302,6 +343,52 @@ export default function CreateCourse() {
                   placeholder="https://www.youtube.com/watch?v=..."
                 />
                 {errors.youtubeLink && <p className="text-sm text-red-500">{errors.youtubeLink}</p>}
+              </div>
+
+              {/* Instructor Video File (Optional - for AI Pose Tracking) */}
+              <div className="space-y-2">
+                <Label htmlFor="instructorVideo">Instructor Video File (Optional - for AI Pose Tracking)</Label>
+                <Input
+                  id="instructorVideo"
+                  type="file"
+                  accept="video/*"
+                  onChange={handleVideoFileChange}
+                  disabled={processingPose}
+                />
+                <p className="text-sm text-gray-500">
+                  Upload the instructor video to enable AI pose tracking during live sessions. Video will be processed
+                  and deleted - only pose data is stored.
+                </p>
+
+                {poseError && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+                    <p className="text-sm text-red-600">{poseError}</p>
+                  </div>
+                )}
+
+                {processingPose && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600">Extracting poses from video...</span>
+                      <span className="font-medium">{poseProgress}%</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div
+                        className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${poseProgress}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {poseSessionId && !processingPose && (
+                  <div className="p-3 bg-green-50 border border-green-200 rounded-md">
+                    <p className="text-sm text-green-600 flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4" />
+                      Pose data extracted successfully! AI tracking enabled for this course.
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Language Selection */}
@@ -492,8 +579,8 @@ export default function CreateCourse() {
               <Button type="button" variant="outline" onClick={() => router.push("/instructor/courses")}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={loading}>
-                {loading ? "Creating..." : "Create Course"}
+              <Button type="submit" disabled={loading || processingPose}>
+                {processingPose ? "Processing Video..." : loading ? "Creating..." : "Create Course"}
               </Button>
             </CardFooter>
           </form>

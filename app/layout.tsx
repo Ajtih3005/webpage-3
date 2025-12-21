@@ -55,6 +55,18 @@ export default function RootLayout({
         <meta property="og:image:alt" content="Sthavishtah Logo" />
         <meta property="og:url" content="https://sthavishtah.com" />
         <meta property="og:type" content="website" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                if (typeof window !== 'undefined' && localStorage.getItem('userId')) {
+                  fetch('/api/check-and-update-days', { method: 'POST' })
+                    .catch(function(err) { console.error('[v0] Subscription check failed:', err); });
+                }
+              })();
+            `,
+          }}
+        />
       </head>
       <body className={inter.className}>{children}</body>
     </html>
