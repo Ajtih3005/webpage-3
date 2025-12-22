@@ -179,49 +179,53 @@ export default function InstructorCreateCoursePage() {
       setPoseError(null)
       setPoseProgress(0)
 
-      const { extractPosesFromVideo } = await import("@/lib/client-pose-extractor")
-
-      const poses = await extractPosesFromVideo(videoFile, (progress) => {
-        setPoseProgress(Math.min(progress, 80))
-      })
-
-      const CHUNK_SIZE = 100
-      const chunks = []
-      for (let i = 0; i < poses.length; i += CHUNK_SIZE) {
-        chunks.push(poses.slice(i, i + CHUNK_SIZE))
-      }
+      const { ClientPoseExtractor } = await import("@/lib/client-pose-extractor")
+      const extractor = new ClientPoseExtractor()
 
       let courseId = `temp_${Date.now()}`
-      let sessionId = null
+      let isFirstBatch = true
 
-      for (let i = 0; i < chunks.length; i++) {
-        const isFirstChunk = i === 0
-        const isLastChunk = i === chunks.length - 1
+      // Extract poses with incremental batch uploads
+      const poses = await extractor.extractPosesFromVideo(
+        videoFile,
+        (progress) => {
+          setPoseProgress(Math.round(progress))
+        },
+        async (batch) => {
+          // Upload each batch immediately as it's extracted
+          console.log(`[v0] Uploading batch of ${batch.length} poses`)
 
-        const response = await fetch("/api/ai/save-pose-session", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            courseId,
-            videoName: videoFile.name,
-            videoDuration: poses.length > 0 ? poses[poses.length - 1].timestamp : 0,
-            poses: chunks[i],
-            isFirstChunk,
-            isLastChunk,
-          }),
-        })
+          const response = await fetch("/api/ai/save-pose-session", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              courseId,
+              videoName: videoFile.name,
+              poses: batch,
+              isFirstChunk: isFirstBatch,
+              isLastChunk: false,
+            }),
+          })
 
-        const result = await response.json()
-        if (!response.ok) throw new Error(result.error)
+          const result = await response.json()
+          if (!response.ok) throw new Error(result.error)
 
-        if (isFirstChunk) {
-          courseId = result.courseId
-          sessionId = result.sessionId
-        }
+          if (isFirstBatch) {
+            courseId = result.courseId
+            isFirstBatch = false
+          }
+        },
+      )
 
-        // Update progress for upload
-        setPoseProgress(80 + (20 * (i + 1)) / chunks.length)
-      }
+      // Mark as complete
+      await fetch("/api/ai/save-pose-session", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          courseId,
+          totalFrames: poses.length,
+        }),
+      })
 
       setPoseSessionId(courseId)
       setPoseProgress(100)

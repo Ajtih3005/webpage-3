@@ -15,7 +15,7 @@ export const config = {
 
 export async function POST(request: NextRequest) {
   try {
-    const { courseId, videoName, videoDuration, poses, isFirstChunk, isLastChunk } = await request.json()
+    const { courseId, videoName, poses, isFirstChunk } = await request.json()
 
     if (!poses || poses.length === 0) {
       return NextResponse.json({ error: "No pose data provided" }, { status: 400 })
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
         .from("instructor_poses")
         .update({
           poses: updatedPoses,
-          total_frames: isLastChunk ? updatedPoses.length : existingData.total_frames + poses.length,
+          total_frames: updatedPoses.length,
         })
         .eq("course_id", courseId)
         .select()
@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const { sessionId, totalFrames } = await request.json()
+    const { courseId, totalFrames } = await request.json()
 
     const aiSupabase = getAISupabaseClient()
 
@@ -94,7 +94,7 @@ export async function PATCH(request: NextRequest) {
       .update({
         total_frames: totalFrames,
       })
-      .eq("id", sessionId)
+      .eq("course_id", courseId)
 
     if (error) throw error
 

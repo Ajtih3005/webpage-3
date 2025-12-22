@@ -56,21 +56,7 @@ export default function RootLayout({
         <meta property="og:url" content="https://sthavishtah.com" />
         <meta property="og:type" content="website" />
       </head>
-      <body className={inter.className}>
-        {children}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              if (typeof window !== 'undefined' && localStorage.getItem('userId')) {
-                setTimeout(function() {
-                  fetch('/api/check-and-update-days', { method: 'POST' })
-                    .catch(function(err) { console.error('Subscription check failed:', err); });
-                }, 1000);
-              }
-            `,
-          }}
-        />
-      </body>
+      <body className={inter.className}>{children}</body>
     </html>
   )
 }

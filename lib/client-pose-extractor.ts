@@ -42,7 +42,11 @@ export class ClientPoseExtractor {
     }
   }
 
-  async extractPosesFromVideo(videoFile: File, onProgress?: (percent: number) => void): Promise<PoseFrame[]> {
+  async extractPosesFromVideo(
+    videoFile: File,
+    onProgress?: (percent: number) => void,
+    onBatchReady?: (batch: PoseFrame[]) => Promise<void>,
+  ): Promise<PoseFrame[]> {
     try {
       await this.initialize()
 
@@ -52,7 +56,9 @@ export class ClientPoseExtractor {
         video.muted = true
         video.playsInline = true // Added for mobile compatibility
 
-        const poses: PoseFrame[] = []
+        const allPoses: PoseFrame[] = []
+        let batchPoses: PoseFrame[] = []
+        const BATCH_SIZE = 50 // Process and store every 50 frames
         const canvas = document.createElement("canvas")
         const ctx = canvas.getContext("2d")
 
@@ -72,9 +78,17 @@ export class ClientPoseExtractor {
 
           const extractFrame = async () => {
             if (currentTime >= duration) {
+              if (batchPoses.length > 0 && onBatchReady) {
+                try {
+                  await onBatchReady([...batchPoses])
+                } catch (error) {
+                  console.error("[v0] Failed to save final batch:", error)
+                }
+              }
+
               URL.revokeObjectURL(video.src)
-              console.log(`[v0] Pose extraction complete: ${poses.length} frames`)
-              resolve(poses)
+              console.log(`[v0] Pose extraction complete: ${allPoses.length} frames`)
+              resolve(allPoses)
               return
             }
 
@@ -89,14 +103,26 @@ export class ClientPoseExtractor {
 
                 if (result.landmarks && result.landmarks.length > 0) {
                   const landmarks = result.landmarks[0]
-                  poses.push({
+                  const poseFrame = {
                     timestamp: currentTime,
                     landmarks: landmarks.map((l) => ({ x: l.x, y: l.y, z: l.z })),
                     visibility: landmarks.map((l) => l.visibility || 0),
-                  })
+                  }
+
+                  batchPoses.push(poseFrame)
+                  allPoses.push(poseFrame)
+
+                  if (batchPoses.length >= BATCH_SIZE && onBatchReady) {
+                    try {
+                      await onBatchReady([...batchPoses])
+                      batchPoses = [] // Clear the batch after upload
+                    } catch (error) {
+                      console.error("[v0] Failed to save batch:", error)
+                      // Continue processing even if upload fails
+                    }
+                  }
                 }
 
-                // Update progress
                 const progress = (currentTime / duration) * 100
                 if (onProgress) onProgress(Math.round(progress))
 
@@ -159,7 +185,8 @@ export class ClientPoseExtractor {
 export async function extractPosesFromVideo(
   videoFile: File,
   onProgress?: (percent: number) => void,
+  onBatchReady?: (batch: PoseFrame[]) => Promise<void>,
 ): Promise<PoseFrame[]> {
   const extractor = new ClientPoseExtractor()
-  return extractor.extractPosesFromVideo(videoFile, onProgress)
+  return extractor.extractPosesFromVideo(videoFile, onProgress, onBatchReady)
 }
