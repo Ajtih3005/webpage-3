@@ -19,7 +19,6 @@ import { cn, isValidYoutubeUrl } from "@/lib/utils"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { Checkbox } from "@/components/ui/checkbox"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { ClientPoseExtractor } from "@/lib/client-pose-extractor"
 
 // Update the component to include multiple batches functionality and video type selection
 export default function CreateCoursePage() {
@@ -229,30 +228,72 @@ export default function CreateCoursePage() {
       setPoseError(null)
       setPoseProgress(0)
 
+      const { ClientPoseExtractor } = await import("@/lib/client-pose-extractor")
       const extractor = new ClientPoseExtractor()
 
       // Extract poses from video
       const poses = await extractor.extractPosesFromVideo(videoFile, (progress) => {
-        setPoseProgress(Math.min(progress, 90))
+        setPoseProgress(Math.min(progress, 70))
       })
 
-      const response = await fetch("/api/ai/save-pose-session", {
+      // Split poses into chunks of 100 frames to avoid payload size limits
+      const CHUNK_SIZE = 100
+      const chunks = []
+      for (let i = 0; i < poses.length; i += CHUNK_SIZE) {
+        chunks.push(poses.slice(i, i + CHUNK_SIZE))
+      }
+
+      let sessionId = null
+
+      // Upload first chunk and create session
+      const firstResponse = await fetch("/api/ai/save-pose-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           videoName: videoFile.name,
           videoDuration: poses.length > 0 ? poses[poses.length - 1].timestamp : 0,
-          poses: poses,
+          poses: chunks[0],
         }),
       })
 
-      const result = await response.json()
+      const firstResult = await firstResponse.json()
+      if (!firstResponse.ok) throw new Error(firstResult.error)
 
-      if (!response.ok) throw new Error(result.error)
+      sessionId = firstResult.sessionId
+      setPoseProgress(70 + (1 / chunks.length) * 20)
 
-      setPoseSessionId(result.sessionId)
+      // Upload remaining chunks
+      for (let i = 1; i < chunks.length; i++) {
+        const chunkResponse = await fetch("/api/ai/save-pose-session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId,
+            poses: chunks[i],
+            isChunk: true,
+            chunkIndex: i,
+          }),
+        })
+
+        const chunkResult = await chunkResponse.json()
+        if (!chunkResponse.ok) throw new Error(chunkResult.error)
+
+        setPoseProgress(70 + ((i + 1) / chunks.length) * 20)
+      }
+
+      // Mark session as complete
+      await fetch("/api/ai/save-pose-session", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId,
+          totalFrames: poses.length,
+        }),
+      })
+
+      setPoseSessionId(sessionId)
       setPoseProgress(100)
-      return result.sessionId
+      return sessionId
     } catch (error: any) {
       console.error("Pose processing error:", error)
       setPoseError(error.message || "Failed to process video")

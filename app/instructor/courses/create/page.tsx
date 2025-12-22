@@ -19,7 +19,6 @@ import { cn, isValidYoutubeUrl } from "@/lib/utils"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { extractPosesFromVideo } from "@/lib/client-pose-extractor"
 
 export default function InstructorCreateCoursePage() {
   const router = useRouter()
@@ -180,27 +179,66 @@ export default function InstructorCreateCoursePage() {
       setPoseError(null)
       setPoseProgress(0)
 
+      const { extractPosesFromVideo } = await import("@/lib/client-pose-extractor")
+
       const poses = await extractPosesFromVideo(videoFile, (progress) => {
-        setPoseProgress(Math.min(progress, 90))
+        setPoseProgress(Math.min(progress, 70))
       })
 
-      const response = await fetch("/api/ai/save-pose-session", {
+      const CHUNK_SIZE = 100
+      const chunks = []
+      for (let i = 0; i < poses.length; i += CHUNK_SIZE) {
+        chunks.push(poses.slice(i, i + CHUNK_SIZE))
+      }
+
+      let sessionId = null
+
+      const firstResponse = await fetch("/api/ai/save-pose-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           videoName: videoFile.name,
           videoDuration: poses.length > 0 ? poses[poses.length - 1].timestamp : 0,
-          poses: poses,
+          poses: chunks[0],
         }),
       })
 
-      const result = await response.json()
+      const firstResult = await firstResponse.json()
+      if (!firstResponse.ok) throw new Error(firstResult.error)
 
-      if (!response.ok) throw new Error(result.error)
+      sessionId = firstResult.sessionId
+      setPoseProgress(70 + (1 / chunks.length) * 20)
 
-      setPoseSessionId(result.sessionId)
+      for (let i = 1; i < chunks.length; i++) {
+        const chunkResponse = await fetch("/api/ai/save-pose-session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId,
+            poses: chunks[i],
+            isChunk: true,
+            chunkIndex: i,
+          }),
+        })
+
+        const chunkResult = await chunkResponse.json()
+        if (!chunkResponse.ok) throw new Error(chunkResult.error)
+
+        setPoseProgress(70 + ((i + 1) / chunks.length) * 20)
+      }
+
+      await fetch("/api/ai/save-pose-session", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId,
+          totalFrames: poses.length,
+        }),
+      })
+
+      setPoseSessionId(sessionId)
       setPoseProgress(100)
-      return result.sessionId
+      return sessionId
     } catch (error: any) {
       console.error("Pose processing error:", error)
       setPoseError(error.message || "Failed to process video")
@@ -214,13 +252,11 @@ export default function InstructorCreateCoursePage() {
     const file = e.target.files?.[0]
     if (!file) return
 
-    // Validate file type
     if (!file.type.startsWith("video/")) {
       setPoseError("Please upload a valid video file")
       return
     }
 
-    // Validate file size (max 500MB)
     if (file.size > 500 * 1024 * 1024) {
       setPoseError("Video file too large (max 500MB)")
       return
@@ -228,7 +264,6 @@ export default function InstructorCreateCoursePage() {
 
     setInstructorVideoFile(file)
 
-    // Automatically start processing
     try {
       await processPoseVideo(file)
     } catch (error) {
@@ -256,7 +291,6 @@ export default function InstructorCreateCoursePage() {
         instructor_pose_session_id: poseSessionId || null,
       }
 
-      // Create course entries for each batch
       const courseEntries = []
 
       if (isPredefinedBatch) {
