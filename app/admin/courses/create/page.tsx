@@ -233,67 +233,26 @@ export default function CreateCoursePage() {
 
       // Extract poses from video
       const poses = await extractor.extractPosesFromVideo(videoFile, (progress) => {
-        setPoseProgress(Math.min(progress, 70))
+        setPoseProgress(Math.min(progress, 90))
       })
 
-      // Split poses into chunks of 100 frames to avoid payload size limits
-      const CHUNK_SIZE = 100
-      const chunks = []
-      for (let i = 0; i < poses.length; i += CHUNK_SIZE) {
-        chunks.push(poses.slice(i, i + CHUNK_SIZE))
-      }
-
-      let sessionId = null
-
-      // Upload first chunk and create session
-      const firstResponse = await fetch("/api/ai/save-pose-session", {
+      const response = await fetch("/api/ai/save-pose-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          courseId: `temp_${Date.now()}`,
           videoName: videoFile.name,
           videoDuration: poses.length > 0 ? poses[poses.length - 1].timestamp : 0,
-          poses: chunks[0],
+          poses: poses,
         }),
       })
 
-      const firstResult = await firstResponse.json()
-      if (!firstResponse.ok) throw new Error(firstResult.error)
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error)
 
-      sessionId = firstResult.sessionId
-      setPoseProgress(70 + (1 / chunks.length) * 20)
-
-      // Upload remaining chunks
-      for (let i = 1; i < chunks.length; i++) {
-        const chunkResponse = await fetch("/api/ai/save-pose-session", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sessionId,
-            poses: chunks[i],
-            isChunk: true,
-            chunkIndex: i,
-          }),
-        })
-
-        const chunkResult = await chunkResponse.json()
-        if (!chunkResponse.ok) throw new Error(chunkResult.error)
-
-        setPoseProgress(70 + ((i + 1) / chunks.length) * 20)
-      }
-
-      // Mark session as complete
-      await fetch("/api/ai/save-pose-session", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sessionId,
-          totalFrames: poses.length,
-        }),
-      })
-
-      setPoseSessionId(sessionId)
+      setPoseSessionId(result.courseId)
       setPoseProgress(100)
-      return sessionId
+      return result.courseId
     } catch (error: any) {
       console.error("Pose processing error:", error)
       setPoseError(error.message || "Failed to process video")

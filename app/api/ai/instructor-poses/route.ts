@@ -4,33 +4,37 @@ import { getAISupabaseClient } from "@/lib/ai-supabase-server"
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams
-    const sessionId = searchParams.get("sessionId")
+    const courseId = searchParams.get("courseId")
 
-    if (!sessionId) {
-      return NextResponse.json({ error: "Session ID required" }, { status: 400 })
+    if (!courseId) {
+      return NextResponse.json({ error: "Course ID required" }, { status: 400 })
     }
 
     const aiSupabase = getAISupabaseClient()
 
-    // Get instructor poses
-    const { data: poses, error: posesError } = await aiSupabase
-      .from("instructor_poses")
+    const { data: poseData, error: dataError } = await aiSupabase
+      .from("instructor_pose_data")
       .select("*")
-      .eq("session_id", sessionId)
-      .order("timestamp_ms", { ascending: true })
-
-    if (posesError) throw posesError
-
-    // Get session info
-    const { data: session, error: sessionError } = await aiSupabase
-      .from("pose_sessions")
-      .select("*")
-      .eq("id", sessionId)
+      .eq("course_id", courseId)
       .single()
 
-    if (sessionError) throw sessionError
+    if (dataError) throw dataError
 
-    return NextResponse.json({ poses, session })
+    if (!poseData) {
+      return NextResponse.json({ error: "No pose data found for this course" }, { status: 404 })
+    }
+
+    // Return poses array from JSONB column
+    return NextResponse.json({
+      poses: poseData.poses || [],
+      session: {
+        id: poseData.id,
+        course_id: poseData.course_id,
+        video_name: poseData.video_name,
+        video_duration: poseData.video_duration,
+        total_frames: poseData.total_frames,
+      },
+    })
   } catch (error: any) {
     console.error("Error fetching instructor poses:", error)
     return NextResponse.json({ error: error.message }, { status: 500 })

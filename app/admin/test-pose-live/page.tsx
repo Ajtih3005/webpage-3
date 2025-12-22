@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Camera, VideoIcon } from "lucide-react"
 import Link from "next/link"
-import { PoseLandmarker, FilesetResolver, DrawingUtils } from "@mediapipe/tasks-vision"
 
 function TestPoseLiveContent() {
   const searchParams = useSearchParams()
@@ -19,17 +18,23 @@ function TestPoseLiveContent() {
   const [cameraActive, setCameraActive] = useState(false)
   const [currentAccuracy, setCurrentAccuracy] = useState<number>(0)
   const [jointAccuracies, setJointAccuracies] = useState<any>({})
-  const [poseLandmarker, setPoseLandmarker] = useState<PoseLandmarker | null>(null)
+  const [poseLandmarker, setPoseLandmarker] = useState<any | null>(null)
+  const [currentVideoTime, setCurrentVideoTime] = useState(0)
 
-  const videoRef = useRef<HTMLVideoElement>(null)
   const webcamRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const instructorCanvasRef = useRef<HTMLCanvasElement>(null)
+  const animationFrameRef = useRef<number>()
 
   useEffect(() => {
     if (sessionId) {
       loadInstructorPoses()
       initializePoseLandmarker()
+    }
+
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current)
+      }
     }
   }, [sessionId])
 
@@ -43,13 +48,15 @@ function TestPoseLiveContent() {
 
       if (result.poses) {
         setInstructorPoses(result.poses)
+        console.log("[v0] Loaded instructor poses:", result.poses.length)
       }
 
       if (result.session) {
         setCourseInfo(result.session)
+        console.log("[v0] Course info:", result.session)
       }
     } catch (error) {
-      console.error("Error loading instructor poses:", error)
+      console.error("[v0] Error loading instructor poses:", error)
     } finally {
       setLoading(false)
     }
@@ -57,6 +64,9 @@ function TestPoseLiveContent() {
 
   const initializePoseLandmarker = async () => {
     try {
+      console.log("[v0] Initializing MediaPipe PoseLandmarker...")
+      const { FilesetResolver, PoseLandmarker } = await import("@mediapipe/tasks-vision")
+
       const vision = await FilesetResolver.forVisionTasks(
         "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm",
       )
@@ -70,7 +80,7 @@ function TestPoseLiveContent() {
         numPoses: 1,
       })
       setPoseLandmarker(landmarker)
-      console.log("[v0] PoseLandmarker initialized")
+      console.log("[v0] PoseLandmarker initialized successfully")
     } catch (error) {
       console.error("[v0] Error initializing PoseLandmarker:", error)
     }
@@ -86,10 +96,12 @@ function TestPoseLiveContent() {
       if (webcamRef.current) {
         webcamRef.current.srcObject = stream
         setCameraActive(true)
+        console.log("[v0] Camera started")
         startPoseDetection()
       }
     } catch (error) {
       console.error("[v0] Error accessing webcam:", error)
+      alert("Unable to access webcam. Please grant camera permissions.")
     }
   }
 
@@ -98,41 +110,56 @@ function TestPoseLiveContent() {
       const stream = webcamRef.current.srcObject as MediaStream
       stream.getTracks().forEach((track) => track.stop())
       setCameraActive(false)
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current)
+      }
+      console.log("[v0] Camera stopped")
     }
   }
 
   const startPoseDetection = () => {
-    if (!poseLandmarker || !webcamRef.current || !canvasRef.current) return
+    if (!poseLandmarker || !webcamRef.current || !canvasRef.current) {
+      console.log("[v0] Cannot start pose detection - missing requirements")
+      return
+    }
 
     const detectPose = async () => {
-      if (!webcamRef.current || !canvasRef.current || !cameraActive) return
+      if (!webcamRef.current || !canvasRef.current || !cameraActive || !poseLandmarker) return
 
-      const videoTime = performance.now()
-      const results = poseLandmarker.detectForVideo(webcamRef.current, videoTime)
+      try {
+        const videoTime = performance.now()
+        const results = poseLandmarker.detectForVideo(webcamRef.current, videoTime)
 
-      // Draw user pose on canvas
-      const ctx = canvasRef.current.getContext("2d")
-      if (ctx && results.landmarks && results.landmarks.length > 0) {
-        ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height)
-        const drawingUtils = new DrawingUtils(ctx)
-        drawingUtils.drawLandmarks(results.landmarks[0])
-        drawingUtils.drawConnectors(results.landmarks[0], PoseLandmarker.POSE_CONNECTIONS)
+        // Draw user pose on canvas
+        const ctx = canvasRef.current.getContext("2d")
+        if (ctx && results.landmarks && results.landmarks.length > 0) {
+          ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height)
 
-        // Compare with instructor pose
-        if (videoRef.current && instructorPoses.length > 0) {
-          const currentVideoTime = videoRef.current.currentTime * 1000
-          const closestInstructorPose = findClosestPose(currentVideoTime)
+          const { DrawingUtils, PoseLandmarker: PL } = await import("@mediapipe/tasks-vision")
+          const drawingUtils = new DrawingUtils(ctx)
+          drawingUtils.drawLandmarks(results.landmarks[0])
+          drawingUtils.drawConnectors(results.landmarks[0], PL.POSE_CONNECTIONS)
 
-          if (closestInstructorPose) {
-            const accuracy = calculatePoseAccuracy(results.landmarks[0], closestInstructorPose.pose_landmarks)
-            setCurrentAccuracy(accuracy.overall)
-            setJointAccuracies(accuracy.joints)
+          // Compare with instructor pose at current video time
+          if (instructorPoses.length > 0) {
+            const closestInstructorPose = findClosestPose(currentVideoTime)
+
+            if (closestInstructorPose) {
+              const accuracy = calculatePoseAccuracy(
+                results.landmarks[0],
+                closestInstructorPose.pose_landmarks.landmarks,
+              )
+              setCurrentAccuracy(accuracy.overall)
+              setJointAccuracies(accuracy.joints)
+            }
           }
         }
+      } catch (error) {
+        console.error("[v0] Pose detection error:", error)
       }
 
       if (cameraActive) {
-        requestAnimationFrame(detectPose)
+        animationFrameRef.current = requestAnimationFrame(detectPose)
       }
     }
 
@@ -140,6 +167,8 @@ function TestPoseLiveContent() {
   }
 
   const findClosestPose = (currentTime: number) => {
+    if (instructorPoses.length === 0) return null
+
     return instructorPoses.reduce((closest, pose) => {
       const timeDiff = Math.abs(pose.timestamp_ms - currentTime)
       const closestDiff = closest ? Math.abs(closest.timestamp_ms - currentTime) : Number.POSITIVE_INFINITY
@@ -147,30 +176,30 @@ function TestPoseLiveContent() {
     }, null)
   }
 
-  const calculatePoseAccuracy = (userLandmarks: any[], instructorLandmarks: any) => {
+  const calculatePoseAccuracy = (userLandmarks: any[], instructorLandmarks: any[]) => {
     const keyPoints = [
-      { name: "left_shoulder", indices: [11, 12] },
-      { name: "right_shoulder", indices: [11, 12] },
-      { name: "left_elbow", indices: [11, 13] },
-      { name: "right_elbow", indices: [12, 14] },
-      { name: "left_hip", indices: [23, 24] },
-      { name: "right_hip", indices: [23, 24] },
-      { name: "left_knee", indices: [23, 25] },
-      { name: "right_knee", indices: [24, 26] },
+      { name: "left_shoulder", index: 11 },
+      { name: "right_shoulder", index: 12 },
+      { name: "left_elbow", index: 13 },
+      { name: "right_elbow", index: 14 },
+      { name: "left_hip", index: 23 },
+      { name: "right_hip", index: 24 },
+      { name: "left_knee", index: 25 },
+      { name: "right_knee", index: 26 },
     ]
 
     const jointAccuracies: any = {}
     let totalAccuracy = 0
 
     keyPoints.forEach((point) => {
-      const userPoint = userLandmarks[point.indices[0]]
-      const instructorPoint = instructorLandmarks[point.indices[0]]
+      const userPoint = userLandmarks[point.index]
+      const instructorPoint = instructorLandmarks[point.index]
 
       if (userPoint && instructorPoint) {
         const distance = Math.sqrt(
           Math.pow(userPoint.x - instructorPoint.x, 2) +
             Math.pow(userPoint.y - instructorPoint.y, 2) +
-            Math.pow(userPoint.z - instructorPoint.z, 2),
+            Math.pow((userPoint.z || 0) - (instructorPoint.z || 0), 2),
         )
 
         const accuracy = Math.max(0, 100 - distance * 100)
@@ -184,6 +213,14 @@ function TestPoseLiveContent() {
       joints: jointAccuracies,
     }
   }
+
+  const getYouTubeId = (url: string) => {
+    if (!url) return null
+    const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/)
+    return match ? match[1] : null
+  }
+
+  const youtubeId = courseInfo?.youtube_link ? getYouTubeId(courseInfo.youtube_link) : null
 
   if (loading) {
     return (
@@ -246,18 +283,46 @@ function TestPoseLiveContent() {
               {courseInfo && <Badge variant="outline">{instructorPoses.length} poses extracted</Badge>}
             </div>
             <div className="relative bg-black rounded-lg overflow-hidden" style={{ aspectRatio: "16/9" }}>
-              {courseInfo?.youtube_link ? (
-                <video
-                  ref={videoRef}
-                  src={courseInfo.youtube_link}
-                  controls
+              {youtubeId ? (
+                <iframe
+                  src={`https://www.youtube.com/embed/${youtubeId}?enablejsapi=1`}
                   className="w-full h-full"
-                  onPlay={() => cameraActive && startPoseDetection()}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  onLoad={(e) => {
+                    // Listen for YouTube player time updates
+                    const iframe = e.target as HTMLIFrameElement
+                    const updateTime = setInterval(() => {
+                      // This is a simplified approach - in production you'd use YouTube IFrame API
+                      setCurrentVideoTime(currentVideoTime + 100)
+                    }, 100)
+
+                    return () => clearInterval(updateTime)
+                  }}
                 />
               ) : (
-                <div className="flex items-center justify-center h-full text-white">No video available</div>
+                <div className="flex items-center justify-center h-full text-white">
+                  <div className="text-center">
+                    <VideoIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                    <p>No video available</p>
+                    <p className="text-sm text-gray-400 mt-2">Upload instructor video during course creation</p>
+                  </div>
+                </div>
               )}
-              <canvas ref={instructorCanvasRef} className="absolute top-0 left-0 w-full h-full pointer-events-none" />
+            </div>
+            <div className="mt-4">
+              <label className="text-sm font-medium mb-2 block">Manual Time Sync (ms)</label>
+              <input
+                type="range"
+                min="0"
+                max={courseInfo?.video_duration * 1000 || 60000}
+                value={currentVideoTime}
+                onChange={(e) => setCurrentVideoTime(Number(e.target.value))}
+                className="w-full"
+              />
+              <div className="text-xs text-gray-500 mt-1">
+                Current: {(currentVideoTime / 1000).toFixed(1)}s / {courseInfo?.video_duration || 0}s
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -317,7 +382,7 @@ function TestPoseLiveContent() {
                       className={`h-3 rounded-full transition-all ${
                         accuracy >= 80 ? "bg-green-500" : accuracy >= 60 ? "bg-yellow-500" : "bg-red-500"
                       }`}
-                      style={{ width: `${accuracy}%` }}
+                      style={{ width: `${Math.min(100, accuracy)}%` }}
                     />
                   </div>
                 </div>
@@ -325,7 +390,8 @@ function TestPoseLiveContent() {
             </div>
           ) : (
             <div className="text-center py-8 text-gray-500">
-              <p>Start the camera and play the instructor video to see live comparison</p>
+              <p>Start the camera and adjust the time slider to see live comparison</p>
+              <p className="text-sm mt-2">Move the slider to match the instructor video timestamp</p>
             </div>
           )}
         </CardContent>
