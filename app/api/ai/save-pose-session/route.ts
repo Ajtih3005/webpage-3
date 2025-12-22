@@ -1,9 +1,21 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getAISupabaseClient } from "@/lib/ai-supabase-server"
 
+export const runtime = "nodejs"
+export const maxDuration = 60
+export const dynamic = "force-dynamic"
+
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: "50mb",
+    },
+  },
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const { courseId, videoName, videoDuration, poses } = await request.json()
+    const { courseId, videoName, videoDuration, poses, isFirstChunk, isLastChunk } = await request.json()
 
     if (!poses || poses.length === 0) {
       return NextResponse.json({ error: "No pose data provided" }, { status: 400 })
@@ -11,37 +23,62 @@ export async function POST(request: NextRequest) {
 
     const aiSupabase = getAISupabaseClient()
 
-    // Format poses as array with timestamps
     const posesArray = poses.map((pose: any) => ({
-      timestamp: Math.round(pose.timestamp * 1000),
+      timestamp: pose.timestamp || 0,
       landmarks: pose.landmarks,
       visibility: pose.visibility,
     }))
 
-    // Store all poses in a single row
-    const { data: poseData, error: insertError } = await aiSupabase
-      .from("instructor_poses")
-      .upsert(
-        {
+    if (isFirstChunk) {
+      const { data: poseData, error: insertError } = await aiSupabase
+        .from("instructor_poses")
+        .insert({
           course_id: courseId || "temp_" + Date.now(),
           video_url: videoName,
           total_frames: poses.length,
           poses: posesArray,
-        },
-        { onConflict: "course_id" },
-      )
-      .select()
-      .single()
+        })
+        .select()
+        .single()
 
-    if (insertError) throw insertError
+      if (insertError) throw insertError
 
-    return NextResponse.json({
-      sessionId: poseData.id,
-      courseId: poseData.course_id,
-      success: true,
-    })
+      return NextResponse.json({
+        sessionId: poseData.id,
+        courseId: poseData.course_id,
+        success: true,
+      })
+    } else {
+      const { data: existingData, error: fetchError } = await aiSupabase
+        .from("instructor_poses")
+        .select("poses, total_frames")
+        .eq("course_id", courseId)
+        .single()
+
+      if (fetchError) throw fetchError
+
+      const updatedPoses = [...(existingData.poses || []), ...posesArray]
+
+      const { data: updateData, error: updateError } = await aiSupabase
+        .from("instructor_poses")
+        .update({
+          poses: updatedPoses,
+          total_frames: isLastChunk ? updatedPoses.length : existingData.total_frames + poses.length,
+        })
+        .eq("course_id", courseId)
+        .select()
+        .single()
+
+      if (updateError) throw updateError
+
+      return NextResponse.json({
+        sessionId: updateData.id,
+        courseId: updateData.course_id,
+        success: true,
+      })
+    }
   } catch (error: any) {
-    console.error("Error saving pose session:", error)
+    console.error("[v0] Error saving pose session:", error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
@@ -63,7 +100,7 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({ success: true })
   } catch (error: any) {
-    console.error("Error updating pose session:", error)
+    console.error("[v0] Error updating pose session:", error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

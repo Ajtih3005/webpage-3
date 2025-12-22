@@ -233,26 +233,50 @@ export default function CreateCoursePage() {
 
       // Extract poses from video
       const poses = await extractor.extractPosesFromVideo(videoFile, (progress) => {
-        setPoseProgress(Math.min(progress, 90))
+        setPoseProgress(Math.min(progress, 80))
       })
 
-      const response = await fetch("/api/ai/save-pose-session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          courseId: `temp_${Date.now()}`,
-          videoName: videoFile.name,
-          videoDuration: poses.length > 0 ? poses[poses.length - 1].timestamp : 0,
-          poses: poses,
-        }),
-      })
+      const CHUNK_SIZE = 100
+      const chunks = []
+      for (let i = 0; i < poses.length; i += CHUNK_SIZE) {
+        chunks.push(poses.slice(i, i + CHUNK_SIZE))
+      }
 
-      const result = await response.json()
-      if (!response.ok) throw new Error(result.error)
+      let courseId = `temp_${Date.now()}`
+      let sessionId = null
 
-      setPoseSessionId(result.courseId)
+      for (let i = 0; i < chunks.length; i++) {
+        const isFirstChunk = i === 0
+        const isLastChunk = i === chunks.length - 1
+
+        const response = await fetch("/api/ai/save-pose-session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            courseId,
+            videoName: videoFile.name,
+            videoDuration: poses.length > 0 ? poses[poses.length - 1].timestamp : 0,
+            poses: chunks[i],
+            isFirstChunk,
+            isLastChunk,
+          }),
+        })
+
+        const result = await response.json()
+        if (!response.ok) throw new Error(result.error)
+
+        if (isFirstChunk) {
+          courseId = result.courseId
+          sessionId = result.sessionId
+        }
+
+        // Update progress for upload
+        setPoseProgress(80 + (20 * (i + 1)) / chunks.length)
+      }
+
+      setPoseSessionId(courseId)
       setPoseProgress(100)
-      return result.courseId
+      return courseId
     } catch (error: any) {
       console.error("Pose processing error:", error)
       setPoseError(error.message || "Failed to process video")
