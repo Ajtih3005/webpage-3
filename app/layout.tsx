@@ -1,9 +1,21 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Inter } from "next/font/google"
+import { Playfair_Display, Lora } from "next/font/google"
 import "./globals.css"
 
-const inter = Inter({ subsets: ["latin"] })
+const playfair = Playfair_Display({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-playfair",
+  display: "swap",
+})
+
+const lora = Lora({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-lora",
+  display: "swap",
+})
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://sthavishtah.com"),
@@ -56,7 +68,7 @@ export default function RootLayout({
         <meta property="og:url" content="https://sthavishtah.com" />
         <meta property="og:type" content="website" />
       </head>
-      <body className={inter.className}>{children}</body>
+      <body className={`${playfair.variable} ${lora.variable}`}>{children}</body>
     </html>
   )
 }
