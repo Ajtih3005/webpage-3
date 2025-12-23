@@ -58,15 +58,23 @@ export default function Home() {
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
 
-  // Fetch subscription pages
+  // Fetch subscription pages and team data, wrapped in try-catch
   useEffect(() => {
-    fetchSubscriptionPages()
-    fetchTeamData()
+    const initializeData = async () => {
+      try {
+        await fetchSubscriptionPages()
+        await fetchTeamData()
+      } catch (error) {
+        console.error("Failed to initialize data:", error)
+        // Continue rendering even if data fetch fails
+      }
+    }
+    initializeData()
   }, [])
 
   const fetchSubscriptionPages = async () => {
-    const supabase = getSupabaseBrowserClient()
     try {
+      const supabase = getSupabaseBrowserClient()
       const { data, error } = await supabase
         .from("subscription_pages")
         .select("id, slug, title, subtitle, hero_image_url, status")
@@ -78,12 +86,13 @@ export default function Home() {
       }
     } catch (error) {
       console.error("Error fetching subscription pages:", error)
+      // Silently fail - page will render without subscription pages
     }
   }
 
   const fetchTeamData = async () => {
-    const supabase = getSupabaseBrowserClient()
     try {
+      const supabase = getSupabaseBrowserClient()
       // Fetch team members
       const { data: members, error: membersError } = await supabase
         .from("team_members")
@@ -107,11 +116,20 @@ export default function Home() {
       }
     } catch (error) {
       console.error("Error fetching team data:", error)
+      // Silently fail - page will render without team section
     }
   }
 
   const handleExploreClick = (slug: string) => {
-    window.location.href = `/plans/${slug}`
+    window.location.href = `/user/subscription-categories/${slug}`
+  }
+
+  const handleEnroll = () => {
+    // This function will be called when the "Attend 7 Days FREE" button is clicked.
+    // You can add logic here to redirect the user or open a modal.
+    console.log("Enroll button clicked")
+    // Example: Redirect to registration page
+    window.location.href = "/user/register"
   }
 
   return (
@@ -213,34 +231,38 @@ export default function Home() {
             </div>
           </div>
 
+          {/* CHANGE: Updated hero heading and description */}
           <h1 className="font-playfair text-4xl md:text-6xl lg:text-7xl font-light text-white mb-6 leading-tight">
             Return to Stillness.
             <br />
-            <span className="font-semibold">Return to Yourself.</span>
+            <span className="font-semibold">Practice with Structure.</span>
           </h1>
 
           <p className="font-lora text-lg md:text-xl text-white/90 max-w-3xl mx-auto mb-12 leading-relaxed">
-            A gentle, guided yoga and wellness practice rooted in breath, awareness, and balance — designed to help you
-            slow down, soften the body, and steady the mind.
+            A structured yoga practice rooted in breath and awareness — designed to calm the mind, restore movement, and
+            build lasting inner stability.
           </p>
         </div>
       </section>
 
-      <section className="py-12 bg-amber-50/40">
-        <div className="container mx-auto px-6 text-center max-w-2xl">
-          <h2 className="font-playfair text-2xl md:text-3xl font-semibold text-emerald-800 mb-8">
-            Sthavishtah Yoga and Wellness
+      {/* CTA Section - Begin with Guided Practice */}
+      <div className="container mx-auto px-6 py-24">
+        <div className="text-center max-w-4xl mx-auto space-y-10">
+          <h2 className="font-playfair text-5xl md:text-6xl mb-12 text-stone-800 leading-tight">
+            Begin with a Guided Practice
           </h2>
-          <Link
-            href="/user/register"
-            className="inline-flex items-center gap-2 px-10 py-4 bg-teal-600 text-white rounded-full hover:bg-teal-700 transition-all hover:shadow-xl font-lora text-lg mb-4"
+          <Button
+            size="lg"
+            className="bg-teal-600 hover:bg-teal-700 text-white px-12 py-8 text-xl md:text-2xl font-lora shadow-2xl hover:shadow-3xl transition-all duration-300 rounded-xl hover:scale-105 w-full md:w-auto min-w-[400px]"
+            onClick={handleEnroll}
           >
-            Begin Your 7 Days Free Practice
-            <ArrowRight className="h-5 w-5" />
-          </Link>
-          <p className="font-lora text-emerald-700/60 italic text-base">A quiet beginning, at your own pace</p>
+            <div className="flex flex-col items-center gap-2">
+              <span className="font-semibold">Attend 7 Days FREE →</span>
+              <span className="text-base text-teal-50 font-normal">Live sessions • No cost • Open to beginners</span>
+            </div>
+          </Button>
         </div>
-      </section>
+      </div>
 
       <section className="py-12 bg-white border-y border-emerald-100/40">
         <div className="container mx-auto px-6 text-center">
@@ -343,7 +365,7 @@ export default function Home() {
         </div>
 
         {/* Light Pattern Overlay */}
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgdmlld0JveD0iMCAwIDYwIDYwIj48ZyBmaWxsPSJub25lIiBBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiMwNDdBMzgiIGZpbGwtb3BhY2l0eT0iMC4wMyI+PHBhdGggZD0iTTM2IDM0di00aC0ydjRoLTR2Mmg0djRoMnYtNGg0di0ySDZ6T00iLz48L2c+PC9nPjwvc3ZnPg==')] opacity-50 -z-10"></div>
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgdmlld0JveD0iMCAwIDYwIDYwIj48ZyBmaWxsPSNub25lIiBBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiMwNDdBMzgiIGZpbGwtb3BhY2l0eT0iMC4wMyI+PHBhdGggZD0iTTM2IDM0di00aC0ydjRoLTR2Mmg0djRoMnYtNGg0di0ySDZ6T00iLz48L2c+PC9nPjwvc3ZnPg==')] opacity-50 -z-10"></div>
 
         <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-emerald-200 to-transparent"></div>
 
