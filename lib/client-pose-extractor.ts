@@ -86,7 +86,7 @@ export class ClientPoseExtractor {
           canvas.height = video.videoHeight
 
           const duration = video.duration
-          const fps = 0.66 // ~1 frame per 1.5 seconds
+          const fps = 1.5 // ~1.5 frames per second (~3000 frames for 30-min video)
           const interval = 1 / fps
           let currentTime = 0
 
@@ -170,7 +170,6 @@ export class ClientPoseExtractor {
   }
 
   comparePoses(userLandmarks: any[], instructorLandmarks: any[]): number {
-    // All 12 key joints are stored now
     const keyJointIndices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
 
     let totalSimilarity = 0

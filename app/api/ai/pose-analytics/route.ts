@@ -10,8 +10,8 @@ export async function GET(request: NextRequest) {
 
     if (type === "instructor-videos") {
       const { data, error } = await aiSupabase
-        .from("pose_sessions")
-        .select("*")
+        .from("instructor_poses")
+        .select("id, course_id, total_frames, created_at")
         .order("created_at", { ascending: false })
 
       if (error) throw error
@@ -80,8 +80,7 @@ export async function DELETE(request: NextRequest) {
 
     const aiSupabase = getAISupabaseClient()
 
-    // Delete from pose_sessions (cascade will delete instructor_poses)
-    const { error } = await aiSupabase.from("pose_sessions").delete().eq("id", sessionId)
+    const { error } = await aiSupabase.from("instructor_poses").delete().eq("id", sessionId)
 
     if (error) throw error
 
