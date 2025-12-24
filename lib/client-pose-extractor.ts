@@ -3,7 +3,21 @@ import type { PoseLandmarker } from "@mediapipe/tasks-vision"
 export interface PoseFrame {
   timestamp: number
   landmarks: Array<{ x: number; y: number; z: number }>
-  visibility: number[]
+}
+
+const KEY_JOINTS = {
+  LEFT_SHOULDER: 11,
+  RIGHT_SHOULDER: 12,
+  LEFT_ELBOW: 13,
+  RIGHT_ELBOW: 14,
+  LEFT_WRIST: 15,
+  RIGHT_WRIST: 16,
+  LEFT_HIP: 23,
+  RIGHT_HIP: 24,
+  LEFT_KNEE: 25,
+  RIGHT_KNEE: 26,
+  LEFT_ANKLE: 27,
+  RIGHT_ANKLE: 28,
 }
 
 export class ClientPoseExtractor {
@@ -54,11 +68,11 @@ export class ClientPoseExtractor {
         const video = document.createElement("video")
         video.src = URL.createObjectURL(videoFile)
         video.muted = true
-        video.playsInline = true // Added for mobile compatibility
+        video.playsInline = true
 
         const allPoses: PoseFrame[] = []
         let batchPoses: PoseFrame[] = []
-        const BATCH_SIZE = 50 // Process and store every 50 frames
+        const BATCH_SIZE = 50
         const canvas = document.createElement("canvas")
         const ctx = canvas.getContext("2d")
 
@@ -72,7 +86,7 @@ export class ClientPoseExtractor {
           canvas.height = video.videoHeight
 
           const duration = video.duration
-          const fps = 2 // Extract 2 poses per second
+          const fps = 0.66 // ~1 frame per 1.5 seconds
           const interval = 1 / fps
           let currentTime = 0
 
@@ -98,15 +112,20 @@ export class ClientPoseExtractor {
               try {
                 ctx.drawImage(video, 0, 0)
 
-                // Detect pose at this frame
                 const result = this.poseLandmarker!.detectForVideo(video, currentTime * 1000)
 
                 if (result.landmarks && result.landmarks.length > 0) {
-                  const landmarks = result.landmarks[0]
+                  const allLandmarks = result.landmarks[0]
+
+                  const keyLandmarks = Object.values(KEY_JOINTS).map((idx) => ({
+                    x: allLandmarks[idx].x,
+                    y: allLandmarks[idx].y,
+                    z: allLandmarks[idx].z,
+                  }))
+
                   const poseFrame = {
                     timestamp: currentTime,
-                    landmarks: landmarks.map((l) => ({ x: l.x, y: l.y, z: l.z })),
-                    visibility: landmarks.map((l) => l.visibility || 0),
+                    landmarks: keyLandmarks, // Only 12 joints instead of 33
                   }
 
                   batchPoses.push(poseFrame)
@@ -115,10 +134,9 @@ export class ClientPoseExtractor {
                   if (batchPoses.length >= BATCH_SIZE && onBatchReady) {
                     try {
                       await onBatchReady([...batchPoses])
-                      batchPoses = [] // Clear the batch after upload
+                      batchPoses = []
                     } catch (error) {
                       console.error("[v0] Failed to save batch:", error)
-                      // Continue processing even if upload fails
                     }
                   }
                 }
@@ -130,7 +148,6 @@ export class ClientPoseExtractor {
                 extractFrame()
               } catch (error) {
                 console.error("[v0] Frame extraction error:", error)
-                // Continue to next frame even if one fails
                 currentTime += interval
                 extractFrame()
               }
@@ -153,26 +170,24 @@ export class ClientPoseExtractor {
   }
 
   comparePoses(userLandmarks: any[], instructorLandmarks: any[]): number {
-    // Key joints for comparison (shoulders, elbows, wrists, hips, knees, ankles)
-    const keyJoints = [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28]
+    // All 12 key joints are stored now
+    const keyJointIndices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
 
     let totalSimilarity = 0
     let validJoints = 0
 
-    for (const jointIdx of keyJoints) {
+    for (const jointIdx of keyJointIndices) {
       const userJoint = userLandmarks[jointIdx]
       const instructorJoint = instructorLandmarks[jointIdx]
 
       if (!userJoint || !instructorJoint) continue
 
-      // Calculate Euclidean distance (normalized)
       const distance = Math.sqrt(
         Math.pow(userJoint.x - instructorJoint.x, 2) +
           Math.pow(userJoint.y - instructorJoint.y, 2) +
           Math.pow(userJoint.z - instructorJoint.z, 2),
       )
 
-      // Convert distance to similarity (0-1 range, closer = higher)
       const similarity = Math.max(0, 1 - distance * 2)
       totalSimilarity += similarity
       validJoints++

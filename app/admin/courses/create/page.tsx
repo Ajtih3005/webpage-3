@@ -233,6 +233,7 @@ export default function CreateCoursePage() {
 
       let courseId = `temp_${Date.now()}`
       let isFirstBatch = true
+      let totalFramesProcessed = 0
 
       // Extract poses with incremental batch uploads
       const poses = await extractor.extractPosesFromVideo(
@@ -241,8 +242,7 @@ export default function CreateCoursePage() {
           setPoseProgress(Math.round(progress))
         },
         async (batch) => {
-          // Upload each batch immediately as it's extracted
-          console.log(`[v0] Uploading batch of ${batch.length} poses`)
+          console.log(`[v0] Uploading batch of ${batch.length} poses (total: ${totalFramesProcessed})`)
 
           const response = await fetch("/api/ai/save-pose-session", {
             method: "POST",
@@ -252,7 +252,7 @@ export default function CreateCoursePage() {
               videoName: videoFile.name,
               poses: batch,
               isFirstChunk: isFirstBatch,
-              isLastChunk: false,
+              currentFrameNumber: totalFramesProcessed,
             }),
           })
 
@@ -263,6 +263,8 @@ export default function CreateCoursePage() {
             courseId = result.courseId
             isFirstBatch = false
           }
+
+          totalFramesProcessed += batch.length
         },
       )
 

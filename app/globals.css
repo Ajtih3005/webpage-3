@@ -60,7 +60,27 @@
   * {
     @apply border-border;
     box-sizing: border-box;
+    /* Prevent text cursor on non-text elements */
+    user-select: none;
   }
+
+  /* Allow text selection only on text elements */
+  p,
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  span,
+  a,
+  li,
+  td,
+  th,
+  label {
+    user-select: text;
+  }
+
   body {
     @apply bg-background text-foreground;
     min-width: 320px;

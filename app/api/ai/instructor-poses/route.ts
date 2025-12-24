@@ -29,14 +29,22 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "No pose data found" }, { status: 404 })
     }
 
-    // Extract poses from JSONB array and format for compatibility
-    const poses = (session.poses || []).map((pose: any) => ({
+    const allPoses = [
+      ...(session.poses_chunk_1 || []),
+      ...(session.poses_chunk_2 || []),
+      ...(session.poses_chunk_3 || []),
+      ...(session.poses_chunk_4 || []),
+      ...(session.poses_chunk_5 || []),
+    ]
+
+    // Format poses for compatibility with existing code
+    const poses = allPoses.map((pose: any) => ({
       timestamp_ms: pose.timestamp,
       pose_landmarks: pose.landmarks,
       visibility_scores: pose.visibility,
     }))
 
-    // Return poses array from JSONB column
+    // Return poses array concatenated from all chunks
     return NextResponse.json({
       poses,
       session: {

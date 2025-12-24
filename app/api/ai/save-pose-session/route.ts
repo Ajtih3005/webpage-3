@@ -15,7 +15,7 @@ export const config = {
 
 export async function POST(request: NextRequest) {
   try {
-    const { courseId, videoName, poses, isFirstChunk } = await request.json()
+    const { courseId, videoName, poses, isFirstChunk, currentFrameNumber } = await request.json()
 
     if (!poses || poses.length === 0) {
       return NextResponse.json({ error: "No pose data provided" }, { status: 400 })
@@ -26,7 +26,6 @@ export async function POST(request: NextRequest) {
     const posesArray = poses.map((pose: any) => ({
       timestamp: pose.timestamp || 0,
       landmarks: pose.landmarks,
-      visibility: pose.visibility,
     }))
 
     if (isFirstChunk) {
@@ -35,13 +34,37 @@ export async function POST(request: NextRequest) {
         .insert({
           course_id: courseId || "temp_" + Date.now(),
           video_url: videoName,
-          total_frames: poses.length,
-          poses: posesArray,
+          total_frames: 0,
+          poses_chunk_1: "[]",
+          poses_chunk_2: "[]",
+          poses_chunk_3: "[]",
+          poses_chunk_4: "[]",
+          poses_chunk_5: "[]",
         })
         .select()
         .single()
 
       if (insertError) throw insertError
+
+      const { error: appendError } = await aiSupabase.rpc("append_to_pose_chunk", {
+        p_course_id: poseData.course_id,
+        p_new_poses: posesArray,
+        p_chunk_number: 1,
+      })
+
+      if (appendError) {
+        console.warn("[v0] RPC function not available, using fallback")
+        // Fallback: direct update
+        const { error: fallbackError } = await aiSupabase
+          .from("instructor_poses")
+          .update({
+            poses_chunk_1: posesArray,
+            total_frames: poses.length,
+          })
+          .eq("course_id", poseData.course_id)
+
+        if (fallbackError) throw fallbackError
+      }
 
       return NextResponse.json({
         sessionId: poseData.id,
@@ -49,32 +72,48 @@ export async function POST(request: NextRequest) {
         success: true,
       })
     } else {
-      const { data: existingData, error: fetchError } = await aiSupabase
-        .from("instructor_poses")
-        .select("poses, total_frames")
-        .eq("course_id", courseId)
-        .single()
+      // Each chunk holds 1000 frames
+      const chunkNumber = Math.min(Math.floor((currentFrameNumber || 0) / 1000) + 1, 5)
 
-      if (fetchError) throw fetchError
+      console.log(`[v0] Appending to chunk ${chunkNumber} for frame ${currentFrameNumber}`)
 
-      const updatedPoses = [...(existingData.poses || []), ...posesArray]
+      const { error: rpcError } = await aiSupabase.rpc("append_to_pose_chunk", {
+        p_course_id: courseId,
+        p_new_poses: posesArray,
+        p_chunk_number: chunkNumber,
+      })
 
-      const { data: updateData, error: updateError } = await aiSupabase
-        .from("instructor_poses")
-        .update({
-          poses: updatedPoses,
-          total_frames: updatedPoses.length,
-        })
-        .eq("course_id", courseId)
-        .select()
-        .single()
+      if (rpcError) {
+        console.warn("[v0] RPC function not available, using fallback for chunk", chunkNumber)
 
-      if (updateError) throw updateError
+        // Fallback: fetch existing chunk, append, and update
+        const chunkColumn = `poses_chunk_${chunkNumber}`
+        const { data: existingData, error: fetchError } = await aiSupabase
+          .from("instructor_poses")
+          .select(`${chunkColumn}, total_frames`)
+          .eq("course_id", courseId)
+          .single()
+
+        if (fetchError) throw fetchError
+
+        const existingChunk = existingData[chunkColumn] || []
+        const updatedChunk = [...existingChunk, ...posesArray]
+
+        const { error: fallbackError } = await aiSupabase
+          .from("instructor_poses")
+          .update({
+            [chunkColumn]: updatedChunk,
+            total_frames: (existingData.total_frames || 0) + poses.length,
+          })
+          .eq("course_id", courseId)
+
+        if (fallbackError) throw fallbackError
+      }
 
       return NextResponse.json({
-        sessionId: updateData.id,
-        courseId: updateData.course_id,
         success: true,
+        courseId: courseId,
+        chunkNumber: chunkNumber,
       })
     }
   } catch (error: any) {

@@ -1,8 +1,16 @@
 import { NextResponse } from "next/server"
 import { getSupabaseServerClient } from "@/lib/supabase"
 
-export async function POST() {
+export async function POST(request: Request) {
   try {
+    const authHeader = request.headers.get("authorization")
+    const cronSecret = process.env.CRON_SECRET
+
+    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+      console.error("[v0] ❌ Unauthorized cron request")
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
     console.log("[v0] 🚀 Starting subscription day update API...")
 
     const supabase = getSupabaseServerClient()
@@ -169,6 +177,6 @@ export async function POST() {
   }
 }
 
-export async function GET() {
-  return POST()
+export async function GET(request: Request) {
+  return POST(request)
 }

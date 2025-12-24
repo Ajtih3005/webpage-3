@@ -141,7 +141,7 @@ export default function Home() {
       >
         <div className="container mx-auto flex items-center justify-between max-w-7xl">
           <Link href="/" className="flex items-center gap-3 group">
-            <div className="relative h-12 w-12 rounded-full overflow-hidden ring-1 ring-emerald-200/40 group-hover:ring-emerald-300/60 transition-all">
+            <div className="relative h-16 w-16 rounded-full overflow-hidden ring-1 ring-emerald-200/40 group-hover:ring-emerald-300/60 transition-all">
               <Image src="/images/logo.png" alt="Sthavishtah" fill className="object-cover" priority />
             </div>
             <div className="flex flex-col">
@@ -231,14 +231,14 @@ export default function Home() {
             </div>
           </div>
 
-          {/* CHANGE: Updated hero heading and description */}
-          <h1 className="font-playfair text-4xl md:text-6xl lg:text-7xl font-light text-white mb-6 leading-tight">
+          {/* CHANGE: Disable text cursor on hero headings */}
+          <h1 className="font-playfair text-4xl md:text-6xl lg:text-7xl font-light text-white mb-6 leading-tight select-none pointer-events-none">
             Return to Stillness.
             <br />
             <span className="font-semibold">Practice with Structure.</span>
           </h1>
 
-          <p className="font-lora text-lg md:text-xl text-white/90 max-w-3xl mx-auto mb-12 leading-relaxed">
+          <p className="font-lora text-lg md:text-xl text-white/90 max-w-3xl mx-auto mb-12 leading-relaxed select-none">
             A structured yoga practice rooted in breath and awareness — designed to calm the mind, restore movement, and
             build lasting inner stability.
           </p>
@@ -739,7 +739,7 @@ export default function Home() {
             <div className="hidden lg:block relative">
               <div className="grid lg:grid-cols-6 gap-6 max-w-6xl mx-auto">
                 {teamMembers.slice(0, 6).map((member, index) => (
-                  <div key={member.id} className="cursor-pointer relative z-10">
+                  <div key={member.id} className="relative z-10">
                     <div className="transition-all duration-200 hover:scale-105 hover:shadow-lg hover:shadow-white/20">
                       <div className="relative mb-4">
                         <div className="w-28 h-28 mx-auto rounded-full overflow-hidden border-4 border-white/30 shadow-xl hover:border-white/50 transition-all duration-200">
@@ -766,7 +766,7 @@ export default function Home() {
               <div className="overflow-x-auto scrollbar-hide">
                 <div className="flex gap-6 pb-4 md:gap-8" style={{ width: "calc(400% + 1.5rem)" }}>
                   {teamMembers.slice(0, 4).map((member) => (
-                    <div key={member.id} className="flex-shrink-0 w-full text-center cursor-pointer relative">
+                    <div key={member.id} className="flex-shrink-0 w-full text-center relative">
                       <div className="transition-all duration-200 hover:scale-105">
                         <div className="relative mb-4">
                           <div className="w-20 h-20 md:w-24 md:h-24 mx-auto rounded-full overflow-hidden border-4 border-white/30 shadow-xl hover:border-white/50 transition-all duration-200">
@@ -924,8 +924,8 @@ export default function Home() {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8 md:gap-12">
             <div>
               <div className="flex items-center mb-5 md:mb-6">
-                <div className="relative h-10 w-10 sm:h-12 sm:w-12 mr-3 sm:mr-4 rounded-full overflow-hidden border border-white/20 shadow-lg">
-                  <Image src="/images/logo.png" alt="Sthavishtah Logo" fill className="object-contain" />
+                <div className="relative h-14 w-14 sm:h-16 sm:w-16 mr-3 sm:mr-4 rounded-full overflow-hidden border border-white/20 shadow-lg">
+                  <Image src="/images/logo.png" alt="Sthavishtah Logo" fill className="object-cover" />
                 </div>
                 <h3 className="text-lg sm:text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-green-200">
                   STHAVISHTAH YOGA
