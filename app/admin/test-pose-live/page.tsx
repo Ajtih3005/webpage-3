@@ -103,8 +103,10 @@ function TestPoseLiveContent() {
         webcamRef.current.srcObject = stream
         setCameraActive(true)
         console.log("[v0] Camera started")
-        startPoseDetection()
-        syncVideoTime()
+        setTimeout(() => {
+          startPoseDetection()
+          startTimer()
+        }, 100)
       }
     } catch (error) {
       console.error("[v0] Error accessing webcam:", error)
@@ -245,7 +247,7 @@ function TestPoseLiveContent() {
           events: {
             onReady: () => {
               console.log("[v0] YouTube player ready")
-              syncVideoTime()
+              startTimer()
             },
           },
         })
@@ -253,22 +255,29 @@ function TestPoseLiveContent() {
     }
   }, [youtubeId])
 
-  const syncVideoTime = () => {
-    const updateTime = () => {
+  const startTimer = () => {
+    let lastTime = Date.now()
+
+    const updateTimer = () => {
+      if (!cameraActive) return
+
+      const now = Date.now()
+      const deltaTime = now - lastTime
+      lastTime = now
+
       if (youtubePlayerRef.current && youtubePlayerRef.current.getCurrentTime) {
         // Sync with YouTube if available
         const currentTime = youtubePlayerRef.current.getCurrentTime() * 1000
         setCurrentVideoTime(currentTime)
-      } else if (cameraActive && !youtubeId) {
-        // Use internal timer when no video - auto-increment timestamp
-        setCurrentVideoTime((prev) => prev + 100) // Increment by 100ms
+      } else {
+        // Use internal timer when no video - increment by actual elapsed time
+        setCurrentVideoTime((prev) => prev + deltaTime)
       }
 
-      if (cameraActive) {
-        setTimeout(updateTime, 100)
-      }
+      requestAnimationFrame(updateTimer)
     }
-    updateTime()
+
+    requestAnimationFrame(updateTimer)
   }
 
   if (loading) {
