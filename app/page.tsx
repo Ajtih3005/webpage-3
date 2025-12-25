@@ -246,21 +246,26 @@ export default function Home() {
       </section>
 
       {/* CTA Section - Begin with Guided Practice */}
-      <div className="container mx-auto px-6 py-24">
-        <div className="text-center max-w-4xl mx-auto space-y-10">
-          <h2 className="font-playfair text-5xl md:text-6xl mb-12 text-stone-800 leading-tight">
+      <div className="container mx-auto px-4 sm:px-6 py-16 sm:py-24">
+        <div className="text-center max-w-4xl mx-auto space-y-8 sm:space-y-10">
+          <h2 className="font-playfair text-3xl sm:text-4xl md:text-5xl lg:text-6xl mb-8 sm:mb-12 text-stone-800 leading-tight px-4">
             Begin with a Guided Practice
           </h2>
+          {/* </CHANGE> */}
+
           <Button
             size="lg"
-            className="bg-teal-600 hover:bg-teal-700 text-white px-12 py-8 text-xl md:text-2xl font-lora shadow-2xl hover:shadow-3xl transition-all duration-300 rounded-xl hover:scale-105 w-full md:w-auto min-w-[400px]"
+            className="bg-teal-600 hover:bg-teal-700 text-white px-8 sm:px-12 py-6 sm:py-8 text-lg sm:text-xl md:text-2xl font-lora shadow-2xl hover:shadow-3xl transition-all duration-300 rounded-xl hover:scale-105 w-full sm:w-auto sm:min-w-[400px] max-w-[500px] mx-auto"
             onClick={handleEnroll}
           >
             <div className="flex flex-col items-center gap-2">
               <span className="font-semibold">Attend 7 Days FREE →</span>
-              <span className="text-base text-teal-50 font-normal">Live sessions • No cost • Open to beginners</span>
+              <span className="text-xs sm:text-sm font-normal opacity-90">
+                Live sessions • No cost • Open to beginners
+              </span>
             </div>
           </Button>
+          {/* </CHANGE> */}
         </div>
       </div>
 
@@ -278,38 +283,39 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="py-20 bg-gradient-to-b from-white to-amber-50/30">
-        <div className="container mx-auto px-6 max-w-6xl">
-          <div className="text-center mb-12">
-            <span className="inline-block px-4 py-1.5 rounded-full bg-emerald-50 text-emerald-700 text-sm font-medium mb-4">
-              Our Schedule
-            </span>
-            <h2 className="font-playfair text-3xl md:text-4xl font-semibold text-emerald-800 mb-4">Flexible Batches</h2>
-            <p className="font-lora text-emerald-700/70 max-w-2xl mx-auto">
+      {/* Flexible Batches Section */}
+      <section className="py-16 sm:py-20 md:py-24 bg-gradient-to-b from-emerald-50/30 to-white">
+        <div className="container mx-auto px-4 sm:px-6">
+          <div className="text-center mb-12 sm:mb-16 md:mb-20">
+            <h2 className="font-playfair text-2xl sm:text-3xl md:text-4xl font-semibold text-emerald-800 mb-3 sm:mb-4">
+              Flexible Batches
+            </h2>
+            <p className="font-lora text-sm sm:text-base text-emerald-700/70 max-w-2xl mx-auto px-4">
               Choose from our flexible schedule designed to harmonize with your natural rhythms.
             </p>
           </div>
+          {/* </CHANGE> */}
 
-          <div className="grid md:grid-cols-2 gap-8">
+          <div className="grid sm:grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 max-w-5xl mx-auto">
             {/* Morning Batch */}
             <Card className="border-emerald-200/40 hover:shadow-xl transition-all duration-300 group">
               <div className="h-1.5 bg-gradient-to-r from-yellow-400 to-orange-400"></div>
-              <CardContent className="p-8">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="p-3 rounded-full bg-yellow-100">
-                    <Sun className="h-6 w-6 text-yellow-600" />
+              <CardContent className="p-6 sm:p-8">
+                <div className="flex items-center gap-3 mb-4 sm:mb-6">
+                  <div className="p-2 sm:p-3 rounded-full bg-yellow-100">
+                    <Sun className="h-5 w-5 sm:h-6 sm:w-6 text-yellow-600" />
                   </div>
-                  <h3 className="font-playfair text-2xl font-semibold text-emerald-800">Morning Batches</h3>
+                  <h3 className="font-playfair text-xl sm:text-2xl font-semibold text-emerald-800">Morning Batches</h3>
                 </div>
-                <div className="space-y-3 mb-6">
+                <div className="space-y-2 sm:space-y-3 mb-6">
                   {[
                     { time: "5:30 AM - 6:30 AM", desc: "Early dawn practice" },
                     { time: "6:40 AM - 7:40 AM", desc: "Sunrise session" },
                     { time: "7:50 AM - 8:50 AM", desc: "Morning flow" },
                   ].map((slot, i) => (
                     <div key={i} className="flex justify-between items-center p-3 bg-amber-50/50 rounded-lg">
-                      <span className="font-lora text-emerald-800 font-medium">{slot.time}</span>
-                      <span className="text-sm text-emerald-700/60">{slot.desc}</span>
+                      <span className="font-lora font-semibold text-emerald-800 text-sm sm:text-base">{slot.time}</span>
+                      <span className="text-emerald-700/60 text-xs sm:text-sm">{slot.desc}</span>
                     </div>
                   ))}
                 </div>
@@ -322,22 +328,22 @@ export default function Home() {
             {/* Evening Batch */}
             <Card className="border-emerald-200/40 hover:shadow-xl transition-all duration-300 group">
               <div className="h-1.5 bg-gradient-to-r from-indigo-400 to-purple-400"></div>
-              <CardContent className="p-8">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="p-3 rounded-full bg-indigo-100">
-                    <Moon className="h-6 w-6 text-indigo-600" />
+              <CardContent className="p-6 sm:p-8">
+                <div className="flex items-center gap-3 mb-4 sm:mb-6">
+                  <div className="p-2 sm:p-3 rounded-full bg-indigo-100">
+                    <Moon className="h-5 w-5 sm:h-6 sm:w-6 text-indigo-600" />
                   </div>
-                  <h3 className="font-playfair text-2xl font-semibold text-emerald-800">Evening Batches</h3>
+                  <h3 className="font-playfair text-xl sm:text-2xl font-semibold text-emerald-800">Evening Batches</h3>
                 </div>
-                <div className="space-y-3 mb-6">
+                <div className="space-y-2 sm:space-y-3 mb-6">
                   {[
                     { time: "5:30 PM - 6:30 PM", desc: "Evening unwind" },
                     { time: "6:40 PM - 7:40 PM", desc: "Wind-down practice" },
                     { time: "7:50 PM - 8:50 PM", desc: "Restorative session" },
                   ].map((slot, i) => (
                     <div key={i} className="flex justify-between items-center p-3 bg-stone-50 rounded-lg">
-                      <span className="font-lora text-emerald-800 font-medium">{slot.time}</span>
-                      <span className="text-sm text-emerald-700/60">{slot.desc}</span>
+                      <span className="font-lora font-semibold text-emerald-800 text-sm sm:text-base">{slot.time}</span>
+                      <span className="text-emerald-700/60 text-xs sm:text-sm">{slot.desc}</span>
                     </div>
                   ))}
                 </div>

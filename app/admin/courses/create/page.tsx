@@ -19,6 +19,8 @@ import { cn, isValidYoutubeUrl } from "@/lib/utils"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { Checkbox } from "@/components/ui/checkbox"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { extractPosesFromVideo } from "@/lib/client-pose-extractor"
+import { crypto } from "crypto"
 
 // Update the component to include multiple batches functionality and video type selection
 export default function CreateCoursePage() {
@@ -224,67 +226,60 @@ export default function CreateCoursePage() {
 
   const processPoseVideo = async (videoFile: File) => {
     try {
+      setPoseProgress(10)
       setProcessingPose(true)
-      setPoseError(null)
-      setPoseProgress(0)
 
-      const { ClientPoseExtractor } = await import("@/lib/client-pose-extractor")
-      const extractor = new ClientPoseExtractor()
+      const tempCourseId = crypto.randomUUID()
 
-      let courseId = `temp_${Date.now()}`
-      let isFirstBatch = true
       let totalFramesProcessed = 0
+      let isFirstBatch = true
 
-      // Extract poses with incremental batch uploads
-      const poses = await extractor.extractPosesFromVideo(
-        videoFile,
-        (progress) => {
-          setPoseProgress(Math.round(progress))
-        },
-        async (batch) => {
-          console.log(`[v0] Uploading batch of ${batch.length} poses (total: ${totalFramesProcessed})`)
+      const poses = await extractPosesFromVideo(videoFile, async (batch) => {
+        totalFramesProcessed += batch.length
+        const progress = 10 + (totalFramesProcessed / 4000) * 70
 
-          const response = await fetch("/api/ai/save-pose-session", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              courseId,
-              videoName: videoFile.name,
-              poses: batch,
-              isFirstChunk: isFirstBatch,
-              currentFrameNumber: totalFramesProcessed,
-            }),
-          })
+        setPoseProgress(Math.min(progress, 80))
 
-          const result = await response.json()
-          if (!response.ok) throw new Error(result.error)
+        const response = await fetch("/api/ai/save-pose-session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            courseId: tempCourseId,
+            videoName: videoFile.name,
+            poses: batch,
+            isFirstChunk: isFirstBatch,
+            currentFrameNumber: totalFramesProcessed,
+          }),
+        })
 
-          if (isFirstBatch) {
-            courseId = result.courseId
-            isFirstBatch = false
-          }
+        const result = await response.json()
+        if (!response.ok) {
+          console.error("[v0] Pose upload error:", result.error)
+          throw new Error(result.error)
+        }
 
-          totalFramesProcessed += batch.length
-        },
-      )
+        if (isFirstBatch) {
+          isFirstBatch = false
+        }
+      })
 
-      // Mark as complete
+      setPoseProgress(90)
+
       await fetch("/api/ai/save-pose-session", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          courseId,
+          courseId: tempCourseId,
           totalFrames: poses.length,
         }),
       })
 
-      setPoseSessionId(courseId)
+      setPoseSessionId(tempCourseId)
+      console.log("[v0] Pose session ID stored:", tempCourseId)
       setPoseProgress(100)
-      return courseId
-    } catch (error: any) {
-      console.error("Pose processing error:", error)
-      setPoseError(error.message || "Failed to process video")
-      throw error
+    } catch (error) {
+      console.error("[v0] Error processing pose video:", error)
+      setError(error instanceof Error ? error.message : "Failed to process video")
     } finally {
       setProcessingPose(false)
     }
@@ -323,6 +318,9 @@ export default function CreateCoursePage() {
     setError("")
 
     try {
+      console.log("[v0] Starting course creation...")
+      console.log("[v0] Pose Session ID:", poseSessionId)
+
       // Validate form
       if (!title) {
         throw new Error("Title is required")
@@ -364,6 +362,8 @@ export default function CreateCoursePage() {
         video_type: videoType,
         instructor_pose_session_id: poseSessionId || null,
       }
+
+      console.log("[v0] Course data prepared:", courseData)
 
       // Add the appropriate scheduling field based on type
       if (schedulingType === "date") {
@@ -447,8 +447,8 @@ export default function CreateCoursePage() {
 
       router.push("/admin/courses")
     } catch (error) {
-      console.error("Error creating course:", error)
-      setError(error instanceof Error ? error.message : "An unknown error occurred")
+      console.error("[v0] Course creation error:", error)
+      setError(error instanceof Error ? error.message : "Failed to create course")
     } finally {
       setIsSubmitting(false)
     }
