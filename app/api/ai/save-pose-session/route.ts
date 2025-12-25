@@ -16,7 +16,7 @@ export const config = {
 export async function POST(request: NextRequest) {
   try {
     console.log("[v0] Received pose batch upload request")
-    const { courseId, videoName, poses, is_final } = await request.json()
+    const { courseId, videoName, videoUrl, poses, is_final } = await request.json()
 
     if (!courseId) {
       return NextResponse.json({ error: "Course ID is required" }, { status: 400 })
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
         .from("instructor_poses")
         .insert({
           course_id: courseId,
-          video_url: videoName,
+          video_url: videoUrl || null,
           total_frames: posesArray.length,
           poses_chunk_1: posesArray,
           poses_chunk_2: [],
@@ -81,12 +81,18 @@ export async function POST(request: NextRequest) {
       const existingChunk = existingData[chunkColumnName] || []
       const updatedChunk = [...existingChunk, ...posesArray]
 
+      const updateData: any = {
+        [chunkColumnName]: updatedChunk,
+        total_frames: newTotal,
+      }
+
+      if (videoUrl) {
+        updateData.video_url = videoUrl
+      }
+
       const { error: updateError } = await aiSupabase
         .from("instructor_poses")
-        .update({
-          [chunkColumnName]: updatedChunk,
-          total_frames: newTotal,
-        })
+        .update(updateData)
         .eq("course_id", courseId)
 
       if (updateError) {

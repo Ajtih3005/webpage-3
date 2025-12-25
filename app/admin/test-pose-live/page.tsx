@@ -24,11 +24,13 @@ function TestPoseLiveContent() {
   const webcamRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const animationFrameRef = useRef<number>()
+  const youtubePlayerRef = useRef<any>(null)
 
   useEffect(() => {
     if (sessionId) {
       loadInstructorPoses()
       initializePoseLandmarker()
+      loadYouTubeAPI()
     }
 
     return () => {
@@ -102,6 +104,7 @@ function TestPoseLiveContent() {
         setCameraActive(true)
         console.log("[v0] Camera started")
         startPoseDetection()
+        syncVideoTime()
       }
     } catch (error) {
       console.error("[v0] Error accessing webcam:", error)
@@ -226,6 +229,48 @@ function TestPoseLiveContent() {
 
   const youtubeId = courseInfo?.video_url ? getYouTubeId(courseInfo.video_url) : null
 
+  const loadYouTubeAPI = () => {
+    if (!(window as any).YT) {
+      const tag = document.createElement("script")
+      tag.src = "https://www.youtube.com/iframe_api"
+      const firstScriptTag = document.getElementsByTagName("script")[0]
+      firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag)
+    }
+  }
+
+  useEffect(() => {
+    if (youtubeId && (window as any).YT) {
+      ;(window as any).onYouTubeIframeAPIReady = () => {
+        youtubePlayerRef.current = new (window as any).YT.Player("youtube-player", {
+          events: {
+            onReady: () => {
+              console.log("[v0] YouTube player ready")
+              syncVideoTime()
+            },
+          },
+        })
+      }
+    }
+  }, [youtubeId])
+
+  const syncVideoTime = () => {
+    const updateTime = () => {
+      if (youtubePlayerRef.current && youtubePlayerRef.current.getCurrentTime) {
+        // Sync with YouTube if available
+        const currentTime = youtubePlayerRef.current.getCurrentTime() * 1000
+        setCurrentVideoTime(currentTime)
+      } else if (cameraActive && !youtubeId) {
+        // Use internal timer when no video - auto-increment timestamp
+        setCurrentVideoTime((prev) => prev + 100) // Increment by 100ms
+      }
+
+      if (cameraActive) {
+        setTimeout(updateTime, 100)
+      }
+    }
+    updateTime()
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -289,6 +334,7 @@ function TestPoseLiveContent() {
             <div className="relative bg-black rounded-lg overflow-hidden" style={{ aspectRatio: "16/9" }}>
               {youtubeId ? (
                 <iframe
+                  id="youtube-player"
                   src={`https://www.youtube.com/embed/${youtubeId}?enablejsapi=1&autoplay=0`}
                   className="w-full h-full"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -306,18 +352,8 @@ function TestPoseLiveContent() {
               )}
             </div>
             <div className="mt-4">
-              <label className="text-sm font-medium mb-2 block">Manual Time Sync (ms)</label>
-              <input
-                type="range"
-                min="0"
-                max={courseInfo?.video_duration * 1000 || 60000}
-                value={currentVideoTime}
-                onChange={(e) => setCurrentVideoTime(Number(e.target.value))}
-                className="w-full"
-              />
-              <div className="text-xs text-gray-500 mt-1">
-                Current: {(currentVideoTime / 1000).toFixed(1)}s / {courseInfo?.video_duration || 0}s
-              </div>
+              <label className="text-sm font-medium mb-2 block">Video Time (auto-synced)</label>
+              <div className="text-sm text-gray-600">Current: {(currentVideoTime / 1000).toFixed(1)}s</div>
             </div>
           </CardContent>
         </Card>

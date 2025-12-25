@@ -55,6 +55,8 @@ export default function CreateCoursePage() {
   const [poseSessionId, setPoseSessionId] = useState<string | null>(null)
   const [poseError, setPoseError] = useState("")
   const [totalFramesUploaded, setTotalFramesUploaded] = useState(0)
+  const [poseProcessingStatus, setPoseProcessingStatus] = useState("")
+  const [instructorVideoUrl, setInstructorVideoUrl] = useState<string>("")
 
   const handleDateSelect = (date: Date | undefined) => {
     setScheduledDate(date)
@@ -225,18 +227,20 @@ export default function CreateCoursePage() {
   }
 
   const processPoseVideo = async (videoFile: File) => {
+    setProcessingPose(true)
+    setPoseProcessingStatus("Starting pose extraction...")
+    setPoseSessionId(null)
+
     try {
-      console.log("[v0] Starting pose extraction for video:", videoFile.name)
-      setPoseProgress(10)
-      setProcessingPose(true)
-      setPoseError("")
+      const tempCourseId = `course-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+      console.log("[v0] Generated temp course ID:", tempCourseId)
 
-      const tempCourseId = `temp_${Date.now()}`
-      let sessionId: string | null = null
       let totalFramesUploaded = 0
+      let sessionId: string | null = null
 
-      const onProgress = (percent: number) => {
-        setPoseProgress(10 + percent * 0.8)
+      const onProgress = (progress: number) => {
+        setPoseProcessingStatus(`Processing video: ${progress.toFixed(0)}%`)
+        console.log(`[v0] Extraction progress: ${progress.toFixed(1)}%`)
       }
 
       const onBatchReady = async (batch: any[]) => {
@@ -248,6 +252,7 @@ export default function CreateCoursePage() {
           body: JSON.stringify({
             courseId: tempCourseId,
             videoName: videoFile.name,
+            videoUrl: instructorVideoUrl, // Pass the YouTube URL
             poses: batch,
             is_final: false,
           }),
@@ -535,7 +540,7 @@ export default function CreateCoursePage() {
                     {processingPose && (
                       <div className="space-y-2">
                         <div className="flex items-center justify-between text-sm">
-                          <span className="text-gray-600">Extracting poses from video...</span>
+                          <span className="text-gray-600">{poseProcessingStatus}</span>
                           <span className="font-medium">{poseProgress}%</span>
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-2">
