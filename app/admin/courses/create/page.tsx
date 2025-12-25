@@ -54,6 +54,7 @@ export default function CreateCoursePage() {
   const [poseProgress, setPoseProgress] = useState(0)
   const [poseSessionId, setPoseSessionId] = useState<string | null>(null)
   const [poseError, setPoseError] = useState("")
+  const [totalFramesUploaded, setTotalFramesUploaded] = useState(0)
 
   const handleDateSelect = (date: Date | undefined) => {
     setScheduledDate(date)
@@ -228,62 +229,49 @@ export default function CreateCoursePage() {
       console.log("[v0] Starting pose extraction for video:", videoFile.name)
       setPoseProgress(10)
       setProcessingPose(true)
+      setPoseError("")
 
-      let totalFramesProcessed = 0
-      let isFirstBatch = true
+      const tempCourseId = `temp_${Date.now()}`
       let sessionId: string | null = null
+      let totalFramesUploaded = 0
 
-      // Progress callback for frame extraction
       const onProgress = (percent: number) => {
-        const progress = 10 + percent * 0.7 // 10-80%
-        setPoseProgress(Math.min(progress, 80))
-        console.log("[v0] Extraction progress:", percent.toFixed(1) + "%")
+        setPoseProgress(10 + percent * 0.8)
       }
 
-      // Batch callback for uploading frames as they're extracted
       const onBatchReady = async (batch: any[]) => {
-        totalFramesProcessed += batch.length
+        console.log(`[v0] Uploading batch of ${batch.length} frames (total so far: ${totalFramesUploaded})`)
 
         const response = await fetch("/api/ai/save-pose-session", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            sessionId: sessionId, // Will be null for first batch, API will generate it
+            courseId: tempCourseId,
             videoName: videoFile.name,
             poses: batch,
-            isFirstChunk: isFirstBatch,
-            currentFrameNumber: totalFramesProcessed,
+            is_final: false,
           }),
         })
 
         const result = await response.json()
+
         if (!response.ok) {
           throw new Error(result.error || "Failed to upload pose batch")
         }
 
-        // Store the session ID from the first response
-        if (isFirstBatch && result.sessionId) {
+        if (result.sessionId) {
           sessionId = result.sessionId
-          isFirstBatch = false
+        }
+
+        if (result.totalFrames) {
+          totalFramesUploaded = result.totalFrames
+          console.log(`[v0] Total frames now: ${totalFramesUploaded}`)
         }
       }
 
-      const poses = await extractPosesFromVideo(videoFile, onProgress, onBatchReady)
+      await extractPosesFromVideo(videoFile, onProgress, onBatchReady)
 
-      setPoseProgress(90)
-
-      // Mark session as complete
-      if (sessionId) {
-        await fetch("/api/ai/save-pose-session", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sessionId: sessionId,
-            totalFrames: poses.length,
-          }),
-        })
-      }
-
+      console.log(`[v0] Pose extraction complete. Session ID: ${sessionId}, Total frames: ${totalFramesUploaded}`)
       setPoseSessionId(sessionId)
       setPoseProgress(100)
     } catch (error) {
@@ -301,7 +289,6 @@ export default function CreateCoursePage() {
     setPoseSessionId(null)
     setPoseError("")
 
-    // Validate file
     if (!file.type.startsWith("video/")) {
       setPoseError("Please select a valid video file")
       return

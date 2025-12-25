@@ -15,7 +15,12 @@ export const config = {
 
 export async function POST(request: NextRequest) {
   try {
-    const { courseId, videoName, poses, isFirstChunk, currentFrameNumber } = await request.json()
+    console.log("[v0] Received pose batch upload request")
+    const { courseId, videoName, poses, is_final } = await request.json()
+
+    if (!courseId) {
+      return NextResponse.json({ error: "Course ID is required" }, { status: 400 })
+    }
 
     if (!poses || poses.length === 0) {
       return NextResponse.json({ error: "No pose data provided" }, { status: 400 })
@@ -28,92 +33,72 @@ export async function POST(request: NextRequest) {
       landmarks: pose.landmarks,
     }))
 
-    if (isFirstChunk) {
+    const { data: existingData } = await aiSupabase
+      .from("instructor_poses")
+      .select("id, total_frames, poses_chunk_1, poses_chunk_2, poses_chunk_3, poses_chunk_4, poses_chunk_5")
+      .eq("course_id", courseId)
+      .single()
+
+    if (!existingData) {
       const { data: poseData, error: insertError } = await aiSupabase
         .from("instructor_poses")
         .insert({
-          course_id: courseId || "temp_" + Date.now(),
+          course_id: courseId,
           video_url: videoName,
-          total_frames: 0,
-          poses_chunk_1: "[]",
-          poses_chunk_2: "[]",
-          poses_chunk_3: "[]",
-          poses_chunk_4: "[]",
-          poses_chunk_5: "[]",
+          total_frames: posesArray.length,
+          poses_chunk_1: posesArray,
+          poses_chunk_2: [],
+          poses_chunk_3: [],
+          poses_chunk_4: [],
+          poses_chunk_5: [],
         })
         .select()
         .single()
 
-      if (insertError) throw insertError
-
-      const { error: appendError } = await aiSupabase.rpc("append_to_pose_chunk", {
-        p_course_id: poseData.course_id,
-        p_new_poses: posesArray,
-        p_chunk_number: 1,
-      })
-
-      if (appendError) {
-        console.warn("[v0] RPC function not available, using fallback")
-        // Fallback: direct update
-        const { error: fallbackError } = await aiSupabase
-          .from("instructor_poses")
-          .update({
-            poses_chunk_1: posesArray,
-            total_frames: poses.length,
-          })
-          .eq("course_id", poseData.course_id)
-
-        if (fallbackError) throw fallbackError
+      if (insertError) {
+        console.error("[v0] Insert error:", insertError)
+        throw insertError
       }
 
+      console.log("[v0] Created new pose record with", posesArray.length, "frames in chunk_1")
       return NextResponse.json({
         sessionId: poseData.id,
-        courseId: poseData.course_id,
         success: true,
+        totalFrames: posesArray.length,
       })
     } else {
-      // Each chunk holds 1000 frames
-      const chunkNumber = Math.min(Math.floor((currentFrameNumber || 0) / 1000) + 1, 5)
+      const currentTotal = existingData.total_frames || 0
+      const newTotal = currentTotal + posesArray.length
+      const chunkNumber = Math.floor(currentTotal / 1000) + 1
 
-      console.log(`[v0] Appending to chunk ${chunkNumber} for frame ${currentFrameNumber}`)
+      console.log(`[v0] Appending ${posesArray.length} frames to chunk_${chunkNumber} (current total: ${currentTotal})`)
 
-      const { error: rpcError } = await aiSupabase.rpc("append_to_pose_chunk", {
-        p_course_id: courseId,
-        p_new_poses: posesArray,
-        p_chunk_number: chunkNumber,
-      })
-
-      if (rpcError) {
-        console.warn("[v0] RPC function not available, using fallback for chunk", chunkNumber)
-
-        // Fallback: fetch existing chunk, append, and update
-        const chunkColumn = `poses_chunk_${chunkNumber}`
-        const { data: existingData, error: fetchError } = await aiSupabase
-          .from("instructor_poses")
-          .select(`${chunkColumn}, total_frames`)
-          .eq("course_id", courseId)
-          .single()
-
-        if (fetchError) throw fetchError
-
-        const existingChunk = existingData[chunkColumn] || []
-        const updatedChunk = [...existingChunk, ...posesArray]
-
-        const { error: fallbackError } = await aiSupabase
-          .from("instructor_poses")
-          .update({
-            [chunkColumn]: updatedChunk,
-            total_frames: (existingData.total_frames || 0) + poses.length,
-          })
-          .eq("course_id", courseId)
-
-        if (fallbackError) throw fallbackError
+      if (chunkNumber > 5) {
+        return NextResponse.json({ error: "Maximum frame limit reached (5000 frames)" }, { status: 400 })
       }
 
+      const chunkColumnName = `poses_chunk_${chunkNumber}`
+      const existingChunk = existingData[chunkColumnName] || []
+      const updatedChunk = [...existingChunk, ...posesArray]
+
+      const { error: updateError } = await aiSupabase
+        .from("instructor_poses")
+        .update({
+          [chunkColumnName]: updatedChunk,
+          total_frames: newTotal,
+        })
+        .eq("course_id", courseId)
+
+      if (updateError) {
+        console.error("[v0] Update error:", updateError)
+        throw updateError
+      }
+
+      console.log(`[v0] Successfully updated chunk_${chunkNumber}, new total: ${newTotal}`)
       return NextResponse.json({
+        sessionId: existingData.id,
         success: true,
-        courseId: courseId,
-        chunkNumber: chunkNumber,
+        totalFrames: newTotal,
       })
     }
   } catch (error: any) {
