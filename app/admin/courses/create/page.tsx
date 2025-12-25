@@ -20,7 +20,6 @@ import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { Checkbox } from "@/components/ui/checkbox"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { extractPosesFromVideo } from "@/lib/client-pose-extractor"
-import { crypto } from "crypto"
 
 // Update the component to include multiple batches functionality and video type selection
 export default function CreateCoursePage() {
@@ -230,11 +229,9 @@ export default function CreateCoursePage() {
       setPoseProgress(10)
       setProcessingPose(true)
 
-      const tempCourseId = crypto.randomUUID()
-      console.log("[v0] Generated course ID:", tempCourseId)
-
       let totalFramesProcessed = 0
       let isFirstBatch = true
+      let sessionId: string | null = null
 
       // Progress callback for frame extraction
       const onProgress = (percent: number) => {
@@ -245,14 +242,13 @@ export default function CreateCoursePage() {
 
       // Batch callback for uploading frames as they're extracted
       const onBatchReady = async (batch: any[]) => {
-        console.log("[v0] Batch ready with", batch.length, "frames. Uploading...")
         totalFramesProcessed += batch.length
 
         const response = await fetch("/api/ai/save-pose-session", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            courseId: tempCourseId,
+            sessionId: sessionId, // Will be null for first batch, API will generate it
             videoName: videoFile.name,
             poses: batch,
             isFirstChunk: isFirstBatch,
@@ -262,33 +258,33 @@ export default function CreateCoursePage() {
 
         const result = await response.json()
         if (!response.ok) {
-          console.error("[v0] Pose upload error:", result.error)
           throw new Error(result.error || "Failed to upload pose batch")
         }
 
-        console.log("[v0] Batch uploaded successfully. Total frames:", totalFramesProcessed)
-        if (isFirstBatch) {
+        // Store the session ID from the first response
+        if (isFirstBatch && result.sessionId) {
+          sessionId = result.sessionId
           isFirstBatch = false
         }
       }
 
       const poses = await extractPosesFromVideo(videoFile, onProgress, onBatchReady)
 
-      console.log("[v0] Extraction complete. Total poses:", poses.length)
       setPoseProgress(90)
 
       // Mark session as complete
-      await fetch("/api/ai/save-pose-session", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          courseId: tempCourseId,
-          totalFrames: poses.length,
-        }),
-      })
+      if (sessionId) {
+        await fetch("/api/ai/save-pose-session", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: sessionId,
+            totalFrames: poses.length,
+          }),
+        })
+      }
 
-      setPoseSessionId(tempCourseId)
-      console.log("[v0] Pose session ID stored:", tempCourseId)
+      setPoseSessionId(sessionId)
       setPoseProgress(100)
     } catch (error) {
       console.error("[v0] Error processing pose video:", error)
@@ -302,26 +298,16 @@ export default function CreateCoursePage() {
     const file = e.target.files?.[0]
     if (!file) return
 
-    // Validate file type
+    setPoseSessionId(null)
+    setPoseError("")
+
+    // Validate file
     if (!file.type.startsWith("video/")) {
-      setPoseError("Please upload a valid video file")
+      setPoseError("Please select a valid video file")
       return
     }
 
-    // Validate file size (max 500MB)
-    if (file.size > 500 * 1024 * 1024) {
-      setPoseError("Video file too large (max 500MB)")
-      return
-    }
-
-    setInstructorVideoFile(file)
-
-    // Automatically start processing
-    try {
-      await processPoseVideo(file)
-    } catch (error) {
-      console.error("Failed to process pose video:", error)
-    }
+    await processPoseVideo(file)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -333,6 +319,10 @@ export default function CreateCoursePage() {
     try {
       console.log("[v0] Starting course creation...")
       console.log("[v0] Pose Session ID:", poseSessionId)
+
+      if (videoType === "zoom" && !poseSessionId) {
+        throw new Error("Please wait for pose extraction to complete or upload a valid video")
+      }
 
       // Validate form
       if (!title) {
@@ -949,7 +939,13 @@ export default function CreateCoursePage() {
               </Button>
               <Button
                 type="submit"
-                disabled={loading || dbConnectionStatus === "error" || isSubmitting || processingPose}
+                disabled={
+                  loading ||
+                  dbConnectionStatus === "error" ||
+                  isSubmitting ||
+                  processingPose ||
+                  (videoType === "zoom" && !poseSessionId)
+                }
               >
                 {processingPose ? "Processing Video..." : isSubmitting ? "Creating..." : "Create Course"}
               </Button>
