@@ -25,6 +25,8 @@ function TestPoseLiveContent() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const animationFrameRef = useRef<number>()
   const youtubePlayerRef = useRef<any>(null)
+  const timerRef = useRef<number>()
+  const timerRunningRef = useRef(false)
 
   useEffect(() => {
     if (sessionId) {
@@ -37,6 +39,10 @@ function TestPoseLiveContent() {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current)
       }
+      if (timerRef.current) {
+        cancelAnimationFrame(timerRef.current)
+      }
+      timerRunningRef.current = false
     }
   }, [sessionId])
 
@@ -118,94 +124,85 @@ function TestPoseLiveContent() {
     if (webcamRef.current && webcamRef.current.srcObject) {
       const stream = webcamRef.current.srcObject as MediaStream
       stream.getTracks().forEach((track) => track.stop())
+      webcamRef.current.srcObject = null
       setCameraActive(false)
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current)
+        animationFrameRef.current = undefined
       }
+      if (timerRef.current) {
+        cancelAnimationFrame(timerRef.current)
+        timerRef.current = undefined
+      }
+      timerRunningRef.current = false
       setCurrentVideoTime(0)
-      console.log("[v0] Camera stopped, timer reset")
+      setCurrentAccuracy(0)
+      setJointAccuracies({})
+      console.log("[v0] Camera stopped, all timers cleared")
     }
-  }
-
-  const startPoseDetection = () => {
-    if (!poseLandmarker || !webcamRef.current || !canvasRef.current) {
-      console.log("[v0] Cannot start pose detection - missing requirements")
-      return
-    }
-
-    const detectPose = async () => {
-      if (!webcamRef.current || !canvasRef.current || !cameraActive || !poseLandmarker) return
-
-      try {
-        const videoTime = performance.now()
-        const results = poseLandmarker.detectForVideo(webcamRef.current, videoTime)
-
-        // Draw user pose on canvas
-        const ctx = canvasRef.current.getContext("2d")
-        if (ctx && results.landmarks && results.landmarks.length > 0) {
-          ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height)
-
-          const { DrawingUtils, PoseLandmarker: PL } = await import("@mediapipe/tasks-vision")
-          const drawingUtils = new DrawingUtils(ctx)
-          drawingUtils.drawLandmarks(results.landmarks[0])
-          drawingUtils.drawConnectors(results.landmarks[0], PL.POSE_CONNECTIONS)
-
-          // Compare with instructor pose at current video time
-          if (instructorPoses.length > 0) {
-            const closestInstructorPose = findClosestPose(currentVideoTime)
-
-            if (closestInstructorPose) {
-              const accuracy = calculatePoseAccuracy(
-                results.landmarks[0],
-                closestInstructorPose.pose_landmarks.landmarks,
-              )
-              setCurrentAccuracy(accuracy.overall)
-              setJointAccuracies(accuracy.joints)
-            }
-          }
-        }
-      } catch (error) {
-        console.error("[v0] Pose detection error:", error)
-      }
-
-      if (cameraActive) {
-        animationFrameRef.current = requestAnimationFrame(detectPose)
-      }
-    }
-
-    detectPose()
   }
 
   const findClosestPose = (currentTime: number) => {
-    if (instructorPoses.length === 0) return null
+    if (instructorPoses.length === 0) {
+      console.log("[v0] No instructor poses available")
+      return null
+    }
 
-    return instructorPoses.reduce((closest, pose) => {
-      const timeDiff = Math.abs(pose.timestamp_ms - currentTime)
-      const closestDiff = closest ? Math.abs(closest.timestamp_ms - currentTime) : Number.POSITIVE_INFINITY
+    // currentTime is already in milliseconds, convert to seconds
+    const currentTimeInSeconds = currentTime / 1000
+
+    const closest = instructorPoses.reduce((closest, pose) => {
+      const timeDiff = Math.abs(pose.timestamp - currentTimeInSeconds)
+      const closestDiff = closest ? Math.abs(closest.timestamp - currentTimeInSeconds) : Number.POSITIVE_INFINITY
       return timeDiff < closestDiff ? pose : closest
     }, null)
+
+    if (closest) {
+      console.log("[v0] Found pose at", closest.timestamp, "for time", currentTimeInSeconds.toFixed(2))
+    }
+
+    return closest
   }
 
   const calculatePoseAccuracy = (userLandmarks: any[], instructorLandmarks: any[]) => {
+    if (!instructorLandmarks || instructorLandmarks.length === 0) {
+      console.log("[v0] No instructor landmarks to compare")
+      return { overall: 0, joints: {} }
+    }
+
+    console.log(
+      "[v0] Comparing poses - User landmarks:",
+      userLandmarks.length,
+      "Instructor landmarks:",
+      instructorLandmarks.length,
+    )
+
+    // Your database has 12 key points stored
+    // Map them to corresponding indices
     const keyPoints = [
-      { name: "left_shoulder", index: 11 },
-      { name: "right_shoulder", index: 12 },
-      { name: "left_elbow", index: 13 },
-      { name: "right_elbow", index: 14 },
-      { name: "left_hip", index: 23 },
-      { name: "right_hip", index: 24 },
-      { name: "left_knee", index: 25 },
-      { name: "right_knee", index: 26 },
+      { name: "left_shoulder", userIndex: 11, instructorIndex: 0 },
+      { name: "right_shoulder", userIndex: 12, instructorIndex: 1 },
+      { name: "left_elbow", userIndex: 13, instructorIndex: 2 },
+      { name: "right_elbow", userIndex: 14, instructorIndex: 3 },
+      { name: "left_wrist", userIndex: 15, instructorIndex: 4 },
+      { name: "right_wrist", userIndex: 16, instructorIndex: 5 },
+      { name: "left_hip", userIndex: 23, instructorIndex: 6 },
+      { name: "right_hip", userIndex: 24, instructorIndex: 7 },
+      { name: "left_knee", userIndex: 25, instructorIndex: 8 },
+      { name: "right_knee", userIndex: 26, instructorIndex: 9 },
+      { name: "left_ankle", userIndex: 27, instructorIndex: 10 },
+      { name: "right_ankle", userIndex: 28, instructorIndex: 11 },
     ]
 
     const jointAccuracies: any = {}
     let totalAccuracy = 0
+    let validJoints = 0
 
     keyPoints.forEach((point) => {
-      const userPoint = userLandmarks[point.index]
-      const instructorPoint = instructorLandmarks[point.index]
+      const userPoint = userLandmarks[point.userIndex]
+      const instructorPoint = instructorLandmarks[point.instructorIndex]
 
-      if (userPoint && instructorPoint) {
+      if (userPoint && instructorPoint && instructorPoint.x !== undefined) {
         const distance = Math.sqrt(
           Math.pow(userPoint.x - instructorPoint.x, 2) +
             Math.pow(userPoint.y - instructorPoint.y, 2) +
@@ -215,11 +212,15 @@ function TestPoseLiveContent() {
         const accuracy = Math.max(0, 100 - distance * 100)
         jointAccuracies[point.name] = accuracy
         totalAccuracy += accuracy
+        validJoints++
       }
     })
 
+    const overall = validJoints > 0 ? totalAccuracy / validJoints : 0
+    console.log("[v0] Calculated accuracy:", overall.toFixed(1) + "%", "Valid joints:", validJoints)
+
     return {
-      overall: totalAccuracy / keyPoints.length,
+      overall,
       joints: jointAccuracies,
     }
   }
@@ -257,12 +258,19 @@ function TestPoseLiveContent() {
   }, [youtubeId])
 
   const startTimer = () => {
+    if (timerRef.current) {
+      cancelAnimationFrame(timerRef.current)
+    }
+
     console.log("[v0] Starting timer...")
+    timerRunningRef.current = true
     let lastTime = Date.now()
-    let timerRunning = true
 
     const updateTimer = () => {
-      if (!timerRunning) return
+      if (!timerRunningRef.current) {
+        console.log("[v0] Timer stopped")
+        return
+      }
 
       const now = Date.now()
       const deltaTime = now - lastTime
@@ -273,7 +281,6 @@ function TestPoseLiveContent() {
         try {
           const currentTime = youtubePlayerRef.current.getCurrentTime() * 1000
           setCurrentVideoTime(currentTime)
-          console.log("[v0] YouTube time:", currentTime)
         } catch (error) {
           // If YouTube player fails, use internal timer
           setCurrentVideoTime((prev) => prev + deltaTime)
@@ -282,20 +289,66 @@ function TestPoseLiveContent() {
         setCurrentVideoTime((prev) => {
           const newTime = prev + deltaTime
           if (Math.floor(newTime / 1000) !== Math.floor(prev / 1000)) {
-            console.log("[v0] Internal timer:", (newTime / 1000).toFixed(1) + "s")
+            console.log("[v0] Timer:", (newTime / 1000).toFixed(1) + "s")
           }
           return newTime
         })
       }
 
-      requestAnimationFrame(updateTimer)
+      timerRef.current = requestAnimationFrame(updateTimer)
     }
 
-    requestAnimationFrame(updateTimer)
+    timerRef.current = requestAnimationFrame(updateTimer)
+  }
 
-    return () => {
-      timerRunning = false
+  const startPoseDetection = () => {
+    if (!poseLandmarker || !webcamRef.current || !canvasRef.current) {
+      console.log("[v0] Cannot start pose detection - missing requirements")
+      return
     }
+
+    const detectPose = async () => {
+      if (!webcamRef.current || !canvasRef.current || !cameraActive || !poseLandmarker) {
+        console.log("[v0] Pose detection stopped")
+        return
+      }
+
+      try {
+        const videoTime = performance.now()
+        const results = poseLandmarker.detectForVideo(webcamRef.current, videoTime)
+
+        // Draw user pose on canvas
+        const ctx = canvasRef.current.getContext("2d")
+        if (ctx && results.landmarks && results.landmarks.length > 0) {
+          ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height)
+
+          const { DrawingUtils, PoseLandmarker: PL } = await import("@mediapipe/tasks-vision")
+          const drawingUtils = new DrawingUtils(ctx)
+          drawingUtils.drawLandmarks(results.landmarks[0])
+          drawingUtils.drawConnectors(results.landmarks[0], PL.POSE_CONNECTIONS)
+
+          // Compare with instructor pose at current video time
+          if (instructorPoses.length > 0) {
+            const closestInstructorPose = findClosestPose(currentVideoTime)
+
+            if (closestInstructorPose && closestInstructorPose.landmarks) {
+              const accuracy = calculatePoseAccuracy(results.landmarks[0], closestInstructorPose.landmarks)
+              setCurrentAccuracy(accuracy.overall)
+              setJointAccuracies(accuracy.joints)
+              console.log("[v0] Accuracy:", accuracy.overall.toFixed(1) + "%")
+            }
+          }
+        }
+      } catch (error) {
+        console.error("[v0] Pose detection error:", error)
+      }
+
+      if (cameraActive) {
+        animationFrameRef.current = requestAnimationFrame(detectPose)
+      }
+    }
+
+    detectPose()
   }
 
   if (loading) {
