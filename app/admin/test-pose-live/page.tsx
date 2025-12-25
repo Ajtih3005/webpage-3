@@ -2,10 +2,10 @@
 
 import { useState, useEffect, useRef, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Camera, VideoIcon } from "lucide-react"
+import { ArrowLeft, Camera, VideoIcon, X, Play } from "lucide-react"
 import Link from "next/link"
 
 function TestPoseLiveContent() {
@@ -182,25 +182,30 @@ function TestPoseLiveContent() {
     }
   }
 
-  const findClosestPose = (currentTime: number) => {
-    if (instructorPoses.length === 0) {
-      console.log("[v0] No instructor poses available")
-      return null
+  const findClosestPose = (currentTimeMs: number) => {
+    if (instructorPoses.length === 0) return null
+
+    const currentTimeSec = currentTimeMs / 1000 // Convert ms to seconds
+    console.log("[v0] 🔍 Looking for instructor pose at:", currentTimeSec.toFixed(2) + "s")
+
+    let closest = instructorPoses[0]
+    let minDiff = Math.abs(instructorPoses[0].timestamp - currentTimeSec)
+
+    for (const pose of instructorPoses) {
+      const diff = Math.abs(pose.timestamp - currentTimeSec)
+      if (diff < minDiff) {
+        minDiff = diff
+        closest = pose
+      }
     }
 
-    const currentTimeInSeconds = currentTime / 1000
-
-    const closest = instructorPoses.reduce((closest, pose) => {
-      const timeDiff = Math.abs(pose.timestamp - currentTimeInSeconds)
-      const closestDiff = closest ? Math.abs(closest.timestamp - currentTimeInSeconds) : Number.POSITIVE_INFINITY
-      return timeDiff < closestDiff ? pose : closest
-    }, null)
-
-    if (closest) {
-      console.log("[v0] Found pose at", closest.timestamp, "for time", currentTimeInSeconds.toFixed(2))
-    }
-
-    return closest
+    console.log(
+      "[v0] 📍 Closest instructor pose at:",
+      closest.timestamp.toFixed(2) + "s",
+      "Difference:",
+      minDiff.toFixed(2) + "s",
+    )
+    return minDiff < 0.5 ? closest : null // Return if within 0.5 seconds
   }
 
   const calculatePoseAccuracy = (userLandmarks: any[], instructorLandmarks: any[]) => {
@@ -283,6 +288,12 @@ function TestPoseLiveContent() {
     if (youtubeId && (window as any).YT) {
       ;(window as any).onYouTubeIframeAPIReady = () => {
         youtubePlayerRef.current = new (window as any).YT.Player("youtube-player", {
+          videoId: youtubeId,
+          playerVars: {
+            autoplay: 0,
+            controls: 1,
+            enablejsapi: 1,
+          },
           events: {
             onReady: () => {
               console.log("[v0] YouTube player ready")
@@ -437,110 +448,89 @@ function TestPoseLiveContent() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="container mx-auto p-4 max-w-7xl">
+      <div className="mb-6 flex items-center justify-between">
         <div>
-          <Link
-            href="/admin/pose-analytics"
-            className="flex items-center text-muted-foreground hover:text-foreground mb-2"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Analytics
-          </Link>
           <h1 className="text-3xl font-bold">Live Pose Testing</h1>
           <p className="text-muted-foreground">Compare your pose with the instructor in real-time</p>
         </div>
-        <div className="text-right">
-          {!mediaPipeReady && (
-            <Badge variant="secondary" className="mb-2">
-              Loading MediaPipe...
-            </Badge>
-          )}
-          {mediaPipeReady && (
-            <Badge variant="default" className="mb-2">
-              MediaPipe Ready ✓
-            </Badge>
-          )}
-          <div className="text-2xl font-bold">Accuracy: {currentAccuracy.toFixed(1)}%</div>
+        <div className="flex gap-2">
+          <Badge variant={mediaPipeReady ? "default" : "secondary"}>
+            MediaPipe: {mediaPipeReady ? "Ready" : "Loading..."}
+          </Badge>
+          <Link href="/admin/pose-analytics">
+            <Button variant="outline">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Analytics
+            </Button>
+          </Link>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="text-center mb-4">
+        <div className="inline-block px-6 py-2 bg-blue-50 rounded-lg border border-blue-200">
+          <h2 className="text-2xl font-bold text-blue-600">Accuracy: {currentAccuracy.toFixed(1)}%</h2>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold flex items-center">
-                <VideoIcon className="w-5 h-5 mr-2 text-blue-600" />
-                Instructor Video
-              </h3>
-              {courseInfo && <Badge variant="outline">{instructorPoses.length} poses extracted</Badge>}
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <VideoIcon className="w-5 h-5" />
+                <CardTitle>Instructor Video</CardTitle>
+              </div>
+              <Badge variant="outline">{instructorPoses.length} poses extracted</Badge>
             </div>
-            <div className="relative bg-black rounded-lg overflow-hidden" style={{ aspectRatio: "16/9" }}>
-              {youtubeId ? (
-                <iframe
-                  id="youtube-player"
-                  src={`https://www.youtube.com/embed/${youtubeId}?enablejsapi=1&autoplay=0`}
-                  className="w-full h-full"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  title="Instructor Video"
-                />
-              ) : (
-                <div className="flex items-center justify-center h-full text-white">
-                  <div className="text-center">
-                    <VideoIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                    <p>No video available</p>
-                    <p className="text-sm text-gray-400 mt-2">Upload instructor video during course creation</p>
-                  </div>
-                </div>
-              )}
-            </div>
-            <div className="mt-4">
-              <label className="text-sm font-medium mb-2 block">Video Time (auto-synced)</label>
-              <div className="text-sm text-gray-600">Current: {(currentVideoTime / 1000).toFixed(1)}s</div>
+          </CardHeader>
+          <CardContent>
+            {youtubeId ? (
+              <div className="aspect-video bg-black rounded-lg overflow-hidden">
+                <div id="youtube-player" className="w-full h-full"></div>
+              </div>
+            ) : (
+              <div className="aspect-video bg-gray-900 rounded-lg flex flex-col items-center justify-center text-white">
+                <VideoIcon className="w-16 h-16 mb-4 opacity-50" />
+                <p className="text-lg font-medium">No video available</p>
+                <p className="text-sm text-gray-400 mt-2">Upload instructor video during course creation</p>
+              </div>
+            )}
+            <div className="mt-4 text-sm text-muted-foreground">
+              <p>Video Time (auto-synced)</p>
+              <p className="font-mono text-lg">Current: {(currentVideoTime / 1000).toFixed(1)}s</p>
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold flex items-center">
-                <Camera className="w-5 h-5 mr-2 text-green-600" />
-                Your Webcam
-              </h3>
-              <Button
-                onClick={cameraActive ? stopCamera : startCamera}
-                className={cameraActive ? "bg-red-500 hover:bg-red-600" : ""}
-                disabled={!mediaPipeReady && !cameraActive}
-              >
-                {cameraActive ? (
-                  <>
-                    <Camera className="mr-2 h-4 w-4" />
-                    Stop Camera
-                  </>
-                ) : (
-                  <>
-                    <Camera className="mr-2 h-4 w-4" />
-                    {mediaPipeReady ? "Start Camera" : "Loading MediaPipe..."}
-                  </>
-                )}
-              </Button>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Camera className="w-5 h-5" />
+                <CardTitle>Your Webcam</CardTitle>
+              </div>
+              {cameraActive ? (
+                <Button onClick={stopCamera} variant="destructive" size="sm">
+                  <X className="w-4 h-4 mr-2" />
+                  Stop Camera
+                </Button>
+              ) : (
+                <Button onClick={startCamera} variant="default" size="sm">
+                  <Play className="w-4 h-4 mr-2" />
+                  Start Camera
+                </Button>
+              )}
             </div>
-            <div className="relative bg-gray-900 rounded-lg overflow-hidden" style={{ aspectRatio: "16/9" }}>
-              <video ref={webcamRef} autoPlay playsInline muted className="w-full h-full object-cover scale-x-[-1]" />
-              <canvas
-                ref={canvasRef}
-                width={1280}
-                height={720}
-                className="absolute top-0 left-0 w-full h-full pointer-events-none scale-x-[-1]"
-              />
+          </CardHeader>
+          <CardContent>
+            <div className="relative aspect-video bg-gray-900 rounded-lg overflow-hidden">
+              <video ref={webcamRef} autoPlay playsInline className="w-full h-full object-cover" />
+              <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
               {!cameraActive && (
-                <div className="absolute inset-0 flex items-center justify-center text-white">
-                  <div className="text-center">
-                    <Camera className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                    <p>Camera not active</p>
-                  </div>
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
+                  <Camera className="w-16 h-16 mb-4 opacity-50" />
+                  <p className="text-lg font-medium">Camera not active</p>
                 </div>
               )}
             </div>
@@ -549,34 +539,27 @@ function TestPoseLiveContent() {
       </div>
 
       <Card>
-        <CardContent className="p-6">
-          <h3 className="font-semibold text-lg mb-4">Live Accuracy Report</h3>
-
-          {Object.keys(jointAccuracies).length > 0 ? (
-            <div className="space-y-4">
-              {Object.entries(jointAccuracies).map(([joint, accuracy]: [string, any]) => (
-                <div key={joint}>
-                  <div className="flex justify-between mb-2">
-                    <span className="text-sm font-medium capitalize">{joint.replace("_", " ")}</span>
-                    <span className="text-sm font-semibold">{accuracy.toFixed(1)}%</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-3">
-                    <div
-                      className={`h-3 rounded-full transition-all ${
-                        accuracy >= 80 ? "bg-green-500" : accuracy >= 60 ? "bg-yellow-500" : "bg-red-500"
-                      }`}
-                      style={{ width: `${Math.min(100, accuracy)}%` }}
-                    />
-                  </div>
+        <CardHeader>
+          <CardTitle>Live Comparison Analytics</CardTitle>
+          <p className="text-sm text-muted-foreground">Real-time joint-by-joint accuracy breakdown</p>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {Object.entries(jointAccuracies).map(([joint, accuracy]: [string, any]) => (
+              <div key={joint} className="p-3 bg-gray-50 rounded-lg border">
+                <p className="text-xs text-gray-600 mb-1 capitalize">{joint.replace("_", " ")}</p>
+                <p className="text-lg font-bold text-blue-600">{accuracy.toFixed(1)}%</p>
+                <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                  <div className="bg-blue-600 h-2 rounded-full transition-all" style={{ width: `${accuracy}%` }}></div>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8 text-gray-500">
-              <p>Start the camera and adjust the time slider to see live comparison</p>
-              <p className="text-sm mt-2">Move the slider to match the instructor video timestamp</p>
-            </div>
-          )}
+              </div>
+            ))}
+            {Object.keys(jointAccuracies).length === 0 && (
+              <div className="col-span-full text-center py-8 text-gray-500">
+                <p>Start camera to see live analytics</p>
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>

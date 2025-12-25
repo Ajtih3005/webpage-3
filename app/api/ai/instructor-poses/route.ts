@@ -39,11 +39,8 @@ export async function GET(request: NextRequest) {
 
     // Format poses for compatibility with existing code
     const poses = allPoses.map((pose: any) => ({
-      timestamp_ms: pose.timestamp || 0,
-      pose_landmarks: {
-        landmarks: pose.landmarks || pose.pose_landmarks?.landmarks || [],
-      },
-      visibility_scores: pose.visibility || [],
+      timestamp: pose.timestamp || 0, // Keep as seconds (0.67, 1.34, etc.)
+      landmarks: pose.landmarks || [],
     }))
 
     // Return poses array concatenated from all chunks
