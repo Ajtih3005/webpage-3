@@ -103,10 +103,10 @@ function TestPoseLiveContent() {
         webcamRef.current.srcObject = stream
         setCameraActive(true)
         console.log("[v0] Camera started")
-        setTimeout(() => {
+        requestAnimationFrame(() => {
           startPoseDetection()
           startTimer()
-        }, 100)
+        })
       }
     } catch (error) {
       console.error("[v0] Error accessing webcam:", error)
@@ -122,7 +122,8 @@ function TestPoseLiveContent() {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current)
       }
-      console.log("[v0] Camera stopped")
+      setCurrentVideoTime(0)
+      console.log("[v0] Camera stopped, timer reset")
     }
   }
 
@@ -256,10 +257,12 @@ function TestPoseLiveContent() {
   }, [youtubeId])
 
   const startTimer = () => {
+    console.log("[v0] Starting timer...")
     let lastTime = Date.now()
+    let timerRunning = true
 
     const updateTimer = () => {
-      if (!cameraActive) return
+      if (!timerRunning) return
 
       const now = Date.now()
       const deltaTime = now - lastTime
@@ -267,17 +270,32 @@ function TestPoseLiveContent() {
 
       if (youtubePlayerRef.current && youtubePlayerRef.current.getCurrentTime) {
         // Sync with YouTube if available
-        const currentTime = youtubePlayerRef.current.getCurrentTime() * 1000
-        setCurrentVideoTime(currentTime)
+        try {
+          const currentTime = youtubePlayerRef.current.getCurrentTime() * 1000
+          setCurrentVideoTime(currentTime)
+          console.log("[v0] YouTube time:", currentTime)
+        } catch (error) {
+          // If YouTube player fails, use internal timer
+          setCurrentVideoTime((prev) => prev + deltaTime)
+        }
       } else {
-        // Use internal timer when no video - increment by actual elapsed time
-        setCurrentVideoTime((prev) => prev + deltaTime)
+        setCurrentVideoTime((prev) => {
+          const newTime = prev + deltaTime
+          if (Math.floor(newTime / 1000) !== Math.floor(prev / 1000)) {
+            console.log("[v0] Internal timer:", (newTime / 1000).toFixed(1) + "s")
+          }
+          return newTime
+        })
       }
 
       requestAnimationFrame(updateTimer)
     }
 
     requestAnimationFrame(updateTimer)
+
+    return () => {
+      timerRunning = false
+    }
   }
 
   if (loading) {
