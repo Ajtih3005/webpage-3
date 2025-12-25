@@ -33,7 +33,7 @@ export function SilentPoseTracker({
   useEffect(() => {
     if (!poseSessionId) return
 
-    fetch(`/api/get-instructor-poses?sessionId=${poseSessionId}`)
+    fetch(`/api/ai/instructor-poses?sessionId=${poseSessionId}`)
       .then((res) => res.json())
       .then((data) => {
         if (data.poses) {

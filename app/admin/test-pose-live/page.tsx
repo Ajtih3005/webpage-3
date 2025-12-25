@@ -44,7 +44,10 @@ function TestPoseLiveContent() {
       const response = await fetch(`/api/ai/instructor-poses?sessionId=${sessionId}`)
       const result = await response.json()
 
-      if (!response.ok) throw new Error(result.error)
+      if (!response.ok) {
+        console.error("[v0] Error response:", result)
+        throw new Error(result.error)
+      }
 
       if (result.poses) {
         setInstructorPoses(result.poses)
@@ -57,6 +60,7 @@ function TestPoseLiveContent() {
       }
     } catch (error) {
       console.error("[v0] Error loading instructor poses:", error)
+      alert("Failed to load pose data. Check console for details.")
     } finally {
       setLoading(false)
     }
@@ -220,7 +224,7 @@ function TestPoseLiveContent() {
     return match ? match[1] : null
   }
 
-  const youtubeId = courseInfo?.youtube_link ? getYouTubeId(courseInfo.youtube_link) : null
+  const youtubeId = courseInfo?.video_url ? getYouTubeId(courseInfo.video_url) : null
 
   if (loading) {
     return (
@@ -285,20 +289,11 @@ function TestPoseLiveContent() {
             <div className="relative bg-black rounded-lg overflow-hidden" style={{ aspectRatio: "16/9" }}>
               {youtubeId ? (
                 <iframe
-                  src={`https://www.youtube.com/embed/${youtubeId}?enablejsapi=1`}
+                  src={`https://www.youtube.com/embed/${youtubeId}?enablejsapi=1&autoplay=0`}
                   className="w-full h-full"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
-                  onLoad={(e) => {
-                    // Listen for YouTube player time updates
-                    const iframe = e.target as HTMLIFrameElement
-                    const updateTime = setInterval(() => {
-                      // This is a simplified approach - in production you'd use YouTube IFrame API
-                      setCurrentVideoTime(currentVideoTime + 100)
-                    }, 100)
-
-                    return () => clearInterval(updateTime)
-                  }}
+                  title="Instructor Video"
                 />
               ) : (
                 <div className="flex items-center justify-center h-full text-white">
