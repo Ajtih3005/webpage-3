@@ -15,6 +15,7 @@ function TestPoseLiveContent() {
   const [instructorPoses, setInstructorPoses] = useState<any[]>([])
   const [courseInfo, setCourseInfo] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [mediaPipeReady, setMediaPipeReady] = useState(false)
   const [cameraActive, setCameraActive] = useState(false)
   const [currentAccuracy, setCurrentAccuracy] = useState<number>(0)
   const [jointAccuracies, setJointAccuracies] = useState<any>({})
@@ -29,11 +30,8 @@ function TestPoseLiveContent() {
   const timerRunningRef = useRef(false)
 
   useEffect(() => {
-    if (sessionId) {
-      loadInstructorPoses()
-      initializePoseLandmarker()
-      loadYouTubeAPI()
-    }
+    console.log("[v0] Page loaded, starting MediaPipe initialization...")
+    initializePoseLandmarker()
 
     return () => {
       if (animationFrameRef.current) {
@@ -43,6 +41,13 @@ function TestPoseLiveContent() {
         cancelAnimationFrame(timerRef.current)
       }
       timerRunningRef.current = false
+    }
+  }, []) // Empty dependency array = runs once on mount
+
+  useEffect(() => {
+    if (sessionId) {
+      loadInstructorPoses()
+      loadYouTubeAPI()
     }
   }, [sessionId])
 
@@ -77,6 +82,8 @@ function TestPoseLiveContent() {
   const initializePoseLandmarker = async () => {
     try {
       console.log("[v0] Initializing MediaPipe PoseLandmarker...")
+      setMediaPipeReady(false)
+
       const { FilesetResolver, PoseLandmarker } = await import("@mediapipe/tasks-vision")
 
       const vision = await FilesetResolver.forVisionTasks(
@@ -92,31 +99,64 @@ function TestPoseLiveContent() {
         numPoses: 1,
       })
       setPoseLandmarker(landmarker)
-      console.log("[v0] PoseLandmarker initialized successfully")
+      setMediaPipeReady(true)
+      console.log("[v0] ✅ PoseLandmarker initialized and ready!")
     } catch (error) {
-      console.error("[v0] Error initializing PoseLandmarker:", error)
+      console.error("[v0] ❌ Error initializing PoseLandmarker:", error)
+      setMediaPipeReady(false)
     }
   }
 
   const startCamera = async () => {
+    // If MediaPipe not ready yet, wait for it
+    if (!mediaPipeReady || !poseLandmarker) {
+      setCameraActive(true) // Show loading state immediately
+      console.log("[v0] Waiting for MediaPipe to load...")
+
+      // Poll until MediaPipe is ready (max 10 seconds)
+      let attempts = 0
+      const checkInterval = setInterval(() => {
+        attempts++
+        if (mediaPipeReady && poseLandmarker) {
+          clearInterval(checkInterval)
+          console.log("[v0] MediaPipe ready, starting camera now...")
+          initCamera()
+        } else if (attempts > 50) {
+          // 10 seconds timeout
+          clearInterval(checkInterval)
+          setCameraActive(false)
+          console.error("[v0] MediaPipe failed to load")
+        }
+      }, 200)
+      return
+    }
+
+    initCamera()
+  }
+
+  const initCamera = async () => {
+    console.log("[v0] Starting camera with MediaPipe ready...")
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 640, height: 480 },
-        audio: false,
+        video: { width: 1280, height: 720 },
       })
 
       if (webcamRef.current) {
         webcamRef.current.srcObject = stream
         setCameraActive(true)
-        console.log("[v0] Camera started")
-        requestAnimationFrame(() => {
-          startPoseDetection()
-          startTimer()
-        })
+        console.log("[v0] Camera started successfully")
+
+        webcamRef.current.onloadedmetadata = () => {
+          console.log("[v0] Webcam video loaded, starting pose detection...")
+          requestAnimationFrame(() => {
+            startPoseDetection()
+            startTimer()
+          })
+        }
       }
     } catch (error) {
       console.error("[v0] Error accessing webcam:", error)
-      alert("Unable to access webcam. Please grant camera permissions.")
+      setCameraActive(false)
     }
   }
 
@@ -148,7 +188,6 @@ function TestPoseLiveContent() {
       return null
     }
 
-    // currentTime is already in milliseconds, convert to seconds
     const currentTimeInSeconds = currentTime / 1000
 
     const closest = instructorPoses.reduce((closest, pose) => {
@@ -177,8 +216,6 @@ function TestPoseLiveContent() {
       instructorLandmarks.length,
     )
 
-    // Your database has 12 key points stored
-    // Map them to corresponding indices
     const keyPoints = [
       { name: "left_shoulder", userIndex: 11, instructorIndex: 0 },
       { name: "right_shoulder", userIndex: 12, instructorIndex: 1 },
@@ -277,12 +314,10 @@ function TestPoseLiveContent() {
       lastTime = now
 
       if (youtubePlayerRef.current && youtubePlayerRef.current.getCurrentTime) {
-        // Sync with YouTube if available
         try {
           const currentTime = youtubePlayerRef.current.getCurrentTime() * 1000
           setCurrentVideoTime(currentTime)
         } catch (error) {
-          // If YouTube player fails, use internal timer
           setCurrentVideoTime((prev) => prev + deltaTime)
         }
       } else {
@@ -302,14 +337,25 @@ function TestPoseLiveContent() {
   }
 
   const startPoseDetection = () => {
-    if (!poseLandmarker || !webcamRef.current || !canvasRef.current) {
-      console.log("[v0] Cannot start pose detection - missing requirements")
+    if (!poseLandmarker) {
+      console.error("[v0] MediaPipe not initialized!")
+      alert("MediaPipe is not ready. Please refresh the page.")
       return
     }
 
+    if (!webcamRef.current || !canvasRef.current) {
+      console.error("[v0] Video or canvas ref missing!")
+      return
+    }
+
+    console.log("[v0] ✅ All systems ready - Starting pose detection loop...")
+    console.log("[v0] MediaPipe ready:", !!poseLandmarker)
+    console.log("[v0] Webcam ready:", !!webcamRef.current)
+    console.log("[v0] Canvas ready:", !!canvasRef.current)
+    console.log("[v0] Instructor poses loaded:", instructorPoses.length)
+
     const detectPose = async () => {
       if (!webcamRef.current || !canvasRef.current || !cameraActive || !poseLandmarker) {
-        console.log("[v0] Pose detection stopped")
         return
       }
 
@@ -317,9 +363,13 @@ function TestPoseLiveContent() {
         const videoTime = performance.now()
         const results = poseLandmarker.detectForVideo(webcamRef.current, videoTime)
 
-        // Draw user pose on canvas
-        const ctx = canvasRef.current.getContext("2d")
-        if (ctx && results.landmarks && results.landmarks.length > 0) {
+        console.log("[v0] 🎥 Pose detection result:", {
+          landmarksDetected: results.landmarks?.length || 0,
+          currentTime: (currentVideoTime / 1000).toFixed(2) + "s",
+        })
+
+        if (results.landmarks && results.landmarks.length > 0) {
+          const ctx = canvasRef.current.getContext("2d")
           ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height)
 
           const { DrawingUtils, PoseLandmarker: PL } = await import("@mediapipe/tasks-vision")
@@ -327,20 +377,26 @@ function TestPoseLiveContent() {
           drawingUtils.drawLandmarks(results.landmarks[0])
           drawingUtils.drawConnectors(results.landmarks[0], PL.POSE_CONNECTIONS)
 
-          // Compare with instructor pose at current video time
-          if (instructorPoses.length > 0) {
+          console.log("[v0] ✅ User pose detected - Drawing skeleton")
+
+          if (instructorPoses.length > 0 && currentVideoTime > 0) {
             const closestInstructorPose = findClosestPose(currentVideoTime)
 
             if (closestInstructorPose && closestInstructorPose.landmarks) {
+              console.log("[v0] 🎯 Found matching instructor pose, calculating accuracy...")
               const accuracy = calculatePoseAccuracy(results.landmarks[0], closestInstructorPose.landmarks)
               setCurrentAccuracy(accuracy.overall)
               setJointAccuracies(accuracy.joints)
-              console.log("[v0] Accuracy:", accuracy.overall.toFixed(1) + "%")
+              console.log("[v0] ✅ Accuracy updated:", accuracy.overall.toFixed(1) + "%")
+            } else {
+              console.log("[v0] ⚠️ No instructor pose found for time:", (currentVideoTime / 1000).toFixed(2) + "s")
             }
           }
+        } else {
+          console.log("[v0] ⚠️ No user pose detected in frame")
         }
       } catch (error) {
-        console.error("[v0] Pose detection error:", error)
+        console.error("[v0] ❌ Pose detection error:", error)
       }
 
       if (cameraActive) {
@@ -381,27 +437,35 @@ function TestPoseLiveContent() {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <Link href="/admin/pose-analytics">
-            <Button variant="ghost" size="sm">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Analytics
-            </Button>
+          <Link
+            href="/admin/pose-analytics"
+            className="flex items-center text-muted-foreground hover:text-foreground mb-2"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Analytics
           </Link>
-          <h1 className="text-3xl font-bold text-gray-900 mt-2">Live Pose Testing</h1>
-          <p className="text-gray-600">Compare your pose with the instructor in real-time</p>
+          <h1 className="text-3xl font-bold">Live Pose Testing</h1>
+          <p className="text-muted-foreground">Compare your pose with the instructor in real-time</p>
         </div>
         <div className="text-right">
-          <Badge variant="secondary" className="text-lg px-4 py-2">
-            Accuracy: {currentAccuracy.toFixed(1)}%
-          </Badge>
+          {!mediaPipeReady && (
+            <Badge variant="secondary" className="mb-2">
+              Loading MediaPipe...
+            </Badge>
+          )}
+          {mediaPipeReady && (
+            <Badge variant="default" className="mb-2">
+              MediaPipe Ready ✓
+            </Badge>
+          )}
+          <div className="text-2xl font-bold">Accuracy: {currentAccuracy.toFixed(1)}%</div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Instructor Video */}
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-4">
@@ -438,7 +502,6 @@ function TestPoseLiveContent() {
           </CardContent>
         </Card>
 
-        {/* Admin Webcam */}
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-4">
@@ -448,18 +511,28 @@ function TestPoseLiveContent() {
               </h3>
               <Button
                 onClick={cameraActive ? stopCamera : startCamera}
-                variant={cameraActive ? "destructive" : "default"}
-                size="sm"
+                className={cameraActive ? "bg-red-500 hover:bg-red-600" : ""}
+                disabled={!mediaPipeReady && !cameraActive}
               >
-                {cameraActive ? "Stop Camera" : "Start Camera"}
+                {cameraActive ? (
+                  <>
+                    <Camera className="mr-2 h-4 w-4" />
+                    Stop Camera
+                  </>
+                ) : (
+                  <>
+                    <Camera className="mr-2 h-4 w-4" />
+                    {mediaPipeReady ? "Start Camera" : "Loading MediaPipe..."}
+                  </>
+                )}
               </Button>
             </div>
             <div className="relative bg-gray-900 rounded-lg overflow-hidden" style={{ aspectRatio: "16/9" }}>
               <video ref={webcamRef} autoPlay playsInline muted className="w-full h-full object-cover scale-x-[-1]" />
               <canvas
                 ref={canvasRef}
-                width={640}
-                height={480}
+                width={1280}
+                height={720}
                 className="absolute top-0 left-0 w-full h-full pointer-events-none scale-x-[-1]"
               />
               {!cameraActive && (
@@ -475,7 +548,6 @@ function TestPoseLiveContent() {
         </Card>
       </div>
 
-      {/* Live Accuracy Report */}
       <Card>
         <CardContent className="p-6">
           <h3 className="font-semibold text-lg mb-4">Live Accuracy Report</h3>
