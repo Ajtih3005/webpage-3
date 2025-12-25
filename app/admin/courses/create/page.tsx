@@ -226,19 +226,27 @@ export default function CreateCoursePage() {
 
   const processPoseVideo = async (videoFile: File) => {
     try {
+      console.log("[v0] Starting pose extraction for video:", videoFile.name)
       setPoseProgress(10)
       setProcessingPose(true)
 
       const tempCourseId = crypto.randomUUID()
+      console.log("[v0] Generated course ID:", tempCourseId)
 
       let totalFramesProcessed = 0
       let isFirstBatch = true
 
-      const poses = await extractPosesFromVideo(videoFile, async (batch) => {
-        totalFramesProcessed += batch.length
-        const progress = 10 + (totalFramesProcessed / 4000) * 70
-
+      // Progress callback for frame extraction
+      const onProgress = (percent: number) => {
+        const progress = 10 + percent * 0.7 // 10-80%
         setPoseProgress(Math.min(progress, 80))
+        console.log("[v0] Extraction progress:", percent.toFixed(1) + "%")
+      }
+
+      // Batch callback for uploading frames as they're extracted
+      const onBatchReady = async (batch: any[]) => {
+        console.log("[v0] Batch ready with", batch.length, "frames. Uploading...")
+        totalFramesProcessed += batch.length
 
         const response = await fetch("/api/ai/save-pose-session", {
           method: "POST",
@@ -255,16 +263,21 @@ export default function CreateCoursePage() {
         const result = await response.json()
         if (!response.ok) {
           console.error("[v0] Pose upload error:", result.error)
-          throw new Error(result.error)
+          throw new Error(result.error || "Failed to upload pose batch")
         }
 
+        console.log("[v0] Batch uploaded successfully. Total frames:", totalFramesProcessed)
         if (isFirstBatch) {
           isFirstBatch = false
         }
-      })
+      }
 
+      const poses = await extractPosesFromVideo(videoFile, onProgress, onBatchReady)
+
+      console.log("[v0] Extraction complete. Total poses:", poses.length)
       setPoseProgress(90)
 
+      // Mark session as complete
       await fetch("/api/ai/save-pose-session", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -279,7 +292,7 @@ export default function CreateCoursePage() {
       setPoseProgress(100)
     } catch (error) {
       console.error("[v0] Error processing pose video:", error)
-      setError(error instanceof Error ? error.message : "Failed to process video")
+      setPoseError(error instanceof Error ? error.message : "Failed to process video")
     } finally {
       setProcessingPose(false)
     }

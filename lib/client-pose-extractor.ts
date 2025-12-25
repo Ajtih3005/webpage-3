@@ -62,6 +62,7 @@ export class ClientPoseExtractor {
     onBatchReady?: (batch: PoseFrame[]) => Promise<void>,
   ): Promise<PoseFrame[]> {
     try {
+      console.log("[v0] Initializing MediaPipe for pose extraction...")
       await this.initialize()
 
       return new Promise((resolve, reject) => {
@@ -82,18 +83,21 @@ export class ClientPoseExtractor {
         }
 
         video.onloadedmetadata = () => {
+          console.log("[v0] Video loaded. Duration:", video.duration, "seconds")
           canvas.width = video.videoWidth
           canvas.height = video.videoHeight
 
           const duration = video.duration
-          const fps = 1.5 // ~1.5 frames per second (~3000 frames for 30-min video)
+          const fps = 1.5
           const interval = 1 / fps
           let currentTime = 0
+          let frameCount = 0
 
           const extractFrame = async () => {
             if (currentTime >= duration) {
               if (batchPoses.length > 0 && onBatchReady) {
                 try {
+                  console.log("[v0] Saving final batch of", batchPoses.length, "frames")
                   await onBatchReady([...batchPoses])
                 } catch (error) {
                   console.error("[v0] Failed to save final batch:", error)
@@ -101,7 +105,7 @@ export class ClientPoseExtractor {
               }
 
               URL.revokeObjectURL(video.src)
-              console.log(`[v0] Pose extraction complete: ${allPoses.length} frames`)
+              console.log(`[v0] Pose extraction complete: ${allPoses.length} frames extracted`)
               resolve(allPoses)
               return
             }
@@ -125,14 +129,16 @@ export class ClientPoseExtractor {
 
                   const poseFrame = {
                     timestamp: currentTime,
-                    landmarks: keyLandmarks, // Only 12 joints instead of 33
+                    landmarks: keyLandmarks,
                   }
 
                   batchPoses.push(poseFrame)
                   allPoses.push(poseFrame)
+                  frameCount++
 
                   if (batchPoses.length >= BATCH_SIZE && onBatchReady) {
                     try {
+                      console.log("[v0] Batch complete. Uploading", batchPoses.length, "frames...")
                       await onBatchReady([...batchPoses])
                       batchPoses = []
                     } catch (error) {
@@ -147,7 +153,7 @@ export class ClientPoseExtractor {
                 currentTime += interval
                 extractFrame()
               } catch (error) {
-                console.error("[v0] Frame extraction error:", error)
+                console.error("[v0] Frame extraction error at", currentTime, "seconds:", error)
                 currentTime += interval
                 extractFrame()
               }
@@ -159,8 +165,9 @@ export class ClientPoseExtractor {
 
         video.onerror = (e) => {
           console.error("[v0] Video load error:", e)
-          reject(new Error("Failed to load video file"))
+          reject(new Error("Failed to load video file. Please ensure it's a valid video format."))
         }
+
         video.load()
       })
     } catch (error) {
