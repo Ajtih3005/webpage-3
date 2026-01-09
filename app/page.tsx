@@ -26,6 +26,7 @@ import {
   ExternalLink,
   Star,
   Zap,
+  MessageCircle,
 } from "lucide-react"
 import { useState, useEffect } from "react"
 import ReviewCarousel from "@/components/review-carousel"
@@ -136,37 +137,31 @@ export default function Home() {
     <div className="flex flex-col min-h-screen bg-gradient-to-b from-amber-50/30 via-white to-emerald-50/20">
       <header
         className={`w-full py-4 px-6 sticky top-0 z-50 transition-all duration-500 ${
-          scrolled ? "bg-white/90 backdrop-blur-xl shadow-sm border-b border-emerald-100/40" : "bg-transparent"
+          scrolled ? "bg-white/90 backdrop-blur-xl shadow-sm border-b border-gray-200" : "bg-transparent"
         }`}
       >
         <div className="container mx-auto flex items-center justify-between max-w-7xl">
           <Link href="/" className="flex items-center gap-3 group">
-            <div className="relative h-16 w-16 rounded-full overflow-hidden ring-1 ring-emerald-200/40 group-hover:ring-emerald-300/60 transition-all">
+            <div className="relative h-16 w-16 rounded-full overflow-hidden ring-1 ring-purple-200/40 group-hover:ring-purple-300/60 transition-all">
               <Image src="/images/logo.png" alt="Sthavishtah" fill className="object-cover" priority />
             </div>
             <div className="flex flex-col">
-              <span className="font-playfair text-xl font-semibold tracking-tight text-emerald-800">STHAVISHTAH</span>
-              <span className="text-[10px] tracking-[0.2em] text-emerald-700/50 uppercase">Yoga & Wellness</span>
+              <span className="font-playfair text-xl font-semibold tracking-tight text-purple-700">STHAVISHTAH</span>
+              <span className="text-[10px] tracking-[0.2em] text-gray-500 uppercase">Yoga & Wellness</span>
             </div>
           </Link>
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-8">
-            <Link
-              href="/updates"
-              className="text-sm text-emerald-700/60 hover:text-emerald-800 transition-colors font-lora"
-            >
+            <Link href="/updates" className="text-sm text-gray-600 hover:text-gray-800 transition-colors font-lora">
               Updates
             </Link>
-            <Link
-              href="/user/login"
-              className="text-sm text-emerald-700/60 hover:text-emerald-800 transition-colors font-lora"
-            >
+            <Link href="/user/login" className="text-sm text-gray-600 hover:text-gray-800 transition-colors font-lora">
               Sign In
             </Link>
             <Link
               href="/user/register"
-              className="px-6 py-2.5 bg-teal-600 text-white text-sm rounded-full hover:bg-teal-700 transition-all hover:shadow-lg font-lora"
+              className="px-6 py-2.5 bg-gradient-to-r from-purple-600 to-teal-500 text-white text-sm rounded-full hover:from-purple-700 hover:to-teal-600 transition-all hover:shadow-lg font-lora"
             >
               Get Started
             </Link>
@@ -175,7 +170,7 @@ export default function Home() {
           {/* Mobile Menu Button */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden p-2 text-emerald-800"
+            className="md:hidden p-2 text-purple-800"
             aria-label="Toggle menu"
           >
             {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
@@ -184,26 +179,26 @@ export default function Home() {
 
         {/* Mobile Menu */}
         {mobileMenuOpen && (
-          <div className="md:hidden absolute top-full left-0 right-0 bg-white/95 backdrop-blur-xl shadow-lg border-t border-emerald-100/40">
+          <div className="md:hidden absolute top-full left-0 right-0 bg-white/95 backdrop-blur-xl shadow-lg border-t border-gray-200">
             <nav className="flex flex-col p-6 gap-4">
               <Link
                 href="/updates"
                 onClick={() => setMobileMenuOpen(false)}
-                className="text-emerald-700 hover:text-emerald-800 py-2 font-lora"
+                className="text-gray-700 hover:text-gray-900 py-2 font-lora"
               >
                 Updates
               </Link>
               <Link
                 href="/user/login"
                 onClick={() => setMobileMenuOpen(false)}
-                className="text-emerald-700 hover:text-emerald-800 py-2 font-lora"
+                className="text-gray-700 hover:text-gray-900 py-2 font-lora"
               >
                 Sign In
               </Link>
               <Link
                 href="/user/register"
                 onClick={() => setMobileMenuOpen(false)}
-                className="px-6 py-3 bg-teal-600 text-white text-center rounded-full hover:bg-teal-700 transition-all font-lora"
+                className="px-6 py-3 bg-gradient-to-r from-purple-600 to-teal-500 text-white text-center rounded-full hover:from-purple-700 hover:to-teal-600 transition-all font-lora"
               >
                 Get Started
               </Link>
@@ -251,11 +246,10 @@ export default function Home() {
           <h2 className="font-playfair text-3xl sm:text-4xl md:text-5xl lg:text-6xl mb-8 sm:mb-12 text-stone-800 leading-tight px-4">
             Begin with a Guided Practice
           </h2>
-          {/* </CHANGE> */}
 
           <Button
             size="lg"
-            className="bg-teal-600 hover:bg-teal-700 text-white px-8 sm:px-12 py-6 sm:py-8 text-lg sm:text-xl md:text-2xl font-lora shadow-2xl hover:shadow-3xl transition-all duration-300 rounded-xl hover:scale-105 w-full sm:w-auto sm:min-w-[400px] max-w-[500px] mx-auto"
+            className="bg-gradient-to-r from-purple-600 to-teal-500 hover:from-purple-700 hover:to-teal-600 text-white px-8 sm:px-12 py-6 sm:py-8 text-lg sm:text-xl md:text-2xl font-lora shadow-2xl hover:shadow-3xl transition-all duration-300 rounded-xl hover:scale-105 w-full sm:w-auto sm:min-w-[400px] max-w-[500px] mx-auto"
             onClick={handleEnroll}
           >
             <div className="flex flex-col items-center gap-2">
@@ -265,7 +259,6 @@ export default function Home() {
               </span>
             </div>
           </Button>
-          {/* </CHANGE> */}
         </div>
       </div>
 
@@ -283,71 +276,64 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Flexible Batches Section */}
-      <section className="py-16 sm:py-20 md:py-24 bg-gradient-to-b from-emerald-50/30 to-white">
+      {/* Flexible Batches Section - Moved from earlier position */}
+      <section className="py-12 sm:py-16 bg-gradient-to-b from-emerald-50/30 to-white">
         <div className="container mx-auto px-4 sm:px-6">
-          <div className="text-center mb-12 sm:mb-16 md:mb-20">
-            <h2 className="font-playfair text-2xl sm:text-3xl md:text-4xl font-semibold text-emerald-800 mb-3 sm:mb-4">
+          <div className="text-center mb-8 sm:mb-12">
+            <h2 className="font-playfair text-2xl sm:text-3xl font-semibold text-emerald-800 mb-2 sm:mb-3">
               Flexible Batches
             </h2>
-            <p className="font-lora text-sm sm:text-base text-emerald-700/70 max-w-2xl mx-auto px-4">
+            <p className="font-lora text-sm text-emerald-700/70 max-w-xl mx-auto px-4">
               Choose from our flexible schedule designed to harmonize with your natural rhythms.
             </p>
           </div>
-          {/* </CHANGE> */}
 
-          <div className="grid sm:grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 max-w-5xl mx-auto">
+          <div className="grid sm:grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 max-w-4xl mx-auto">
             {/* Morning Batch */}
-            <Card className="border-emerald-200/40 hover:shadow-xl transition-all duration-300 group">
-              <div className="h-1.5 bg-gradient-to-r from-yellow-400 to-orange-400"></div>
-              <CardContent className="p-6 sm:p-8">
-                <div className="flex items-center gap-3 mb-4 sm:mb-6">
-                  <div className="p-2 sm:p-3 rounded-full bg-yellow-100">
-                    <Sun className="h-5 w-5 sm:h-6 sm:w-6 text-yellow-600" />
+            <Card className="border-emerald-200/40 hover:shadow-lg transition-all duration-300">
+              <div className="h-1 bg-gradient-to-r from-yellow-400 to-orange-400"></div>
+              <CardContent className="p-4 sm:p-6">
+                <div className="flex items-center gap-2 mb-3 sm:mb-4">
+                  <div className="p-2 rounded-full bg-yellow-100">
+                    <Sun className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-600" />
                   </div>
-                  <h3 className="font-playfair text-xl sm:text-2xl font-semibold text-emerald-800">Morning Batches</h3>
+                  <h3 className="font-playfair text-lg sm:text-xl font-semibold text-emerald-800">Morning Batches</h3>
                 </div>
-                <div className="space-y-2 sm:space-y-3 mb-6">
-                  {[
-                    { time: "5:30 AM - 6:30 AM", desc: "Early dawn practice" },
-                    { time: "6:40 AM - 7:40 AM", desc: "Sunrise session" },
-                    { time: "7:50 AM - 8:50 AM", desc: "Morning flow" },
-                  ].map((slot, i) => (
-                    <div key={i} className="flex justify-between items-center p-3 bg-amber-50/50 rounded-lg">
-                      <span className="font-lora font-semibold text-emerald-800 text-sm sm:text-base">{slot.time}</span>
-                      <span className="text-emerald-700/60 text-xs sm:text-sm">{slot.desc}</span>
-                    </div>
-                  ))}
+                <div className="space-y-2 mb-4">
+                  {[{ time: "5:30 AM - 6:30 AM" }, { time: "6:40 AM - 7:40 AM" }, { time: "7:50 AM - 8:50 AM" }].map(
+                    (slot, i) => (
+                      <div key={i} className="flex items-center p-2 bg-amber-50/50 rounded-lg">
+                        <span className="font-lora font-semibold text-emerald-800 text-sm">{slot.time}</span>
+                      </div>
+                    ),
+                  )}
                 </div>
-                <Badge variant="outline" className="border-yellow-300 text-yellow-700 bg-yellow-50">
+                <Badge variant="outline" className="border-yellow-300 text-yellow-700 bg-yellow-50 text-xs">
                   Energizing Flow
                 </Badge>
               </CardContent>
             </Card>
 
             {/* Evening Batch */}
-            <Card className="border-emerald-200/40 hover:shadow-xl transition-all duration-300 group">
-              <div className="h-1.5 bg-gradient-to-r from-indigo-400 to-purple-400"></div>
-              <CardContent className="p-6 sm:p-8">
-                <div className="flex items-center gap-3 mb-4 sm:mb-6">
-                  <div className="p-2 sm:p-3 rounded-full bg-indigo-100">
-                    <Moon className="h-5 w-5 sm:h-6 sm:w-6 text-indigo-600" />
+            <Card className="border-emerald-200/40 hover:shadow-lg transition-all duration-300">
+              <div className="h-1 bg-gradient-to-r from-indigo-400 to-purple-400"></div>
+              <CardContent className="p-4 sm:p-6">
+                <div className="flex items-center gap-2 mb-3 sm:mb-4">
+                  <div className="p-2 rounded-full bg-indigo-100">
+                    <Moon className="h-4 w-4 sm:h-5 sm:w-5 text-indigo-600" />
                   </div>
-                  <h3 className="font-playfair text-xl sm:text-2xl font-semibold text-emerald-800">Evening Batches</h3>
+                  <h3 className="font-playfair text-lg sm:text-xl font-semibold text-emerald-800">Evening Batches</h3>
                 </div>
-                <div className="space-y-2 sm:space-y-3 mb-6">
-                  {[
-                    { time: "5:30 PM - 6:30 PM", desc: "Evening unwind" },
-                    { time: "6:40 PM - 7:40 PM", desc: "Wind-down practice" },
-                    { time: "7:50 PM - 8:50 PM", desc: "Restorative session" },
-                  ].map((slot, i) => (
-                    <div key={i} className="flex justify-between items-center p-3 bg-stone-50 rounded-lg">
-                      <span className="font-lora font-semibold text-emerald-800 text-sm sm:text-base">{slot.time}</span>
-                      <span className="text-emerald-700/60 text-xs sm:text-sm">{slot.desc}</span>
-                    </div>
-                  ))}
+                <div className="space-y-2 mb-4">
+                  {[{ time: "5:30 PM - 6:30 PM" }, { time: "6:40 PM - 7:40 PM" }, { time: "7:50 PM - 8:50 PM" }].map(
+                    (slot, i) => (
+                      <div key={i} className="flex items-center p-2 bg-stone-50 rounded-lg">
+                        <span className="font-lora font-semibold text-emerald-800 text-sm">{slot.time}</span>
+                      </div>
+                    ),
+                  )}
                 </div>
-                <Badge variant="outline" className="border-indigo-300 text-indigo-700 bg-indigo-50">
+                <Badge variant="outline" className="border-indigo-300 text-indigo-700 bg-indigo-50 text-xs">
                   Calming Practice
                 </Badge>
               </CardContent>
@@ -615,101 +601,8 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Features Grid - Enhanced with better cards */}
-      <section className="py-14 md:py-20 bg-white relative overflow-hidden">
-        <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-emerald-200 to-transparent"></div>
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-emerald-50 rounded-full opacity-70"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-emerald-50 rounded-full opacity-70"></div>
+      
 
-        <div className="container mx-auto px-4 relative">
-          <div className="text-center mb-12">
-            <span className="inline-block px-4 py-1 rounded-full bg-gradient-to-r from-emerald-100 to-emerald-100 text-emerald-800 text-sm font-medium mb-4 shadow-md">
-              <Heart className="inline-block mr-1 h-4 w-4" />
-              Our Approach
-            </span>
-            <h2 className="text-2xl sm:text-3xl font-bold mb-3 md:mb-4 bg-clip-text text-transparent bg-gradient-to-r from-emerald-800 to-emerald-700">
-              The True Essence of Yoga
-            </h2>
-          </div>
-
-          <div className="max-w-4xl mx-auto">
-            <div className="bg-gradient-to-br from-emerald-50 via-white to-emerald-50 p-8 md:p-12 rounded-2xl shadow-lg border border-emerald-100">
-              <div className="text-center mb-8">
-                <h3 className="text-xl md:text-2xl font-bold text-emerald-800 mb-4 italic">"योगश्चित्तवृत्तिनिरोधः"</h3>
-                <p className="text-lg md:text-xl text-emerald-700 font-semibold mb-6">
-                  "Yoga is Chitta Vritti Nirodha"
-                </p>
-                <p className="text-sm md:text-base text-gray-600 mb-8">- Patanjali's Yoga Sutras (1.2)</p>
-              </div>
-
-              <div className="prose prose-green max-w-none text-center">
-                {/* Desktop view - full content */}
-                <div className="hidden md:block">
-                  <p className="text-base md:text-lg text-gray-700 leading-relaxed mb-6">
-                    At Sthavishtah, we honor this timeless wisdom that defines yoga as the cessation of mental
-                    fluctuations. Our platform is unique because we don't just teach physical postures - we guide you
-                    toward the true purpose of yoga: achieving a state of inner stillness and self-realization.
-                  </p>
-
-                  <p className="text-base md:text-lg text-gray-700 leading-relaxed mb-6">
-                    Unlike modern fitness-focused approaches, we embrace yoga's authentic spiritual dimension. Through
-                    traditional practices, Bhagavad Gita study, and mindful living, we help you transcend the constant
-                    chatter of the mind and discover your true nature.
-                  </p>
-
-                  <p className="text-base md:text-lg text-gray-700 leading-relaxed">
-                    Our revolutionary approach combines ancient wisdom with modern accessibility, creating
-                    transformative experiences that awaken your highest potential. We don't just practice yoga - we live
-                    it, breathe it, and embody the true essence of yoga as a complete way of life. This is not just
-                    exercise - this is the path to liberation, exactly as the great sages intended.
-                  </p>
-                </div>
-
-                {/* Mobile view - sliding content */}
-                <div className="md:hidden">
-                  <div className="overflow-x-auto scrollbar-hide">
-                    <div className="flex gap-4 pb-4" style={{ width: "calc(300% + 2rem)" }}>
-                      <div className="flex-shrink-0 w-full bg-white/50 p-4 rounded-lg border border-emerald-100">
-                        <p className="text-sm text-gray-700 leading-relaxed">
-                          At Sthavishtah, we honor the timeless wisdom that defines yoga as the cessation of mental
-                          fluctuations. We guide you toward achieving inner stillness and self-realization.
-                        </p>
-                      </div>
-                      <div className="flex-shrink-0 w-full bg-white/50 p-4 rounded-lg border border-emerald-100">
-                        <p className="text-sm text-gray-700 leading-relaxed">
-                          Unlike modern fitness approaches, we embrace yoga's authentic spiritual dimension through
-                          traditional practices, Bhagavad Gita study, and mindful living.
-                        </p>
-                      </div>
-                      <div className="flex-shrink-0 w-full bg-white/50 p-4 rounded-lg border border-emerald-100">
-                        <p className="text-sm text-gray-700 leading-relaxed">
-                          Our revolutionary approach combines ancient wisdom with modern accessibility, creating
-                          transformative experiences. This is the path to liberation as the great sages intended.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex justify-center mt-4 gap-2">
-                    <div className="w-2 h-2 bg-emerald-400 rounded-full"></div>
-                    <div className="w-2 h-2 bg-emerald-200 rounded-full"></div>
-                    <div className="w-2 h-2 bg-emerald-200 rounded-full"></div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-center mt-8">
-                <div className="flex items-center gap-2 text-emerald-600">
-                  <Leaf className="h-5 w-5" />
-                  <span className="text-sm font-medium">Authentic • Traditional • Transformative</span>
-                  <Leaf className="h-5 w-5" />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Our Team Section */}
       {showTeamSection && teamMembers.length > 0 && (
         <section className="py-14 md:py-20 relative overflow-hidden">
           {/* Background Image with Overlay */}
@@ -852,155 +745,94 @@ export default function Home() {
           </div>
         </div>
       </section>
-
-      <section className="py-14 md:py-20 bg-gradient-to-r from-green-50 to-green-100/50 relative overflow-hidden">
-        <div className="absolute inset-0 opacity-5 -z-10">
-          <Image
-            src="/images/forest-pattern-bg.jpg"
-            alt="Forest Pattern Background"
-            fill
-            className="object-cover object-center"
-            sizes="100vw"
-          />
-        </div>
-        <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-green-200 to-transparent"></div>
-        <div className="absolute bottom-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-green-200 to-transparent"></div>
-
-        <div className="container mx-auto px-4 relative">
-          <div className="text-center mb-12">
-            <span className="inline-block px-4 py-1 rounded-full bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 text-sm font-medium mb-4 shadow-md">
-              <Users className="inline-block mr-1 h-4 w-4" />
-              Connect with Us
-            </span>
-            <h2 className="text-2xl sm:text-3xl font-bold mb-3 md:mb-4 bg-clip-text text-transparent bg-gradient-to-r from-green-800 to-emerald-700">
-              Join Our Wellness Community
-            </h2>
-            <p className="text-gray-600 max-w-2xl mx-auto mb-8">
-              Connect with like-minded souls on a journey of self-discovery and natural wellness.
-            </p>
-          </div>
-
-          <div className="max-w-4xl mx-auto text-center">
-            <div className="bg-gradient-to-br from-green-50 via-white to-emerald-50 p-8 md:p-12 rounded-2xl shadow-lg border border-green-100 mb-8">
-              <p className="text-base md:text-lg text-gray-700 leading-relaxed mb-6">
-                Join our WhatsApp community for daily updates, motivation, and direct connection with instructors and
-                fellow practitioners.
+      <section className="py-10 md:py-14 bg-gradient-to-br from-emerald-50 via-white to-teal-50/30">
+        <div className="container mx-auto px-4">
+          <div className="max-w-3xl mx-auto text-center">
+            <div className="mb-4">
+              <span className="inline-block px-4 py-1.5 bg-green-100 text-green-700 rounded-full text-xs font-medium mb-3">
+                Join Our Community
+              </span>
+              <h2 className="font-playfair text-2xl md:text-3xl font-semibold text-emerald-800 mb-3">
+                Connect, Share, and Grow Together
+              </h2>
+              <p className="font-lora text-sm md:text-base text-emerald-700/80 mb-6 max-w-xl mx-auto">
+                Join yoga enthusiasts in our WhatsApp community. Share your journey, get daily inspiration, and connect
+                with like-minded souls on the path to wellness.
               </p>
+            </div>
 
-              <div className="flex justify-center mb-6">
-                <div className="bg-white p-4 rounded-lg shadow-lg flex flex-col items-center transform transition-transform hover:scale-105 duration-300 border border-green-100">
-                  <div className="text-green-800 font-bold mb-2 text-center text-sm">SCAN FOR WHATSAPP CHANNEL</div>
-                  <div className="h-24 w-24 md:h-32 md:w-32 relative rounded-lg overflow-hidden shadow-inner">
-                    <Image src="/images/wpqr1.jpeg" alt="WhatsApp Channel QR Code" fill className="object-contain" />
-                  </div>
-                </div>
-              </div>
-
-              <p className="text-sm md:text-base text-gray-600 mb-6">
-                Quiet your mind, strengthen your body, awaken your spirit. Start your yoga journey today!
-              </p>
-
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Link
-                  href="/user/register"
-                  className="inline-flex items-center justify-center px-6 py-3 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-300"
-                >
-                  Join Our Journey
-                  <Leaf className="ml-2 h-4 w-4" />
-                </Link>
-                <Link
-                  href="https://chat.whatsapp.com/G68uJzPssx1CZE2WphRmzP"
-                  target="_blank"
-                  className="inline-flex items-center justify-center px-6 py-3 bg-white text-teal-700 border border-teal-200 hover:bg-teal-50 hover:border-teal-300 font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-300"
-                >
-                  Join WhatsApp
-                  <ExternalLink className="ml-2 h-4 w-4" />
-                </Link>
-              </div>
+            <div className="inline-flex items-center gap-3 bg-white px-6 py-3 rounded-full shadow-md hover:shadow-lg transition-all duration-300 border border-emerald-100">
+              <MessageCircle className="h-5 w-5 text-green-600" />
+              <a
+                href="https://chat.whatsapp.com/EnvZN3bqnGIIhQExITyKmT"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-lora font-medium text-emerald-800 hover:text-emerald-600 transition-colors text-sm md:text-base"
+              >
+                Join WhatsApp Community
+              </a>
+              <ArrowRight className="h-4 w-4 text-emerald-600" />
             </div>
           </div>
         </div>
       </section>
-
-      {/* Footer - Enhanced with better styling */}
-      <footer className="bg-gradient-to-br from-teal-800 to-teal-700 text-white py-14 md:py-16 relative overflow-hidden">
-        <div className="absolute inset-0 opacity-5 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgdmlld0JveD0iMCAwIDYwIDYwIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMSI+PHBhdGggZD0iTTM2IDM0di00aC0ydjRoLTR2Mmg0djRoMnYtNGg0di0ySDZ6bT0iLz48L2c+PC9nPjwvc3ZnPg==')] -z-10"></div>
-
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8 md:gap-12">
+      <footer className="bg-gradient-to-r from-purple-800 via-purple-700 to-teal-600 text-white py-12">
+        <div className="container mx-auto px-6">
+          <div className="grid md:grid-cols-3 gap-8 md:gap-12">
+            {/* Brand Column */}
             <div>
-              <div className="flex items-center mb-5 md:mb-6">
-                <div className="relative h-14 w-14 sm:h-16 sm:w-16 mr-3 sm:mr-4 rounded-full overflow-hidden border border-white/20 shadow-lg">
-                  <Image src="/images/logo.png" alt="Sthavishtah Logo" fill className="object-cover" />
+              <div className="flex items-center gap-3 mb-4">
+                <div className="relative h-14 w-14 rounded-full overflow-hidden">
+                  <Image src="/images/logo.png" alt="Sthavishtah" fill className="object-cover" />
                 </div>
-                <h3 className="text-lg sm:text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-green-200">
-                  STHAVISHTAH YOGA
-                </h3>
+                <span className="font-playfair text-xl font-semibold">STHAVISHTAH YOGA</span>
               </div>
-              <p className="mb-4 text-gray-300 text-sm sm:text-base">
+              <p className="text-white/80 text-sm leading-relaxed mb-4">
                 Nurturing mind, body, and spirit through authentic yoga practices and natural wellness approaches.
               </p>
-              <p className="text-gray-400 text-sm">
-                © {new Date().getFullYear()} STHAVISHTAH YOGA. All rights reserved.
-              </p>
+              <p className="text-white/60 text-xs">© 2026 STHAVISHTAH YOGA. All rights reserved.</p>
             </div>
 
-            <div className="mt-4 sm:mt-0">
-              <h3 className="text-lg sm:text-xl font-bold mb-5 md:mb-6 relative inline-block">
-                Contact Us
-                <span className="absolute -bottom-2 left-0 w-12 h-1 bg-green-400 rounded-full"></span>
-              </h3>
-              <p className="mb-4 md:mb-5 text-gray-300 text-sm sm:text-base">Email: sthavishtah2024@gmail.com</p>
-              <div className="flex items-center mb-4 md:mb-5 text-gray-300 hover:text-white transition-colors">
-                <Instagram className="h-5 w-5 sm:h-6 sm:w-6 mr-2" />
-                <span className="text-sm sm:text-base">@sthavishtah</span>
+            {/* Contact Column */}
+            <div>
+              <h3 className="font-playfair text-lg font-semibold mb-4">Contact Us</h3>
+              <div className="space-y-3 text-sm">
+                <p className="flex items-start gap-2">
+                  <span className="text-white/80">Email:</span>
+                  <span className="text-white">sthavishtah2024@gmail.com</span>
+                </p>
+                <p className="flex items-start gap-2">
+                  <Instagram className="w-4 h-4 mt-0.5 text-white/80" />
+                  <span className="text-white">@sthavishtah</span>
+                </p>
+                <p className="flex items-start gap-2">
+                  <span className="text-white/80">Address:</span>
+                  <span className="text-white">Bengaluru, India</span>
+                </p>
               </div>
-              <p className="text-gray-300 text-sm sm:text-base">Address: Bengaluru, India</p>
             </div>
 
-            <div className="mt-4 md:mt-0">
-              <h3 className="text-lg sm:text-xl font-bold mb-5 md:mb-6 relative inline-block">
-                Quick Links
-                <span className="absolute -bottom-2 left-0 w-12 h-1 bg-green-400 rounded-full"></span>
-              </h3>
-              <ul className="space-y-3 sm:space-y-4">
-                <li>
-                  <Link
-                    href="/user/login"
-                    className="text-gray-300 hover:text-white transition-colors flex items-center text-sm sm:text-base group"
-                  >
-                    <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5 mr-2 group-hover:translate-x-1 transition-transform" />
-                    Login
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="/user/register"
-                    className="text-gray-300 hover:text-white transition-colors flex items-center text-sm sm:text-base group"
-                  >
-                    <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5 mr-2 group-hover:translate-x-1 transition-transform" />
-                    Register
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="/instructor/login"
-                    className="text-gray-300 hover:text-white transition-colors flex items-center text-sm sm:text-base group"
-                  >
-                    <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5 mr-2 group-hover:translate-x-1 transition-transform" />
-                    Instructors
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="/admin/login"
-                    className="text-gray-300 hover:text-white transition-colors flex items-center text-sm sm:text-base group"
-                  >
-                    <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5 mr-2 group-hover:translate-x-1 transition-transform" />
-                    Admin
-                  </Link>
-                </li>
-              </ul>
+            {/* Quick Links Column */}
+            <div>
+              <h3 className="font-playfair text-lg font-semibold mb-4">Quick Links</h3>
+              <nav className="space-y-2 text-sm">
+                <Link href="/user/login" className="flex items-center gap-2 hover:text-white/80 transition-colors">
+                  <ArrowRight className="w-4 h-4" />
+                  Login
+                </Link>
+                <Link href="/user/register" className="flex items-center gap-2 hover:text-white/80 transition-colors">
+                  <ArrowRight className="w-4 h-4" />
+                  Register
+                </Link>
+                <Link href="/instructors" className="flex items-center gap-2 hover:text-white/80 transition-colors">
+                  <ArrowRight className="w-4 h-4" />
+                  Instructors
+                </Link>
+                <Link href="/admin" className="flex items-center gap-2 hover:text-white/80 transition-colors">
+                  <ArrowRight className="w-4 h-4" />
+                  Admin
+                </Link>
+              </nav>
             </div>
           </div>
         </div>

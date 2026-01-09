@@ -7,20 +7,20 @@
 
 @layer base {
   :root {
-    /* Softened color palette - reduced contrast, warmer tones, easier on eyes */
+    /* Updated color palette to match the purple-teal gradient from header/footer */
     --background: 40 25% 98%;
     --foreground: 150 20% 35%;
     --card: 0 0% 100%;
     --card-foreground: 150 20% 35%;
     --popover: 0 0% 100%;
     --popover-foreground: 150 20% 35%;
-    --primary: 150 30% 50%;
+    --primary: 262 83% 58%; /* Purple */
     --primary-foreground: 0 0% 100%;
-    --secondary: 40 35% 92%;
-    --secondary-foreground: 150 20% 35%;
+    --secondary: 180 78% 56%; /* Teal */
+    --secondary-foreground: 0 0% 100%;
     --muted: 150 15% 94%;
     --muted-foreground: 150 15% 50%;
-    --accent: 150 35% 55%;
+    --accent: 262 83% 58%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 70% 50%;
     --destructive-foreground: 0 0% 100%;

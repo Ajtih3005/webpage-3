@@ -4,7 +4,7 @@ import { getSupabaseServerClient } from "@/lib/supabase"
 export async function POST(request: Request) {
   try {
     const authHeader = request.headers.get("authorization")
-    const cronSecret = process.env.CRON_SECRET
+    const cronSecret = process.env.corn_secret
 
     if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
       console.error("[v0] ❌ Unauthorized cron request")

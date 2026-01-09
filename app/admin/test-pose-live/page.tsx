@@ -21,6 +21,7 @@ function TestPoseLiveContent() {
   const [jointAccuracies, setJointAccuracies] = useState<any>({})
   const [poseLandmarker, setPoseLandmarker] = useState<any | null>(null)
   const [currentVideoTime, setCurrentVideoTime] = useState(0)
+  const [error, setError] = useState<string | null>(null)
 
   const webcamRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -47,7 +48,6 @@ function TestPoseLiveContent() {
   useEffect(() => {
     if (sessionId) {
       loadInstructorPoses()
-      loadYouTubeAPI()
     }
   }, [sessionId])
 
@@ -58,22 +58,22 @@ function TestPoseLiveContent() {
       const result = await response.json()
 
       if (!response.ok) {
-        console.error("[v0] Error response:", result)
-        throw new Error(result.error)
+        throw new Error(result.error || "Failed to load poses")
       }
 
-      if (result.poses) {
-        setInstructorPoses(result.poses)
-        console.log("[v0] Loaded instructor poses:", result.poses.length)
-      }
+      console.log("[v0] Instructor poses loaded:", result.poses?.length || 0, "frames")
+      console.log("[v0] Video URL from database:", result.video_url)
 
-      if (result.session) {
-        setCourseInfo(result.session)
-        console.log("[v0] Course info:", result.session)
+      setInstructorPoses(result.poses || [])
+      setCourseInfo(result)
+
+      if (result.video_url) {
+        console.log("[v0] YouTube URL found, preparing player")
+        loadYouTubeAPI()
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("[v0] Error loading instructor poses:", error)
-      alert("Failed to load pose data. Check console for details.")
+      setError(error.message)
     } finally {
       setLoading(false)
     }
@@ -108,12 +108,10 @@ function TestPoseLiveContent() {
   }
 
   const startCamera = async () => {
-    // If MediaPipe not ready yet, wait for it
     if (!mediaPipeReady || !poseLandmarker) {
-      setCameraActive(true) // Show loading state immediately
+      setCameraActive(true)
       console.log("[v0] Waiting for MediaPipe to load...")
 
-      // Poll until MediaPipe is ready (max 10 seconds)
       let attempts = 0
       const checkInterval = setInterval(() => {
         attempts++
@@ -122,7 +120,6 @@ function TestPoseLiveContent() {
           console.log("[v0] MediaPipe ready, starting camera now...")
           initCamera()
         } else if (attempts > 50) {
-          // 10 seconds timeout
           clearInterval(checkInterval)
           setCameraActive(false)
           console.error("[v0] MediaPipe failed to load")
@@ -185,7 +182,7 @@ function TestPoseLiveContent() {
   const findClosestPose = (currentTimeMs: number) => {
     if (instructorPoses.length === 0) return null
 
-    const currentTimeSec = currentTimeMs / 1000 // Convert ms to seconds
+    const currentTimeSec = currentTimeMs / 1000
     console.log("[v0] 🔍 Looking for instructor pose at:", currentTimeSec.toFixed(2) + "s")
 
     let closest = instructorPoses[0]
@@ -205,7 +202,7 @@ function TestPoseLiveContent() {
       "Difference:",
       minDiff.toFixed(2) + "s",
     )
-    return minDiff < 0.5 ? closest : null // Return if within 0.5 seconds
+    return minDiff < 0.5 ? closest : null
   }
 
   const calculatePoseAccuracy = (userLandmarks: any[], instructorLandmarks: any[]) => {
@@ -429,6 +426,24 @@ function TestPoseLiveContent() {
     )
   }
 
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Card className="max-w-md">
+          <CardContent className="pt-6 text-center">
+            <p className="text-red-600">Error: {error}</p>
+            <Link href="/admin/pose-analytics">
+              <Button className="mt-4">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Analytics
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
   if (!sessionId || instructorPoses.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -486,8 +501,17 @@ function TestPoseLiveContent() {
           </CardHeader>
           <CardContent>
             {youtubeId ? (
-              <div className="aspect-video bg-black rounded-lg overflow-hidden">
-                <div id="youtube-player" className="w-full h-full"></div>
+              <>
+                <div className="aspect-video bg-black rounded-lg overflow-hidden">
+                  <div id="youtube-player" className="w-full h-full"></div>
+                </div>
+                <p className="mt-2 text-xs text-gray-500">Video ID: {youtubeId}</p>
+              </>
+            ) : courseInfo?.video_url ? (
+              <div className="aspect-video bg-gray-900 rounded-lg flex flex-col items-center justify-center text-white">
+                <VideoIcon className="w-16 h-16 mb-4 opacity-50" />
+                <p className="text-lg font-medium">Unable to play video</p>
+                <p className="text-sm text-gray-400 mt-2 px-4 text-center break-all">URL: {courseInfo.video_url}</p>
               </div>
             ) : (
               <div className="aspect-video bg-gray-900 rounded-lg flex flex-col items-center justify-center text-white">
