@@ -85,10 +85,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: "Failed to fetch subscription details" }, { status: 500 })
     }
 
-    // Calculate subscription dates
     const startDate = new Date()
     const endDate = new Date(startDate)
-    endDate.setDate(endDate.getDate() + subscriptionData.duration_days)
+    endDate.setDate(endDate.getDate() + subscriptionData.duration_days + 3)
 
     // Store the payment details in the database
     const { data: paymentData, error: paymentError } = await supabase
@@ -122,6 +121,7 @@ export async function POST(request: Request) {
           is_active: true,
           payment_id: razorpay_payment_id,
           terms_accepted: true,
+          days_left: subscriptionData.duration_days + 3, // Include 3-day grace period
         },
       ])
       .select()

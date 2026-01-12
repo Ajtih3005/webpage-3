@@ -14,12 +14,10 @@ import {
   Users,
   Instagram,
   ArrowRight,
-  Leaf,
   Sun,
   Moon,
   Menu,
   X,
-  Heart,
   Sparkles,
   BookOpen,
   Package,
@@ -241,15 +239,15 @@ export default function Home() {
       </section>
 
       {/* CTA Section - Begin with Guided Practice */}
-      <div className="container mx-auto px-4 sm:px-6 py-16 sm:py-24">
-        <div className="text-center max-w-4xl mx-auto space-y-8 sm:space-y-10">
-          <h2 className="font-playfair text-3xl sm:text-4xl md:text-5xl lg:text-6xl mb-8 sm:mb-12 text-stone-800 leading-tight px-4">
+      <div className="container mx-auto px-4 sm:px-6 py-10 sm:py-12">
+        <div className="text-center max-w-4xl mx-auto space-y-6">
+          <h2 className="font-playfair text-2xl sm:text-3xl md:text-4xl mb-6 text-stone-800 leading-tight px-4">
             Begin with a Guided Practice
           </h2>
 
           <Button
             size="lg"
-            className="bg-gradient-to-r from-purple-600 to-teal-500 hover:from-purple-700 hover:to-teal-600 text-white px-8 sm:px-12 py-6 sm:py-8 text-lg sm:text-xl md:text-2xl font-lora shadow-2xl hover:shadow-3xl transition-all duration-300 rounded-xl hover:scale-105 w-full sm:w-auto sm:min-w-[400px] max-w-[500px] mx-auto"
+            className="bg-gradient-to-r from-purple-600 to-teal-500 hover:from-purple-700 hover:to-teal-600 text-white px-8 sm:px-10 py-5 sm:py-6 text-base sm:text-lg md:text-xl font-lora shadow-2xl hover:shadow-3xl transition-all duration-300 rounded-xl hover:scale-105 w-full sm:w-auto sm:min-w-[350px] max-w-[450px] mx-auto"
             onClick={handleEnroll}
           >
             <div className="flex flex-col items-center gap-2">
@@ -277,70 +275,6 @@ export default function Home() {
       </section>
 
       {/* Flexible Batches Section - Moved from earlier position */}
-      <section className="py-12 sm:py-16 bg-gradient-to-b from-emerald-50/30 to-white">
-        <div className="container mx-auto px-4 sm:px-6">
-          <div className="text-center mb-8 sm:mb-12">
-            <h2 className="font-playfair text-2xl sm:text-3xl font-semibold text-emerald-800 mb-2 sm:mb-3">
-              Flexible Batches
-            </h2>
-            <p className="font-lora text-sm text-emerald-700/70 max-w-xl mx-auto px-4">
-              Choose from our flexible schedule designed to harmonize with your natural rhythms.
-            </p>
-          </div>
-
-          <div className="grid sm:grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 max-w-4xl mx-auto">
-            {/* Morning Batch */}
-            <Card className="border-emerald-200/40 hover:shadow-lg transition-all duration-300">
-              <div className="h-1 bg-gradient-to-r from-yellow-400 to-orange-400"></div>
-              <CardContent className="p-4 sm:p-6">
-                <div className="flex items-center gap-2 mb-3 sm:mb-4">
-                  <div className="p-2 rounded-full bg-yellow-100">
-                    <Sun className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-600" />
-                  </div>
-                  <h3 className="font-playfair text-lg sm:text-xl font-semibold text-emerald-800">Morning Batches</h3>
-                </div>
-                <div className="space-y-2 mb-4">
-                  {[{ time: "5:30 AM - 6:30 AM" }, { time: "6:40 AM - 7:40 AM" }, { time: "7:50 AM - 8:50 AM" }].map(
-                    (slot, i) => (
-                      <div key={i} className="flex items-center p-2 bg-amber-50/50 rounded-lg">
-                        <span className="font-lora font-semibold text-emerald-800 text-sm">{slot.time}</span>
-                      </div>
-                    ),
-                  )}
-                </div>
-                <Badge variant="outline" className="border-yellow-300 text-yellow-700 bg-yellow-50 text-xs">
-                  Energizing Flow
-                </Badge>
-              </CardContent>
-            </Card>
-
-            {/* Evening Batch */}
-            <Card className="border-emerald-200/40 hover:shadow-lg transition-all duration-300">
-              <div className="h-1 bg-gradient-to-r from-indigo-400 to-purple-400"></div>
-              <CardContent className="p-4 sm:p-6">
-                <div className="flex items-center gap-2 mb-3 sm:mb-4">
-                  <div className="p-2 rounded-full bg-indigo-100">
-                    <Moon className="h-4 w-4 sm:h-5 sm:w-5 text-indigo-600" />
-                  </div>
-                  <h3 className="font-playfair text-lg sm:text-xl font-semibold text-emerald-800">Evening Batches</h3>
-                </div>
-                <div className="space-y-2 mb-4">
-                  {[{ time: "5:30 PM - 6:30 PM" }, { time: "6:40 PM - 7:40 PM" }, { time: "7:50 PM - 8:50 PM" }].map(
-                    (slot, i) => (
-                      <div key={i} className="flex items-center p-2 bg-stone-50 rounded-lg">
-                        <span className="font-lora font-semibold text-emerald-800 text-sm">{slot.time}</span>
-                      </div>
-                    ),
-                  )}
-                </div>
-                <Badge variant="outline" className="border-indigo-300 text-indigo-700 bg-indigo-50 text-xs">
-                  Calming Practice
-                </Badge>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </section>
 
       {/* Offerings Section with Riverside Yoga Background - Enhanced with better cards */}
       <section className="py-14 md:py-20 relative overflow-hidden">
@@ -601,8 +535,6 @@ export default function Home() {
         </div>
       </section>
 
-      
-
       {showTeamSection && teamMembers.length > 0 && (
         <section className="py-14 md:py-20 relative overflow-hidden">
           {/* Background Image with Overlay */}
@@ -742,6 +674,71 @@ export default function Home() {
 
           <div className="max-w-6xl mx-auto">
             <ReviewCarousel />
+          </div>
+        </div>
+      </section>
+
+      <section className="py-12 sm:py-16 bg-gradient-to-b from-emerald-50/30 to-white">
+        <div className="container mx-auto px-4 sm:px-6">
+          <div className="text-center mb-8 sm:mb-12">
+            <h2 className="font-playfair text-2xl sm:text-3xl font-semibold text-emerald-800 mb-2 sm:mb-3">
+              Flexible Batches
+            </h2>
+            <p className="font-lora text-sm text-emerald-700/70 max-w-xl mx-auto px-4">
+              Choose from our flexible schedule designed to harmonize with your natural rhythms.
+            </p>
+          </div>
+
+          <div className="grid sm:grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 max-w-4xl mx-auto">
+            {/* Morning Batch */}
+            <Card className="border-emerald-200/40 hover:shadow-lg transition-all duration-300">
+              <div className="h-1 bg-gradient-to-r from-yellow-400 to-orange-400"></div>
+              <CardContent className="p-4 sm:p-6">
+                <div className="flex items-center gap-2 mb-3 sm:mb-4">
+                  <div className="p-2 rounded-full bg-yellow-100">
+                    <Sun className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-600" />
+                  </div>
+                  <h3 className="font-playfair text-lg sm:text-xl font-semibold text-emerald-800">Morning Batches</h3>
+                </div>
+                <div className="space-y-2 mb-4">
+                  {[{ time: "5:30 AM - 6:30 AM" }, { time: "6:40 AM - 7:40 AM" }, { time: "7:50 AM - 8:50 AM" }].map(
+                    (slot, i) => (
+                      <div key={i} className="flex items-center p-2 bg-amber-50/50 rounded-lg">
+                        <span className="font-lora font-semibold text-emerald-800 text-sm">{slot.time}</span>
+                      </div>
+                    ),
+                  )}
+                </div>
+                <Badge variant="outline" className="border-yellow-300 text-yellow-700 bg-yellow-50 text-xs">
+                  Energizing Flow
+                </Badge>
+              </CardContent>
+            </Card>
+
+            {/* Evening Batch */}
+            <Card className="border-emerald-200/40 hover:shadow-lg transition-all duration-300">
+              <div className="h-1 bg-gradient-to-r from-indigo-400 to-purple-400"></div>
+              <CardContent className="p-4 sm:p-6">
+                <div className="flex items-center gap-2 mb-3 sm:mb-4">
+                  <div className="p-2 rounded-full bg-indigo-100">
+                    <Moon className="h-4 w-4 sm:h-5 sm:w-5 text-indigo-600" />
+                  </div>
+                  <h3 className="font-playfair text-lg sm:text-xl font-semibold text-emerald-800">Evening Batches</h3>
+                </div>
+                <div className="space-y-2 mb-4">
+                  {[{ time: "5:30 PM - 6:30 PM" }, { time: "6:40 PM - 7:40 PM" }, { time: "7:50 PM - 8:50 PM" }].map(
+                    (slot, i) => (
+                      <div key={i} className="flex items-center p-2 bg-stone-50 rounded-lg">
+                        <span className="font-lora font-semibold text-emerald-800 text-sm">{slot.time}</span>
+                      </div>
+                    ),
+                  )}
+                </div>
+                <Badge variant="outline" className="border-indigo-300 text-indigo-700 bg-indigo-50 text-xs">
+                  Calming Practice
+                </Badge>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </section>

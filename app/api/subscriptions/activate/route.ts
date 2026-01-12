@@ -23,10 +23,10 @@ export async function POST(req: Request) {
 
     if (fetchError) throw fetchError
 
-    // Calculate new end date based on activation date and duration
+    // Calculate new end date based on activation date and duration with 3-day grace period
     const durationDays = subscription?.subscription?.duration_days || 30
     const newEndDate = new Date(activationDate)
-    newEndDate.setDate(newEndDate.getDate() + durationDays)
+    newEndDate.setDate(newEndDate.getDate() + durationDays + 3)
 
     // Update the subscription
     const { error } = await supabase
@@ -38,6 +38,7 @@ export async function POST(req: Request) {
         activation_notes: notes || null,
         end_date: newEndDate.toISOString(), // Update end date based on activation date
         last_activation_date: new Date().toISOString(), // Track last activation date
+        days_left: durationDays + 3, // Include 3-day grace period
       })
       .eq("id", id)
 
