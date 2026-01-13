@@ -7,8 +7,10 @@ export async function POST(request: Request) {
     const authHeader = request.headers.get("authorization")
     const vercelCronHeader = request.headers.get("x-vercel-cron-secret") || request.headers.get("x-cron-secret")
 
-    // Allow either Vercel's cron header OR manual authorization for testing
-    if (cronSecret && !vercelCronHeader && authHeader !== `Bearer ${cronSecret}`) {
+    const isVercelCron = request.headers.get("x-vercel-cron") === "1"
+
+    // Allow if: 1) Called by Vercel Cron, OR 2) Has valid Bearer token for manual testing
+    if (!isVercelCron && cronSecret && authHeader !== `Bearer ${cronSecret}`) {
       console.error("[v0] ❌ Unauthorized cron request")
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
