@@ -77,19 +77,29 @@ function TestPoseLiveContent() {
         throw new Error(result.error || "Failed to load poses")
       }
 
-      console.log("[v0] API response:", result)
+      console.log("[v0] Full API response:", JSON.stringify(result, null, 2))
       console.log("[v0] Instructor poses loaded:", result.poses?.length || 0, "frames")
+      console.log("[v0] Session data:", result.session)
+      console.log("[v0] Direct video_url:", result.video_url)
+      console.log("[v0] Session video_url:", result.session?.video_url)
 
-      const url = result.session?.video_url || result.video_url
-      console.log("[v0] Video URL from database:", url)
+      const url = result.video_url || result.session?.video_url
+      console.log("[v0] Final Video URL:", url)
 
       setInstructorPoses(result.poses || [])
       setCourseInfo(result.session || result)
       setVideoUrl(url)
 
       if (url) {
-        console.log("[v0] YouTube URL found, preparing player")
-        loadYouTubeAPI(url)
+        const ytId = getYouTubeId(url)
+        console.log("[v0] Extracted YouTube ID:", ytId)
+        if (ytId) {
+          loadYouTubeAPI(url)
+        } else {
+          console.log("[v0] Could not extract YouTube ID from URL:", url)
+        }
+      } else {
+        console.log("[v0] No video URL found in database - timer will use internal clock")
       }
     } catch (error: any) {
       console.error("[v0] Error loading instructor poses:", error)
@@ -168,6 +178,15 @@ function TestPoseLiveContent() {
 
         webcamRef.current.onloadedmetadata = () => {
           console.log("[v0] Webcam video loaded, starting pose detection...")
+
+          if (youtubePlayerRef.current && typeof youtubePlayerRef.current.playVideo === "function") {
+            console.log("[v0] Auto-playing YouTube video...")
+            youtubePlayerRef.current.seekTo(0) // Start from beginning
+            youtubePlayerRef.current.playVideo()
+          } else {
+            console.log("[v0] No YouTube player, using internal timer")
+          }
+
           requestAnimationFrame(() => {
             startPoseDetection()
             startTimer()
@@ -276,8 +295,31 @@ function TestPoseLiveContent() {
 
   const getYouTubeId = (url: string) => {
     if (!url) return null
-    const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/)
-    return match ? match[1] : null
+    // Handle various YouTube URL formats
+    const patterns = [
+      /(?:youtube\.com\/watch\?v=)([^&\n?#]+)/,
+      /(?:youtu\.be\/)([^&\n?#]+)/,
+      /(?:youtube\.com\/embed\/)([^&\n?#]+)/,
+      /(?:youtube\.com\/v\/)([^&\n?#]+)/,
+      /(?:youtube\.com\/shorts\/)([^&\n?#]+)/,
+    ]
+
+    for (const pattern of patterns) {
+      const match = url.match(pattern)
+      if (match) {
+        console.log("[v0] YouTube ID extracted:", match[1], "from pattern:", pattern)
+        return match[1]
+      }
+    }
+
+    // If URL is just an ID
+    if (/^[a-zA-Z0-9_-]{11}$/.test(url)) {
+      console.log("[v0] URL appears to be just a YouTube ID:", url)
+      return url
+    }
+
+    console.log("[v0] No YouTube ID found in URL:", url)
+    return null
   }
 
   const youtubeId = videoUrl ? getYouTubeId(videoUrl) : null
@@ -285,47 +327,73 @@ function TestPoseLiveContent() {
   const loadYouTubeAPI = (url: string) => {
     const ytId = getYouTubeId(url)
     if (!ytId) {
-      console.log("[v0] Invalid YouTube URL:", url)
+      console.log("[v0] Invalid YouTube URL, cannot load player:", url)
       return
     }
 
-    console.log("[v0] Loading YouTube API for video:", ytId)
+    console.log("[v0] Loading YouTube API for video ID:", ytId)
 
     const initPlayer = () => {
-      if (document.getElementById("youtube-player") && (window as any).YT && (window as any).YT.Player) {
-        console.log("[v0] Creating YouTube player...")
-        youtubePlayerRef.current = new (window as any).YT.Player("youtube-player", {
-          videoId: ytId,
-          playerVars: {
-            autoplay: 0,
-            controls: 1,
-            enablejsapi: 1,
-            origin: window.location.origin,
-          },
-          events: {
-            onReady: (event: any) => {
-              console.log("[v0] YouTube player ready!")
+      const playerDiv = document.getElementById("youtube-player")
+      console.log("[v0] YouTube player div found:", !!playerDiv)
+      console.log("[v0] YT object available:", !!(window as any).YT)
+      console.log("[v0] YT.Player available:", !!(window as any).YT?.Player)
+
+      if (playerDiv && (window as any).YT && (window as any).YT.Player) {
+        console.log("[v0] Creating YouTube player for ID:", ytId)
+        try {
+          youtubePlayerRef.current = new (window as any).YT.Player("youtube-player", {
+            videoId: ytId,
+            width: "100%",
+            height: "100%",
+            playerVars: {
+              autoplay: 0,
+              controls: 1,
+              enablejsapi: 1,
+              origin: window.location.origin,
+              rel: 0,
+              modestbranding: 1,
             },
-            onStateChange: (event: any) => {
-              if (event.data === 1) {
-                // Playing
-                startTimer()
-              }
+            events: {
+              onReady: (event: any) => {
+                console.log("[v0] YouTube player ready! Duration:", event.target.getDuration())
+              },
+              onStateChange: (event: any) => {
+                console.log("[v0] YouTube player state changed:", event.data)
+                if (event.data === 1) {
+                  // Playing
+                  console.log("[v0] Video playing, starting timer sync")
+                  startTimer()
+                }
+              },
+              onError: (event: any) => {
+                console.error("[v0] YouTube player error:", event.data)
+              },
             },
-          },
-        })
+          })
+          console.log("[v0] YouTube player created successfully")
+        } catch (error) {
+          console.error("[v0] Error creating YouTube player:", error)
+        }
+      } else {
+        console.log("[v0] Cannot create player - missing requirements")
       }
     }
 
     if ((window as any).YT && (window as any).YT.Player) {
-      // API already loaded
-      setTimeout(initPlayer, 100)
+      console.log("[v0] YouTube API already loaded, initializing player...")
+      setTimeout(initPlayer, 500)
     } else {
-      // Load API
-      ;(window as any).onYouTubeIframeAPIReady = initPlayer
+      console.log("[v0] Loading YouTube IFrame API script...")
+      ;(window as any).onYouTubeIframeAPIReady = () => {
+        console.log("[v0] YouTube IFrame API ready callback fired")
+        setTimeout(initPlayer, 100)
+      }
       if (!document.querySelector('script[src="https://www.youtube.com/iframe_api"]')) {
         const tag = document.createElement("script")
         tag.src = "https://www.youtube.com/iframe_api"
+        tag.onload = () => console.log("[v0] YouTube API script loaded")
+        tag.onerror = () => console.error("[v0] Failed to load YouTube API script")
         document.head.appendChild(tag)
       }
     }
@@ -339,6 +407,7 @@ function TestPoseLiveContent() {
     console.log("[v0] Starting timer...")
     timerRunningRef.current = true
     let lastTime = Date.now()
+    let internalTime = 0 // Track internal time separately
 
     const updateTimer = () => {
       if (!timerRunningRef.current) {
@@ -351,22 +420,29 @@ function TestPoseLiveContent() {
 
       if (youtubePlayerRef.current && typeof youtubePlayerRef.current.getCurrentTime === "function") {
         try {
-          const currentTime = youtubePlayerRef.current.getCurrentTime() * 1000
-          setCurrentVideoTime(currentTime)
-          currentVideoTimeRef.current = currentTime
+          const playerState = youtubePlayerRef.current.getPlayerState?.()
+          // State 1 = playing
+          if (playerState === 1) {
+            const currentTime = youtubePlayerRef.current.getCurrentTime() * 1000
+            setCurrentVideoTime(currentTime)
+            currentVideoTimeRef.current = currentTime
+            console.log("[v0] YouTube time:", (currentTime / 1000).toFixed(1) + "s")
+          } else {
+            // Video not playing, use internal timer
+            internalTime += deltaTime
+            setCurrentVideoTime(internalTime)
+            currentVideoTimeRef.current = internalTime
+          }
         } catch (error) {
-          setCurrentVideoTime((prev) => {
-            const newTime = prev + deltaTime
-            currentVideoTimeRef.current = newTime
-            return newTime
-          })
+          internalTime += deltaTime
+          setCurrentVideoTime(internalTime)
+          currentVideoTimeRef.current = internalTime
         }
       } else {
-        setCurrentVideoTime((prev) => {
-          const newTime = prev + deltaTime
-          currentVideoTimeRef.current = newTime
-          return newTime
-        })
+        // No YouTube player, use internal timer
+        internalTime += deltaTime
+        setCurrentVideoTime(internalTime)
+        currentVideoTimeRef.current = internalTime
       }
 
       timerRef.current = requestAnimationFrame(updateTimer)
@@ -389,6 +465,8 @@ function TestPoseLiveContent() {
     console.log("[v0] Starting pose detection loop...")
     console.log("[v0] Instructor poses loaded:", instructorPosesRef.current.length)
 
+    let frameCount = 0 // Track frames for periodic logging
+
     const detectPose = async () => {
       if (!webcamRef.current || !canvasRef.current || !cameraActiveRef.current || !poseLandmarker) {
         return
@@ -410,15 +488,37 @@ function TestPoseLiveContent() {
           }
 
           const poses = instructorPosesRef.current
-          const videoTime = currentVideoTimeRef.current
+          const currentTime = currentVideoTimeRef.current
 
-          if (poses.length > 0 && videoTime > 0) {
-            const closestInstructorPose = findClosestPose(videoTime)
+          frameCount++
+          if (frameCount % 30 === 0) {
+            // Log every 30 frames
+            console.log(
+              "[v0] Frame:",
+              frameCount,
+              "Time:",
+              (currentTime / 1000).toFixed(2) + "s",
+              "Poses:",
+              poses.length,
+            )
+          }
+
+          if (poses.length > 0 && currentTime > 0) {
+            const closestInstructorPose = findClosestPose(currentTime)
 
             if (closestInstructorPose && closestInstructorPose.landmarks) {
               const accuracy = calculatePoseAccuracy(results.landmarks[0], closestInstructorPose.landmarks)
               setCurrentAccuracy(accuracy.overall)
               setJointAccuracies(accuracy.joints)
+
+              if (frameCount % 30 === 0) {
+                console.log(
+                  "[v0] Comparing at timestamp:",
+                  closestInstructorPose.timestamp,
+                  "Accuracy:",
+                  accuracy.overall.toFixed(1) + "%",
+                )
+              }
             }
           }
         }
@@ -500,6 +600,29 @@ function TestPoseLiveContent() {
           </Link>
         </div>
       </div>
+
+      <Card className="mb-4 bg-gray-50">
+        <CardContent className="pt-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div>
+              <span className="text-gray-500">Session ID:</span>
+              <p className="font-mono">{sessionId || "None"}</p>
+            </div>
+            <div>
+              <span className="text-gray-500">Poses Loaded:</span>
+              <p className="font-mono">{instructorPoses.length}</p>
+            </div>
+            <div>
+              <span className="text-gray-500">Video URL:</span>
+              <p className="font-mono text-xs truncate">{videoUrl || "Not found"}</p>
+            </div>
+            <div>
+              <span className="text-gray-500">YouTube ID:</span>
+              <p className="font-mono">{youtubeId || "None"}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="text-center mb-6">
         <div
