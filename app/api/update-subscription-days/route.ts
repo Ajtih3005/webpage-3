@@ -3,13 +3,9 @@ import { getSupabaseServerClient } from "@/lib/supabase"
 
 export async function POST(request: Request) {
   try {
-    // Only check for manual Bearer token if provided, otherwise allow the request
-    // This works because Vercel cron jobs are only triggered by Vercel's internal system
     const cronSecret = process.env.corn_secret || process.env.CRON_SECRET
     const authHeader = request.headers.get("authorization")
 
-    // If Bearer token is provided, verify it (for manual testing)
-    // If no Bearer token, allow request (for Vercel cron)
     if (authHeader && cronSecret && authHeader !== `Bearer ${cronSecret}`) {
       console.error("[v0] Unauthorized cron request - invalid Bearer token")
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -19,6 +15,10 @@ export async function POST(request: Request) {
 
     const supabase = getSupabaseServerClient()
     console.log("[v0] Supabase client created")
+
+    const { count: totalCount } = await supabase.from("user_subscriptions").select("*", { count: "exact", head: true })
+
+    console.log("[v0] Total subscriptions in table:", totalCount)
 
     console.log("[v0] Fetching user subscriptions...")
     const { data: userSubscriptions, error: fetchError } = await supabase
@@ -31,12 +31,9 @@ export async function POST(request: Request) {
         total_active_days_used,
         is_active,
         last_day_counted,
-        subscription:subscriptions (
-          duration_days,
-          is_active
-        )
+        days_left
       `)
-      .not("activation_date", "is", null)
+      .eq("is_active", true) // Only get active subscriptions
 
     if (fetchError) {
       console.error("[v0] Error fetching subscriptions:", fetchError)
@@ -50,91 +47,52 @@ export async function POST(request: Request) {
       )
     }
 
-    console.log("[v0] Found", userSubscriptions?.length || 0, "subscriptions")
+    console.log("[v0] Found", userSubscriptions?.length || 0, "active subscriptions")
+
+    if (userSubscriptions && userSubscriptions.length > 0) {
+      console.log("[v0] Sample subscriptions:", JSON.stringify(userSubscriptions.slice(0, 3), null, 2))
+    }
 
     if (!userSubscriptions || userSubscriptions.length === 0) {
       return NextResponse.json({
-        message: "No subscriptions to update",
-        updated: 0,
+        message: "No active subscriptions to update",
+        totalInTable: totalCount,
+        activeFound: 0,
       })
     }
 
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-    console.log("[v0] Today's date:", today.toISOString().split("T")[0])
+    const todayStr = today.toISOString().split("T")[0]
+    console.log("[v0] Today's date:", todayStr)
 
     let updatedCount = 0
-    let skippedDueToInactiveSubscription = 0
-    let alreadyExpiredCount = 0
-    let backfilledCount = 0
+    let alreadyProcessedToday = 0
+    let expiredCount = 0
     let errorCount = 0
 
     for (const subscription of userSubscriptions) {
       try {
-        const baseDurationDays = subscription.subscription?.duration_days || 30
-        const durationDays = baseDurationDays + 3
-        const currentDaysUsed = subscription.total_active_days_used || 0
-
-        console.log(`[v0] Processing subscription ${subscription.id}: current days = ${currentDaysUsed}`)
-
-        // Skip if already fully expired
-        if (currentDaysUsed >= durationDays) {
-          if (subscription.is_active) {
-            await supabase.from("user_subscriptions").update({ is_active: false }).eq("id", subscription.id)
-          }
-          alreadyExpiredCount++
-          console.log(`[v0] ⏭️  Subscription ${subscription.id} already expired`)
+        if (subscription.last_day_counted === todayStr) {
+          alreadyProcessedToday++
+          console.log(`[v0] Subscription ${subscription.id} already processed today, skipping`)
           continue
         }
 
-        // Check if subscription plan is active (admin control)
-        if (!subscription.subscription?.is_active) {
-          await supabase
-            .from("user_subscriptions")
-            .update({ last_day_counted: today.toISOString().split("T")[0] })
-            .eq("id", subscription.id)
+        const currentDaysLeft = subscription.days_left || 0
 
-          skippedDueToInactiveSubscription++
-          console.log(`[v0] ⏭️  Subscription ${subscription.id}: Admin turned OFF subscription plan`)
-          continue
-        }
+        const newDaysLeft = Math.max(0, currentDaysLeft - 1)
+        const shouldExpire = newDaysLeft <= 0
 
-        const activationDate = new Date(subscription.activation_date)
-        activationDate.setHours(0, 0, 0, 0)
+        console.log(`[v0] Subscription ${subscription.id}: days_left ${currentDaysLeft} → ${newDaysLeft}`)
 
-        // Calculate total days from activation to today (including Day 0)
-        const daysSinceActivation = Math.floor((today.getTime() - activationDate.getTime()) / (1000 * 60 * 60 * 24))
-
-        // The correct days used should be daysSinceActivation (0-indexed, so day 0, day 1, day 2, etc.)
-        const correctDaysUsed = Math.min(daysSinceActivation, durationDays)
-
-        console.log(`[v0] Subscription ${subscription.id}:`)
-        console.log(`      Activation: ${activationDate.toISOString().split("T")[0]}`)
-        console.log(`      Days since activation: ${daysSinceActivation}`)
-        console.log(`      Current days used: ${currentDaysUsed}`)
-        console.log(`      Correct days used: ${correctDaysUsed}`)
-        console.log(`      Duration limit: ${durationDays}`)
-
-        // If current days is less than what it should be, we need to backfill
-        if (correctDaysUsed > currentDaysUsed) {
-          backfilledCount++
-          console.log(
-            `[v0] BACKFILLING subscription ${subscription.id}: ${currentDaysUsed} → ${correctDaysUsed} days (caught up ${correctDaysUsed - currentDaysUsed} missed days)`,
-          )
-        }
-
-        const shouldExpire = correctDaysUsed >= durationDays
-
-        // Update the subscription with correct days
         const { error: updateError } = await supabase
           .from("user_subscriptions")
           .update({
-            total_active_days_used: correctDaysUsed,
+            days_left: newDaysLeft,
             is_active: !shouldExpire,
-            last_day_counted: today.toISOString().split("T")[0],
-            ...(shouldExpire && {
-              activation_notes: `Expired: Reached ${durationDays} days (${baseDurationDays} + 3 bonus) on ${today.toISOString().split("T")[0]}`,
-            }),
+            last_day_counted: todayStr,
+            total_active_days_used: (subscription.total_active_days_used || 0) + 1,
           })
           .eq("id", subscription.id)
 
@@ -144,10 +102,12 @@ export async function POST(request: Request) {
           continue
         }
 
+        if (shouldExpire) {
+          expiredCount++
+          console.log(`[v0] Subscription ${subscription.id} EXPIRED`)
+        }
+
         updatedCount++
-        console.log(
-          `[v0] Subscription ${subscription.id}: Days used = ${correctDaysUsed} / ${durationDays}${shouldExpire ? " (NOW EXPIRED)" : ""}`,
-        )
       } catch (error) {
         console.error(`[v0] Error processing subscription ${subscription.id}:`, error)
         errorCount++
@@ -156,13 +116,12 @@ export async function POST(request: Request) {
     }
 
     const result = {
-      message: `Updated ${updatedCount} subscriptions (${backfilledCount} backfilled)`,
-      totalProcessed: userSubscriptions.length,
+      message: `Updated ${updatedCount} subscriptions`,
+      totalInTable: totalCount,
+      activeFound: userSubscriptions.length,
       updatedCount,
-      backfilledCount,
-      expiredCount: 0, // Not tracking new expirations separately
-      alreadyExpiredCount,
-      skippedDueToInactiveSubscription,
+      alreadyProcessedToday,
+      expiredCount,
       errorCount,
     }
 
@@ -174,7 +133,6 @@ export async function POST(request: Request) {
       {
         error: "Internal server error",
         details: error instanceof Error ? error.message : "Unknown error",
-        stack: error instanceof Error ? error.stack : undefined,
       },
       { status: 500 },
     )
