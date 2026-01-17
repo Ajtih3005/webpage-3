@@ -245,7 +245,7 @@ function TestPoseLiveContent() {
 
   const calculatePoseAccuracy = useCallback((userLandmarks: any[], instructorLandmarks: any[]) => {
     if (!instructorLandmarks || instructorLandmarks.length === 0) {
-      return { overall: 0, joints: {} }
+      return { overall: 80, scaled: 80, joints: {}, angles: {}, symmetry: 100, feedback: [] }
     }
 
     const keyPoints = [
@@ -263,10 +263,37 @@ function TestPoseLiveContent() {
       { name: "right_ankle", userIndex: 28, instructorIndex: 11 },
     ]
 
-    const jointAccuracies: any = {}
-    let totalAccuracy = 0
-    let validJoints = 0
+    // Joint angle definitions for comparison
+    const angleDefinitions = [
+      { name: "left_elbow", points: [11, 13, 15], instPoints: [0, 2, 4], label: "Left Elbow" },
+      { name: "right_elbow", points: [12, 14, 16], instPoints: [1, 3, 5], label: "Right Elbow" },
+      { name: "left_shoulder", points: [13, 11, 23], instPoints: [2, 0, 6], label: "Left Shoulder" },
+      { name: "right_shoulder", points: [14, 12, 24], instPoints: [3, 1, 7], label: "Right Shoulder" },
+      { name: "left_knee", points: [23, 25, 27], instPoints: [6, 8, 10], label: "Left Knee" },
+      { name: "right_knee", points: [24, 26, 28], instPoints: [7, 9, 11], label: "Right Knee" },
+    ]
 
+    // Symmetry pairs
+    const symmetryPairs = [
+      { left: 11, right: 12, name: "shoulders" },
+      { left: 13, right: 14, name: "elbows" },
+      { left: 15, right: 16, name: "wrists" },
+      { left: 23, right: 24, name: "hips" },
+      { left: 25, right: 26, name: "knees" },
+      { left: 27, right: 28, name: "ankles" },
+    ]
+
+    const jointAccuracies: any = {}
+    const jointAngles: any = {}
+    const feedback: string[] = []
+    let positionAccuracy = 0
+    let angleAccuracy = 0
+    let symmetryScore = 0
+    let validPositions = 0
+    let validAngles = 0
+    let validSymmetry = 0
+
+    // 1. Calculate position-based accuracy
     keyPoints.forEach((point) => {
       const userPoint = userLandmarks[point.userIndex]
       const instructorPoint = instructorLandmarks[point.instructorIndex]
@@ -280,16 +307,88 @@ function TestPoseLiveContent() {
 
         const accuracy = Math.max(0, 100 - distance * 100)
         jointAccuracies[point.name] = accuracy
-        totalAccuracy += accuracy
-        validJoints++
+        positionAccuracy += accuracy
+        validPositions++
       }
     })
 
-    const overall = validJoints > 0 ? totalAccuracy / validJoints : 0
+    // 2. Calculate angle-based accuracy
+    const calculateAngle = (p1: any, p2: any, p3: any) => {
+      const v1 = { x: p1.x - p2.x, y: p1.y - p2.y }
+      const v2 = { x: p3.x - p2.x, y: p3.y - p2.y }
+      const dot = v1.x * v2.x + v1.y * v2.y
+      const mag1 = Math.sqrt(v1.x ** 2 + v1.y ** 2)
+      const mag2 = Math.sqrt(v2.x ** 2 + v2.y ** 2)
+      if (mag1 === 0 || mag2 === 0) return 0
+      return Math.acos(Math.max(-1, Math.min(1, dot / (mag1 * mag2)))) * (180 / Math.PI)
+    }
+
+    angleDefinitions.forEach((def) => {
+      try {
+        const userAngle = calculateAngle(
+          userLandmarks[def.points[0]],
+          userLandmarks[def.points[1]],
+          userLandmarks[def.points[2]],
+        )
+        const instAngle = calculateAngle(
+          instructorLandmarks[def.instPoints[0]],
+          instructorLandmarks[def.instPoints[1]],
+          instructorLandmarks[def.instPoints[2]],
+        )
+
+        const angleDiff = Math.abs(userAngle - instAngle)
+        jointAngles[def.name] = {
+          user: Math.round(userAngle),
+          instructor: Math.round(instAngle),
+          diff: Math.round(angleDiff),
+        }
+
+        const acc = Math.max(0, 100 - (angleDiff / 30) * 100)
+        angleAccuracy += acc
+        validAngles++
+
+        if (angleDiff > 15) {
+          feedback.push(`${def.label}: ${userAngle < instAngle ? "Extend" : "Bend"} ${Math.round(angleDiff)}° more`)
+        }
+      } catch (e) {}
+    })
+
+    // 3. Calculate symmetry score
+    symmetryPairs.forEach((pair) => {
+      const left = userLandmarks[pair.left]
+      const right = userLandmarks[pair.right]
+      if (left && right) {
+        const yDiff = Math.abs(left.y - right.y)
+        const pairScore = Math.max(0, 100 - yDiff * 200)
+        symmetryScore += pairScore
+        validSymmetry++
+
+        if (pairScore < 70) {
+          feedback.push(`${left.y < right.y ? "Left" : "Right"} ${pair.name} higher`)
+        }
+      }
+    })
+
+    // Calculate raw accuracies
+    const rawPosition = validPositions > 0 ? positionAccuracy / validPositions : 0
+    const rawAngle = validAngles > 0 ? angleAccuracy / validAngles : 0
+    const rawSymmetry = validSymmetry > 0 ? symmetryScore / validSymmetry : 100
+
+    // Combined raw accuracy: 40% position, 40% angles, 20% symmetry
+    const combinedRaw = rawPosition * 0.4 + rawAngle * 0.4 + rawSymmetry * 0.2
+
+    // Apply 80% base + 20% scaled formula
+    const BASE_ACCURACY = 80
+    const VARIABLE_RANGE = 20
+    const scaledAccuracy = BASE_ACCURACY + (combinedRaw / 100) * VARIABLE_RANGE
 
     return {
-      overall,
+      overall: combinedRaw,
+      scaled: Math.min(100, scaledAccuracy),
       joints: jointAccuracies,
+      angles: jointAngles,
+      symmetry: rawSymmetry,
+      feedback: feedback.slice(0, 3),
     }
   }, [])
 
@@ -508,7 +607,7 @@ function TestPoseLiveContent() {
 
             if (closestInstructorPose && closestInstructorPose.landmarks) {
               const accuracy = calculatePoseAccuracy(results.landmarks[0], closestInstructorPose.landmarks)
-              setCurrentAccuracy(accuracy.overall)
+              setCurrentAccuracy(accuracy.scaled)
               setJointAccuracies(accuracy.joints)
 
               if (frameCount % 30 === 0) {

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { ClientPoseExtractor } from "@/lib/client-pose-extractor"
-import { analyzePoseQuality, calculateFormScore, type PoseAnalysisResult } from "@/lib/advanced-pose-analysis"
+import { analyzePoseQualityEnhanced, calculateFormScore, type PoseAnalysisResult } from "@/lib/advanced-pose-analysis"
 import type { NormalizedLandmark } from "@mediapipe/tasks-vision"
 
 interface SilentPoseTrackerProps {
@@ -69,24 +69,23 @@ export function SilentPoseTracker({
     const trackPoses = async () => {
       const now = performance.now()
 
-      // Send comparison data every 2 seconds
       if (now - lastSendTime.current < 2000) return
 
       try {
         const currentTimeMs = videoCurrentTime * 1000
 
         const instructorPose = instructorPoses.reduce((prev, curr) => {
-          return Math.abs(curr.timestamp_ms - currentTimeMs) < Math.abs(prev.timestamp_ms - currentTimeMs) ? curr : prev
+          const prevDiff = Math.abs((curr.timestamp || curr.timestamp_ms || 0) - currentTimeMs)
+          const currDiff = Math.abs((prev.timestamp || prev.timestamp_ms || 0) - currentTimeMs)
+          return prevDiff < currDiff ? curr : prev
         })
 
         if (!instructorPose || !extractorRef.current) return
 
-        // TODO: This requires actual webcam feed integration
-        // For now, simulating with placeholder
         const userLandmarks = await extractorRef.current.extractPoseFromVideo(userVideoRef)
 
         if (!userLandmarks || userLandmarks.length === 0) {
-          console.log("[v0] ⚠️ No user pose detected")
+          console.log("[v0] No user pose detected")
           return
         }
 
@@ -95,20 +94,20 @@ export function SilentPoseTracker({
           poseHistory.current.shift()
         }
 
-        const analysis: PoseAnalysisResult = analyzePoseQuality(
-          instructorPose.pose_landmarks,
+        const analysis: PoseAnalysisResult = analyzePoseQualityEnhanced(
+          instructorPose.landmarks || instructorPose.pose_landmarks,
           userLandmarks,
-          poseHistory.current.slice(-10), // Last 10 frames for motion analysis
+          poseHistory.current.slice(-10),
         )
 
         const formScore = calculateFormScore(analysis)
 
-        console.log("[v0] 📊 Advanced Analysis:", {
+        console.log("[v0] Enhanced Analysis:", {
           timestamp: currentTimeMs,
-          overallAccuracy: analysis.overallAccuracy.toFixed(1),
+          rawAccuracy: analysis.overallAccuracy.toFixed(1),
+          scaledAccuracy: analysis.scaledAccuracy.toFixed(1),
+          symmetry: analysis.symmetryScore.toFixed(1),
           formScore: formScore.toFixed(1),
-          velocity: analysis.velocityScore.toFixed(1),
-          stability: analysis.stabilityScore.toFixed(1),
           detectedPose: analysis.detectedPose,
         })
 
@@ -119,9 +118,12 @@ export function SilentPoseTracker({
             user_email: userEmail,
             course_id: courseId,
             video_timestamp_ms: currentTimeMs,
-            overall_accuracy: analysis.overallAccuracy,
+            overall_accuracy: analysis.scaledAccuracy, // Use scaled accuracy
+            raw_accuracy: analysis.overallAccuracy,
             form_score: formScore,
             joint_accuracies: analysis.jointAccuracies,
+            joint_angles: analysis.jointAngles,
+            symmetry_score: analysis.symmetryScore,
             velocity_score: analysis.velocityScore,
             stability_score: analysis.stabilityScore,
             transition_quality: analysis.transitionQuality,
