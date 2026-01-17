@@ -81,6 +81,11 @@ export async function POST(request: Request) {
 
         const currentDaysLeft = subscription.days_left || 0
 
+        if (currentDaysLeft <= 0) {
+          console.log(`[v0] Subscription ${subscription.id} already expired (days_left: ${currentDaysLeft}), skipping`)
+          continue
+        }
+
         const newDaysLeft = Math.max(0, currentDaysLeft - 1)
         const shouldExpire = newDaysLeft <= 0
 

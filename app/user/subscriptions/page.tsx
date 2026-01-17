@@ -123,9 +123,11 @@ export default function UserSubscriptionsPage() {
 
       // Process subscriptions with status based on is_active column
       const subscriptionsWithStatus = userSubs.map((sub) => {
-        const totalActiveDaysUsed = sub.total_active_days_used || 0
+        const daysLeft = sub.days_left ?? 0
         const durationDays = sub.subscription?.duration_days || 30
-        const remainingDays = Math.max(0, durationDays - totalActiveDaysUsed)
+
+        const totalActiveDaysUsed = Math.min(sub.total_active_days_used || 0, durationDays)
+        const remainingDays = daysLeft > 0 ? daysLeft : Math.max(0, durationDays - totalActiveDaysUsed)
 
         // Check if subscription plan is active (controlled by admin)
         const subscriptionPlanActive = sub.subscription?.is_active !== false
@@ -146,6 +148,7 @@ export default function UserSubscriptionsPage() {
         return {
           ...sub,
           remaining_days: remainingDays,
+          total_active_days_used: totalActiveDaysUsed,
           is_expired: isExpired,
           is_current_active: isCurrentlyActive,
           subscription_plan_active: subscriptionPlanActive,
