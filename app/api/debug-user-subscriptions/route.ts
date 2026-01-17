@@ -3,6 +3,13 @@ import { getSupabaseServerClient } from "@/lib/supabase"
 
 export async function GET(request: NextRequest) {
   try {
+    const authHeader = request.headers.get("authorization")
+    const adminPassword = process.env.ADMIN_PASSWORD
+
+    if (!authHeader || !authHeader.startsWith("Bearer ") || authHeader.slice(7) !== adminPassword) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
     const supabase = getSupabaseServerClient()
 
     // Get user ID from query params or cookies

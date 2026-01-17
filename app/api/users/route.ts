@@ -1,9 +1,16 @@
 import { NextResponse } from "next/server"
 import { getSupabaseServerClient } from "@/lib/supabase"
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const supabase = getSupabaseServerClient()
+
+    const adminPassword = request.headers.get("x-admin-password")
+    const validAdminPassword = process.env.ADMIN_PASSWORD
+
+    if (!adminPassword || adminPassword !== validAdminPassword) {
+      return NextResponse.json({ success: false, error: "Unauthorized access" }, { status: 401 })
+    }
 
     // Fetch all users
     const { data: users, error } = await supabase.from("users").select("id, name, email").order("name")

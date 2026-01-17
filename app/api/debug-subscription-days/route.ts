@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server"
 import { getSupabaseServerClient } from "@/lib/supabase"
 
-export async function GET() {
+export async function GET(request: Request) {
+  const adminPassword = request.headers.get("x-admin-password")
+  if (adminPassword !== process.env.ADMIN_PASSWORD) {
+    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
+  }
+
   try {
     const supabase = getSupabaseServerClient()
 
@@ -74,7 +79,12 @@ export async function GET() {
   }
 }
 
-export async function POST() {
+export async function POST(request: Request) {
+  const adminPassword = request.headers.get("x-admin-password")
+  if (adminPassword !== process.env.ADMIN_PASSWORD) {
+    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
+  }
+
   try {
     const supabase = getSupabaseServerClient()
 

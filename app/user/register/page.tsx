@@ -11,6 +11,7 @@ import { Logo } from "@/components/logo"
 import Link from "next/link"
 import { Eye, EyeOff } from "lucide-react"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
+import bcrypt from "bcryptjs"
 import { generateUserId } from "@/lib/utils"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
@@ -75,8 +76,46 @@ export default function UserRegister() {
     checkLinkType()
   }, [redirectUrl])
 
+  const detectSuspiciousPatterns = () => {
+    const suspiciousNames = ["test", "fake", "dummy", "admin", "user123", "qwerty", "asdf"]
+    const lowercaseName = name.toLowerCase()
+    for (const suspicious of suspiciousNames) {
+      if (lowercaseName.includes(suspicious)) {
+        return "Please enter your real name"
+      }
+    }
+
+    if (name.trim().length < 3) {
+      return "Name must be at least 3 characters"
+    }
+    if (/\d{3,}/.test(name)) {
+      return "Name cannot contain multiple numbers"
+    }
+
+    const suspiciousEmailDomains = ["tempmail", "throwaway", "guerrillamail", "mailinator", "10minutemail"]
+    for (const domain of suspiciousEmailDomains) {
+      if (email.toLowerCase().includes(domain)) {
+        return "Please use a valid email address"
+      }
+    }
+
+    const phoneDigits = phoneNumber.replace(/\D/g, "")
+    if (phoneDigits.length < 10 || phoneDigits.length > 15) {
+      return "Please enter a valid phone number"
+    }
+
+    if (/^(\d)\1{9,}$/.test(phoneDigits)) {
+      return "Please enter a valid phone number"
+    }
+
+    return null
+  }
+
   const validateForm = () => {
     if (!name.trim()) return "Name is required"
+
+    const suspiciousError = detectSuspiciousPatterns()
+    if (suspiciousError) return suspiciousError
 
     if (!email.trim()) {
       return "Email is required"
@@ -174,18 +213,33 @@ export default function UserRegister() {
 
       const supabase = getSupabaseBrowserClient()
 
-      const { data: existingUser, error: checkError } = await supabase
+      const { data: existingUserByPhone } = await supabase
         .from("users")
         .select("id")
         .eq("phone_number", phoneNumber)
         .single()
 
-      if (!checkError && existingUser) {
+      if (existingUserByPhone) {
         setError("This phone number is already registered. Please login or use a different number.")
         return
       }
 
+      const { data: existingUserByEmail } = await supabase.from("users").select("id").eq("email", email).single()
+
+      if (existingUserByEmail) {
+        setError("This email is already registered. Please login or use a different email.")
+        return
+      }
+
+      const suspiciousError = detectSuspiciousPatterns()
+      if (suspiciousError) {
+        setError(suspiciousError)
+        return
+      }
+
       const userId = generateUserId()
+
+      const hashedPassword = await bcrypt.hash(password, 10)
 
       const userData: any = {
         user_id: userId,
@@ -194,9 +248,11 @@ export default function UserRegister() {
         phone_number: phoneNumber,
         whatsapp_number: whatsappSameAsPhone ? phoneNumber : whatsappNumber,
         preferred_batch: preferredBatch || null,
-        password,
+        password: hashedPassword,
         country,
         referral_code: referralCode && referralValidation?.isValid ? referralCode.toUpperCase() : null,
+        email_verified: false,
+        created_at: new Date().toISOString(),
       }
 
       if (referralCode && referralValidation?.isValid) {
@@ -206,6 +262,20 @@ export default function UserRegister() {
       const { data, error } = await supabase.from("users").insert([userData]).select()
 
       if (error) throw error
+
+      try {
+        await fetch("/api/user/send-verification-email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email,
+            name,
+            userId: data[0].id,
+          }),
+        })
+      } catch (emailError) {
+        console.error("Error sending verification email:", emailError)
+      }
 
       try {
         const response = await fetch("/api/auto-assign-free-subscription", {
@@ -248,7 +318,7 @@ export default function UserRegister() {
       } else {
         setShowWhatsAppDialog(true)
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Registration error:", error)
       setError("An error occurred during registration. Please try again.")
     } finally {

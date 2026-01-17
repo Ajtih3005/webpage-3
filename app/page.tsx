@@ -373,7 +373,7 @@ export default function Home() {
               <Package className="inline-block mr-1 h-3 w-3 md:h-4 md:w-4" />
               Wellness Programs
             </div>
-            <h2 className="text-xl sm:text-2xl md:text-4xl font-bold mb-3 md:mb-4 bg-clip-text text-transparent bg-gradient-to-r from-gray-900 via-purple-800 to-emerald-800">
+            <h2 className="text-xl sm:text-2xl md:text-4xl font-bold mb-3 md:mb-4 text-white drop-shadow-lg">
               Discover Our Transformative Programs
             </h2>
             <p className="text-center text-gray-600 max-w-2xl mx-auto text-sm md:text-base">
@@ -554,7 +554,7 @@ export default function Home() {
 
           <div className="container mx-auto px-4 relative">
             <div className="text-center mb-12">
-              <span className="inline-block px-4 py-1 rounded-full bg-white/15 backdrop-blur-sm text-white text-sm font-medium mb-4 shadow-md border border-white/20">
+              <span className="inline-block px-4 py-1.5 bg-white/15 backdrop-blur-sm text-white text-xs font-medium mb-4 shadow-md border border-white/20">
                 <Users className="inline-block mr-1 h-4 w-4" />
                 Our Team
               </span>
@@ -659,7 +659,7 @@ export default function Home() {
         <div className="absolute inset-0 opacity-10 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgdmlld0JveD0iMCAwIDYwIDYwIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMSI+PHBhdGggZD0iTTM2IDM0di00aC0ydjRoLTR2Mmg0djRoMnYtNGg0di0ySDZ6bT0iLz48L2c+PC9nPjwvc3ZnPg==')] -z-10"></div>
 
         <div className="container mx-auto px-4 text-center">
-          <div className="inline-block mb-3 md:mb-4 px-3 py-1 md:px-4 md:py-1 bg-white/15 backdrop-blur-sm rounded-full text-white font-medium border border-white/20 shadow-lg text-xs md:text-sm">
+          <div className="inline-block mb-3 md:mb-4 px-3 sm:px-4 bg-white/15 backdrop-blur-sm rounded-full text-white font-medium border border-white/20 shadow-lg text-xs md:text-sm">
             <Star className="inline-block h-3 w-3 md:h-4 md:w-4 mr-1 animate-pulse" />
             What Our Students Say
           </div>
@@ -761,7 +761,7 @@ export default function Home() {
             <div className="inline-flex items-center gap-3 bg-white px-6 py-3 rounded-full shadow-md hover:shadow-lg transition-all duration-300 border border-emerald-100">
               <MessageCircle className="h-5 w-5 text-green-600" />
               <a
-                href="https://chat.whatsapp.com/EnvZN3bqnGIIhQExITyKmT"
+                href="https://whatsapp.com/channel/0029Vb6wVWi0lwgtLZg26b04"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="font-lora font-medium text-emerald-800 hover:text-emerald-600 transition-colors text-sm md:text-base"

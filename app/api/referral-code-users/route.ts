@@ -3,6 +3,13 @@ import { getSupabaseBrowserClient } from "@/lib/supabase"
 
 export async function GET(request: Request) {
   try {
+    const authHeader = request.headers.get("authorization")
+    const adminPassword = process.env.ADMIN_PASSWORD
+
+    if (!authHeader || !authHeader.startsWith("Bearer ") || authHeader.slice(7) !== adminPassword) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
     const { searchParams } = new URL(request.url)
     const code = searchParams.get("code")
 

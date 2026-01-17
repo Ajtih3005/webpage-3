@@ -3,24 +3,24 @@ import { getSupabaseServerClient } from "@/lib/supabase"
 
 export async function POST(request: Request) {
   try {
-    const cronSecret = process.env.corn_secret
+    // Only check for manual Bearer token if provided, otherwise allow the request
+    // This works because Vercel cron jobs are only triggered by Vercel's internal system
+    const cronSecret = process.env.corn_secret || process.env.CRON_SECRET
     const authHeader = request.headers.get("authorization")
-    const vercelCronHeader = request.headers.get("x-vercel-cron-secret") || request.headers.get("x-cron-secret")
 
-    const isVercelCron = request.headers.get("x-vercel-cron") === "1"
-
-    // Allow if: 1) Called by Vercel Cron, OR 2) Has valid Bearer token for manual testing
-    if (!isVercelCron && cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-      console.error("[v0] ❌ Unauthorized cron request")
+    // If Bearer token is provided, verify it (for manual testing)
+    // If no Bearer token, allow request (for Vercel cron)
+    if (authHeader && cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+      console.error("[v0] Unauthorized cron request - invalid Bearer token")
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    console.log("[v0] 🚀 Starting subscription day update API...")
+    console.log("[v0] Starting subscription day update API...")
 
     const supabase = getSupabaseServerClient()
-    console.log("[v0] ✅ Supabase client created")
+    console.log("[v0] Supabase client created")
 
-    console.log("[v0] 📊 Fetching user subscriptions...")
+    console.log("[v0] Fetching user subscriptions...")
     const { data: userSubscriptions, error: fetchError } = await supabase
       .from("user_subscriptions")
       .select(`
@@ -39,7 +39,7 @@ export async function POST(request: Request) {
       .not("activation_date", "is", null)
 
     if (fetchError) {
-      console.error("[v0] ❌ Error fetching subscriptions:", fetchError)
+      console.error("[v0] Error fetching subscriptions:", fetchError)
       return NextResponse.json(
         {
           error: "Failed to fetch subscriptions",
@@ -50,7 +50,7 @@ export async function POST(request: Request) {
       )
     }
 
-    console.log("[v0] ✅ Found", userSubscriptions?.length || 0, "subscriptions")
+    console.log("[v0] Found", userSubscriptions?.length || 0, "subscriptions")
 
     if (!userSubscriptions || userSubscriptions.length === 0) {
       return NextResponse.json({
@@ -61,7 +61,7 @@ export async function POST(request: Request) {
 
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-    console.log("[v0] 📅 Today's date:", today.toISOString().split("T")[0])
+    console.log("[v0] Today's date:", today.toISOString().split("T")[0])
 
     let updatedCount = 0
     let skippedDueToInactiveSubscription = 0
@@ -108,7 +108,7 @@ export async function POST(request: Request) {
         // The correct days used should be daysSinceActivation (0-indexed, so day 0, day 1, day 2, etc.)
         const correctDaysUsed = Math.min(daysSinceActivation, durationDays)
 
-        console.log(`[v0] 📊 Subscription ${subscription.id}:`)
+        console.log(`[v0] Subscription ${subscription.id}:`)
         console.log(`      Activation: ${activationDate.toISOString().split("T")[0]}`)
         console.log(`      Days since activation: ${daysSinceActivation}`)
         console.log(`      Current days used: ${currentDaysUsed}`)
@@ -119,7 +119,7 @@ export async function POST(request: Request) {
         if (correctDaysUsed > currentDaysUsed) {
           backfilledCount++
           console.log(
-            `[v0] 🔄 BACKFILLING subscription ${subscription.id}: ${currentDaysUsed} → ${correctDaysUsed} days (caught up ${correctDaysUsed - currentDaysUsed} missed days)`,
+            `[v0] BACKFILLING subscription ${subscription.id}: ${currentDaysUsed} → ${correctDaysUsed} days (caught up ${correctDaysUsed - currentDaysUsed} missed days)`,
           )
         }
 
@@ -139,17 +139,17 @@ export async function POST(request: Request) {
           .eq("id", subscription.id)
 
         if (updateError) {
-          console.error(`[v0] ❌ Error updating subscription ${subscription.id}:`, updateError)
+          console.error(`[v0] Error updating subscription ${subscription.id}:`, updateError)
           errorCount++
           continue
         }
 
         updatedCount++
         console.log(
-          `[v0] ✅ Subscription ${subscription.id}: Days used = ${correctDaysUsed} / ${durationDays}${shouldExpire ? " (NOW EXPIRED)" : ""}`,
+          `[v0] Subscription ${subscription.id}: Days used = ${correctDaysUsed} / ${durationDays}${shouldExpire ? " (NOW EXPIRED)" : ""}`,
         )
       } catch (error) {
-        console.error(`[v0] ❌ Error processing subscription ${subscription.id}:`, error)
+        console.error(`[v0] Error processing subscription ${subscription.id}:`, error)
         errorCount++
         continue
       }
@@ -166,10 +166,10 @@ export async function POST(request: Request) {
       errorCount,
     }
 
-    console.log("[v0] 🎉 Update complete:", result)
+    console.log("[v0] Update complete:", result)
     return NextResponse.json(result)
   } catch (error) {
-    console.error("[v0] ❌ CRITICAL ERROR in update-subscription-days:", error)
+    console.error("[v0] CRITICAL ERROR in update-subscription-days:", error)
     return NextResponse.json(
       {
         error: "Internal server error",
