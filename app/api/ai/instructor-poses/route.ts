@@ -39,13 +39,13 @@ export async function GET(request: NextRequest) {
 
     // Format poses for compatibility with existing code
     const poses = allPoses.map((pose: any) => ({
-      timestamp: pose.timestamp || 0, // Keep as seconds (0.67, 1.34, etc.)
+      timestamp: pose.timestamp || 0,
       landmarks: pose.landmarks || [],
     }))
 
-    // Return poses array concatenated from all chunks
     return NextResponse.json({
       poses,
+      video_url: session.video_url,
       session: {
         id: session.id,
         course_id: session.course_id,

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef, Suspense } from "react"
+import { useState, useEffect, useRef, useCallback, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -22,6 +22,7 @@ function TestPoseLiveContent() {
   const [poseLandmarker, setPoseLandmarker] = useState<any | null>(null)
   const [currentVideoTime, setCurrentVideoTime] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  const [videoUrl, setVideoUrl] = useState<string | null>(null)
 
   const webcamRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -29,6 +30,9 @@ function TestPoseLiveContent() {
   const youtubePlayerRef = useRef<any>(null)
   const timerRef = useRef<number>()
   const timerRunningRef = useRef(false)
+  const cameraActiveRef = useRef(false)
+  const instructorPosesRef = useRef<any[]>([])
+  const currentVideoTimeRef = useRef(0)
 
   useEffect(() => {
     console.log("[v0] Page loaded, starting MediaPipe initialization...")
@@ -43,13 +47,25 @@ function TestPoseLiveContent() {
       }
       timerRunningRef.current = false
     }
-  }, []) // Empty dependency array = runs once on mount
+  }, [])
 
   useEffect(() => {
     if (sessionId) {
       loadInstructorPoses()
     }
   }, [sessionId])
+
+  useEffect(() => {
+    cameraActiveRef.current = cameraActive
+  }, [cameraActive])
+
+  useEffect(() => {
+    instructorPosesRef.current = instructorPoses
+  }, [instructorPoses])
+
+  useEffect(() => {
+    currentVideoTimeRef.current = currentVideoTime
+  }, [currentVideoTime])
 
   const loadInstructorPoses = async () => {
     setLoading(true)
@@ -61,15 +77,19 @@ function TestPoseLiveContent() {
         throw new Error(result.error || "Failed to load poses")
       }
 
+      console.log("[v0] API response:", result)
       console.log("[v0] Instructor poses loaded:", result.poses?.length || 0, "frames")
-      console.log("[v0] Video URL from database:", result.video_url)
+
+      const url = result.session?.video_url || result.video_url
+      console.log("[v0] Video URL from database:", url)
 
       setInstructorPoses(result.poses || [])
-      setCourseInfo(result)
+      setCourseInfo(result.session || result)
+      setVideoUrl(url)
 
-      if (result.video_url) {
+      if (url) {
         console.log("[v0] YouTube URL found, preparing player")
-        loadYouTubeAPI()
+        loadYouTubeAPI(url)
       }
     } catch (error: any) {
       console.error("[v0] Error loading instructor poses:", error)
@@ -100,9 +120,9 @@ function TestPoseLiveContent() {
       })
       setPoseLandmarker(landmarker)
       setMediaPipeReady(true)
-      console.log("[v0] ✅ PoseLandmarker initialized and ready!")
+      console.log("[v0] PoseLandmarker initialized and ready!")
     } catch (error) {
-      console.error("[v0] ❌ Error initializing PoseLandmarker:", error)
+      console.error("[v0] Error initializing PoseLandmarker:", error)
       setMediaPipeReady(false)
     }
   }
@@ -110,6 +130,7 @@ function TestPoseLiveContent() {
   const startCamera = async () => {
     if (!mediaPipeReady || !poseLandmarker) {
       setCameraActive(true)
+      cameraActiveRef.current = true
       console.log("[v0] Waiting for MediaPipe to load...")
 
       let attempts = 0
@@ -122,6 +143,7 @@ function TestPoseLiveContent() {
         } else if (attempts > 50) {
           clearInterval(checkInterval)
           setCameraActive(false)
+          cameraActiveRef.current = false
           console.error("[v0] MediaPipe failed to load")
         }
       }, 200)
@@ -141,6 +163,7 @@ function TestPoseLiveContent() {
       if (webcamRef.current) {
         webcamRef.current.srcObject = stream
         setCameraActive(true)
+        cameraActiveRef.current = true
         console.log("[v0] Camera started successfully")
 
         webcamRef.current.onloadedmetadata = () => {
@@ -154,6 +177,7 @@ function TestPoseLiveContent() {
     } catch (error) {
       console.error("[v0] Error accessing webcam:", error)
       setCameraActive(false)
+      cameraActiveRef.current = false
     }
   }
 
@@ -162,33 +186,34 @@ function TestPoseLiveContent() {
       const stream = webcamRef.current.srcObject as MediaStream
       stream.getTracks().forEach((track) => track.stop())
       webcamRef.current.srcObject = null
-      setCameraActive(false)
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current)
-        animationFrameRef.current = undefined
-      }
-      if (timerRef.current) {
-        cancelAnimationFrame(timerRef.current)
-        timerRef.current = undefined
-      }
-      timerRunningRef.current = false
-      setCurrentVideoTime(0)
-      setCurrentAccuracy(0)
-      setJointAccuracies({})
-      console.log("[v0] Camera stopped, all timers cleared")
     }
+    setCameraActive(false)
+    cameraActiveRef.current = false
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current)
+      animationFrameRef.current = undefined
+    }
+    if (timerRef.current) {
+      cancelAnimationFrame(timerRef.current)
+      timerRef.current = undefined
+    }
+    timerRunningRef.current = false
+    setCurrentVideoTime(0)
+    setCurrentAccuracy(0)
+    setJointAccuracies({})
+    console.log("[v0] Camera stopped, all timers cleared")
   }
 
-  const findClosestPose = (currentTimeMs: number) => {
-    if (instructorPoses.length === 0) return null
+  const findClosestPose = useCallback((currentTimeMs: number) => {
+    const poses = instructorPosesRef.current
+    if (poses.length === 0) return null
 
     const currentTimeSec = currentTimeMs / 1000
-    console.log("[v0] 🔍 Looking for instructor pose at:", currentTimeSec.toFixed(2) + "s")
 
-    let closest = instructorPoses[0]
-    let minDiff = Math.abs(instructorPoses[0].timestamp - currentTimeSec)
+    let closest = poses[0]
+    let minDiff = Math.abs(poses[0].timestamp - currentTimeSec)
 
-    for (const pose of instructorPoses) {
+    for (const pose of poses) {
       const diff = Math.abs(pose.timestamp - currentTimeSec)
       if (diff < minDiff) {
         minDiff = diff
@@ -196,27 +221,13 @@ function TestPoseLiveContent() {
       }
     }
 
-    console.log(
-      "[v0] 📍 Closest instructor pose at:",
-      closest.timestamp.toFixed(2) + "s",
-      "Difference:",
-      minDiff.toFixed(2) + "s",
-    )
-    return minDiff < 0.5 ? closest : null
-  }
+    return minDiff < 1.0 ? closest : null
+  }, [])
 
-  const calculatePoseAccuracy = (userLandmarks: any[], instructorLandmarks: any[]) => {
+  const calculatePoseAccuracy = useCallback((userLandmarks: any[], instructorLandmarks: any[]) => {
     if (!instructorLandmarks || instructorLandmarks.length === 0) {
-      console.log("[v0] No instructor landmarks to compare")
       return { overall: 0, joints: {} }
     }
-
-    console.log(
-      "[v0] Comparing poses - User landmarks:",
-      userLandmarks.length,
-      "Instructor landmarks:",
-      instructorLandmarks.length,
-    )
 
     const keyPoints = [
       { name: "left_shoulder", userIndex: 11, instructorIndex: 0 },
@@ -256,13 +267,12 @@ function TestPoseLiveContent() {
     })
 
     const overall = validJoints > 0 ? totalAccuracy / validJoints : 0
-    console.log("[v0] Calculated accuracy:", overall.toFixed(1) + "%", "Valid joints:", validJoints)
 
     return {
       overall,
       joints: jointAccuracies,
     }
-  }
+  }, [])
 
   const getYouTubeId = (url: string) => {
     if (!url) return null
@@ -270,37 +280,56 @@ function TestPoseLiveContent() {
     return match ? match[1] : null
   }
 
-  const youtubeId = courseInfo?.video_url ? getYouTubeId(courseInfo.video_url) : null
+  const youtubeId = videoUrl ? getYouTubeId(videoUrl) : null
 
-  const loadYouTubeAPI = () => {
-    if (!(window as any).YT) {
-      const tag = document.createElement("script")
-      tag.src = "https://www.youtube.com/iframe_api"
-      const firstScriptTag = document.getElementsByTagName("script")[0]
-      firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag)
+  const loadYouTubeAPI = (url: string) => {
+    const ytId = getYouTubeId(url)
+    if (!ytId) {
+      console.log("[v0] Invalid YouTube URL:", url)
+      return
     }
-  }
 
-  useEffect(() => {
-    if (youtubeId && (window as any).YT) {
-      ;(window as any).onYouTubeIframeAPIReady = () => {
+    console.log("[v0] Loading YouTube API for video:", ytId)
+
+    const initPlayer = () => {
+      if (document.getElementById("youtube-player") && (window as any).YT && (window as any).YT.Player) {
+        console.log("[v0] Creating YouTube player...")
         youtubePlayerRef.current = new (window as any).YT.Player("youtube-player", {
-          videoId: youtubeId,
+          videoId: ytId,
           playerVars: {
             autoplay: 0,
             controls: 1,
             enablejsapi: 1,
+            origin: window.location.origin,
           },
           events: {
-            onReady: () => {
-              console.log("[v0] YouTube player ready")
-              startTimer()
+            onReady: (event: any) => {
+              console.log("[v0] YouTube player ready!")
+            },
+            onStateChange: (event: any) => {
+              if (event.data === 1) {
+                // Playing
+                startTimer()
+              }
             },
           },
         })
       }
     }
-  }, [youtubeId])
+
+    if ((window as any).YT && (window as any).YT.Player) {
+      // API already loaded
+      setTimeout(initPlayer, 100)
+    } else {
+      // Load API
+      ;(window as any).onYouTubeIframeAPIReady = initPlayer
+      if (!document.querySelector('script[src="https://www.youtube.com/iframe_api"]')) {
+        const tag = document.createElement("script")
+        tag.src = "https://www.youtube.com/iframe_api"
+        document.head.appendChild(tag)
+      }
+    }
+  }
 
   const startTimer = () => {
     if (timerRef.current) {
@@ -313,7 +342,6 @@ function TestPoseLiveContent() {
 
     const updateTimer = () => {
       if (!timerRunningRef.current) {
-        console.log("[v0] Timer stopped")
         return
       }
 
@@ -321,19 +349,22 @@ function TestPoseLiveContent() {
       const deltaTime = now - lastTime
       lastTime = now
 
-      if (youtubePlayerRef.current && youtubePlayerRef.current.getCurrentTime) {
+      if (youtubePlayerRef.current && typeof youtubePlayerRef.current.getCurrentTime === "function") {
         try {
           const currentTime = youtubePlayerRef.current.getCurrentTime() * 1000
           setCurrentVideoTime(currentTime)
+          currentVideoTimeRef.current = currentTime
         } catch (error) {
-          setCurrentVideoTime((prev) => prev + deltaTime)
+          setCurrentVideoTime((prev) => {
+            const newTime = prev + deltaTime
+            currentVideoTimeRef.current = newTime
+            return newTime
+          })
         }
       } else {
         setCurrentVideoTime((prev) => {
           const newTime = prev + deltaTime
-          if (Math.floor(newTime / 1000) !== Math.floor(prev / 1000)) {
-            console.log("[v0] Timer:", (newTime / 1000).toFixed(1) + "s")
-          }
+          currentVideoTimeRef.current = newTime
           return newTime
         })
       }
@@ -347,7 +378,6 @@ function TestPoseLiveContent() {
   const startPoseDetection = () => {
     if (!poseLandmarker) {
       console.error("[v0] MediaPipe not initialized!")
-      alert("MediaPipe is not ready. Please refresh the page.")
       return
     }
 
@@ -356,14 +386,11 @@ function TestPoseLiveContent() {
       return
     }
 
-    console.log("[v0] ✅ All systems ready - Starting pose detection loop...")
-    console.log("[v0] MediaPipe ready:", !!poseLandmarker)
-    console.log("[v0] Webcam ready:", !!webcamRef.current)
-    console.log("[v0] Canvas ready:", !!canvasRef.current)
-    console.log("[v0] Instructor poses loaded:", instructorPoses.length)
+    console.log("[v0] Starting pose detection loop...")
+    console.log("[v0] Instructor poses loaded:", instructorPosesRef.current.length)
 
     const detectPose = async () => {
-      if (!webcamRef.current || !canvasRef.current || !cameraActive || !poseLandmarker) {
+      if (!webcamRef.current || !canvasRef.current || !cameraActiveRef.current || !poseLandmarker) {
         return
       }
 
@@ -371,43 +398,35 @@ function TestPoseLiveContent() {
         const videoTime = performance.now()
         const results = poseLandmarker.detectForVideo(webcamRef.current, videoTime)
 
-        console.log("[v0] 🎥 Pose detection result:", {
-          landmarksDetected: results.landmarks?.length || 0,
-          currentTime: (currentVideoTime / 1000).toFixed(2) + "s",
-        })
-
         if (results.landmarks && results.landmarks.length > 0) {
           const ctx = canvasRef.current.getContext("2d")
-          ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height)
+          if (ctx) {
+            ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height)
 
-          const { DrawingUtils, PoseLandmarker: PL } = await import("@mediapipe/tasks-vision")
-          const drawingUtils = new DrawingUtils(ctx)
-          drawingUtils.drawLandmarks(results.landmarks[0])
-          drawingUtils.drawConnectors(results.landmarks[0], PL.POSE_CONNECTIONS)
+            const { DrawingUtils, PoseLandmarker: PL } = await import("@mediapipe/tasks-vision")
+            const drawingUtils = new DrawingUtils(ctx)
+            drawingUtils.drawLandmarks(results.landmarks[0])
+            drawingUtils.drawConnectors(results.landmarks[0], PL.POSE_CONNECTIONS)
+          }
 
-          console.log("[v0] ✅ User pose detected - Drawing skeleton")
+          const poses = instructorPosesRef.current
+          const videoTime = currentVideoTimeRef.current
 
-          if (instructorPoses.length > 0 && currentVideoTime > 0) {
-            const closestInstructorPose = findClosestPose(currentVideoTime)
+          if (poses.length > 0 && videoTime > 0) {
+            const closestInstructorPose = findClosestPose(videoTime)
 
             if (closestInstructorPose && closestInstructorPose.landmarks) {
-              console.log("[v0] 🎯 Found matching instructor pose, calculating accuracy...")
               const accuracy = calculatePoseAccuracy(results.landmarks[0], closestInstructorPose.landmarks)
               setCurrentAccuracy(accuracy.overall)
               setJointAccuracies(accuracy.joints)
-              console.log("[v0] ✅ Accuracy updated:", accuracy.overall.toFixed(1) + "%")
-            } else {
-              console.log("[v0] ⚠️ No instructor pose found for time:", (currentVideoTime / 1000).toFixed(2) + "s")
             }
           }
-        } else {
-          console.log("[v0] ⚠️ No user pose detected in frame")
         }
       } catch (error) {
-        console.error("[v0] ❌ Pose detection error:", error)
+        console.error("[v0] Pose detection error:", error)
       }
 
-      if (cameraActive) {
+      if (cameraActiveRef.current) {
         animationFrameRef.current = requestAnimationFrame(detectPose)
       }
     }
@@ -482,9 +501,24 @@ function TestPoseLiveContent() {
         </div>
       </div>
 
-      <div className="text-center mb-4">
-        <div className="inline-block px-6 py-2 bg-blue-50 rounded-lg border border-blue-200">
-          <h2 className="text-2xl font-bold text-blue-600">Accuracy: {currentAccuracy.toFixed(1)}%</h2>
+      <div className="text-center mb-6">
+        <div
+          className={`inline-block px-8 py-4 rounded-xl border-2 ${
+            currentAccuracy >= 80
+              ? "bg-green-50 border-green-300"
+              : currentAccuracy >= 50
+                ? "bg-yellow-50 border-yellow-300"
+                : "bg-red-50 border-red-300"
+          }`}
+        >
+          <p className="text-sm text-gray-600 mb-1">Real-Time Accuracy</p>
+          <h2
+            className={`text-4xl font-bold ${
+              currentAccuracy >= 80 ? "text-green-600" : currentAccuracy >= 50 ? "text-yellow-600" : "text-red-600"
+            }`}
+          >
+            {currentAccuracy.toFixed(1)}%
+          </h2>
         </div>
       </div>
 
@@ -507,17 +541,17 @@ function TestPoseLiveContent() {
                 </div>
                 <p className="mt-2 text-xs text-gray-500">Video ID: {youtubeId}</p>
               </>
-            ) : courseInfo?.video_url ? (
+            ) : videoUrl ? (
               <div className="aspect-video bg-gray-900 rounded-lg flex flex-col items-center justify-center text-white">
                 <VideoIcon className="w-16 h-16 mb-4 opacity-50" />
-                <p className="text-lg font-medium">Unable to play video</p>
-                <p className="text-sm text-gray-400 mt-2 px-4 text-center break-all">URL: {courseInfo.video_url}</p>
+                <p className="text-lg font-medium">Unable to parse video URL</p>
+                <p className="text-sm text-gray-400 mt-2 px-4 text-center break-all">URL: {videoUrl}</p>
               </div>
             ) : (
               <div className="aspect-video bg-gray-900 rounded-lg flex flex-col items-center justify-center text-white">
                 <VideoIcon className="w-16 h-16 mb-4 opacity-50" />
                 <p className="text-lg font-medium">No video available</p>
-                <p className="text-sm text-gray-400 mt-2">Upload instructor video during course creation</p>
+                <p className="text-sm text-gray-400 mt-2">Video URL not found in database</p>
               </div>
             )}
             <div className="mt-4 text-sm text-muted-foreground">
@@ -549,8 +583,8 @@ function TestPoseLiveContent() {
           </CardHeader>
           <CardContent>
             <div className="relative aspect-video bg-gray-900 rounded-lg overflow-hidden">
-              <video ref={webcamRef} autoPlay playsInline className="w-full h-full object-cover" />
-              <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
+              <video ref={webcamRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+              <canvas ref={canvasRef} width={1280} height={720} className="absolute inset-0 w-full h-full" />
               {!cameraActive && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
                   <Camera className="w-16 h-16 mb-4 opacity-50" />
@@ -570,17 +604,37 @@ function TestPoseLiveContent() {
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {Object.entries(jointAccuracies).map(([joint, accuracy]: [string, any]) => (
-              <div key={joint} className="p-3 bg-gray-50 rounded-lg border">
+              <div
+                key={joint}
+                className={`p-3 rounded-lg border ${
+                  accuracy >= 80
+                    ? "bg-green-50 border-green-200"
+                    : accuracy >= 50
+                      ? "bg-yellow-50 border-yellow-200"
+                      : "bg-red-50 border-red-200"
+                }`}
+              >
                 <p className="text-xs text-gray-600 mb-1 capitalize">{joint.replace("_", " ")}</p>
-                <p className="text-lg font-bold text-blue-600">{accuracy.toFixed(1)}%</p>
+                <p
+                  className={`text-lg font-bold ${
+                    accuracy >= 80 ? "text-green-600" : accuracy >= 50 ? "text-yellow-600" : "text-red-600"
+                  }`}
+                >
+                  {accuracy.toFixed(1)}%
+                </p>
                 <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-                  <div className="bg-blue-600 h-2 rounded-full transition-all" style={{ width: `${accuracy}%` }}></div>
+                  <div
+                    className={`h-2 rounded-full transition-all ${
+                      accuracy >= 80 ? "bg-green-500" : accuracy >= 50 ? "bg-yellow-500" : "bg-red-500"
+                    }`}
+                    style={{ width: `${accuracy}%` }}
+                  ></div>
                 </div>
               </div>
             ))}
             {Object.keys(jointAccuracies).length === 0 && (
               <div className="col-span-full text-center py-8 text-gray-500">
-                <p>Start camera to see live analytics</p>
+                <p>Start camera and play video to see live analytics</p>
               </div>
             )}
           </div>
