@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -27,11 +27,10 @@ import {
   Trash2,
   QrCode,
   Download,
-  ArrowLeft,
   TicketIcon,
   CheckCircle2,
-  XCircle,
 } from "lucide-react"
+import AdminLayout from "@/components/admin-layout"
 
 interface Event {
   id: string
@@ -69,8 +68,6 @@ interface Stats {
 }
 
 export default function AdminTicketsPage() {
-  const [password, setPassword] = useState("")
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [events, setEvents] = useState<Event[]>([])
   const [bookings, setBookings] = useState<Booking[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
@@ -78,6 +75,8 @@ export default function AdminTicketsPage() {
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [editingEvent, setEditingEvent] = useState<Event | null>(null)
+  const [password, setPassword] = useState("")
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
 
   // Form state for creating/editing events
   const [formData, setFormData] = useState({
@@ -90,13 +89,29 @@ export default function AdminTicketsPage() {
     total_seats: 100,
   })
 
+  // Get password from localStorage (set by AdminLayout)
+  const getPassword = () => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("adminPassword") || ""
+    }
+    return ""
+  }
+
   const handleLogin = () => {
-    if (password === process.env.NEXT_PUBLIC_ADMIN_PASSWORD || password) {
+    const storedPassword = getPassword()
+    if (storedPassword === password) {
       setIsAuthenticated(true)
+    } else {
+      alert("Incorrect password")
+    }
+  }
+
+  useEffect(() => {
+    if (isAuthenticated) {
       fetchEvents()
       fetchBookings()
     }
-  }
+  }, [isAuthenticated])
 
   const fetchEvents = async () => {
     try {
@@ -113,6 +128,7 @@ export default function AdminTicketsPage() {
   }
 
   const fetchBookings = async (eventId?: string) => {
+    const password = getPassword()
     try {
       setLoading(true)
       const url = eventId
@@ -134,6 +150,7 @@ export default function AdminTicketsPage() {
   }
 
   const handleCreateEvent = async () => {
+    const password = getPassword()
     try {
       const res = await fetch("/api/tickets/events", {
         method: "POST",
@@ -158,6 +175,7 @@ export default function AdminTicketsPage() {
 
   const handleUpdateEvent = async () => {
     if (!editingEvent) return
+    const password = getPassword()
     try {
       const res = await fetch("/api/tickets/admin", {
         method: "PUT",
@@ -182,6 +200,7 @@ export default function AdminTicketsPage() {
 
   const handleDeleteEvent = async (id: string) => {
     if (!confirm("Are you sure you want to delete this event?")) return
+    const password = getPassword()
     try {
       const res = await fetch(`/api/tickets/admin?id=${id}`, {
         method: "DELETE",
@@ -199,6 +218,7 @@ export default function AdminTicketsPage() {
   }
 
   const toggleEventActive = async (event: Event) => {
+    const password = getPassword()
     try {
       const res = await fetch("/api/tickets/admin", {
         method: "PUT",
@@ -262,50 +282,11 @@ export default function AdminTicketsPage() {
     a.click()
   }
 
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 to-purple-50 p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle className="text-center font-playfair text-2xl text-emerald-800">
-              Admin - Event Tickets
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label>Admin Password</Label>
-              <Input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-                placeholder="Enter password"
-              />
-            </div>
-            <Button onClick={handleLogin} className="w-full bg-emerald-600 hover:bg-emerald-700">
-              Login
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-purple-50 p-4 sm:p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
-            <Link href="/admin">
-              <Button variant="outline" size="sm">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back
-              </Button>
-            </Link>
-            <h1 className="font-playfair text-2xl sm:text-3xl font-bold text-emerald-800">
-              Event Tickets Management
-            </h1>
-          </div>
+    <AdminLayout>
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Event Tickets Management</h1>
           <Link href="/admin/tickets/scanner">
             <Button className="bg-purple-600 hover:bg-purple-700">
               <QrCode className="w-4 h-4 mr-2" />
@@ -698,6 +679,6 @@ export default function AdminTicketsPage() {
           </TabsContent>
         </Tabs>
       </div>
-    </div>
+    </AdminLayout>
   )
 }
