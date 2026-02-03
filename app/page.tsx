@@ -262,13 +262,13 @@ export default function Home() {
 
       {/* What You Will Gain - Full Image Section */}
       <section className="py-4 sm:py-6">
-        <div className="container mx-auto px-4 max-w-6xl">
+        <div className="container mx-auto px-4 max-w-4xl">
           <Image
             src="/images/chatgpt-20image-20feb-203-2c-202026-2c-2006-47-09-20pm.png"
             alt="What You Will Gain - Yoga Benefits including Karma Yoga, Astanga Yoga, Jnana Yoga, and Bhakti Yoga"
-            width={1200}
-            height={800}
-            className="w-full h-auto rounded-xl shadow-lg"
+            width={800}
+            height={533}
+            className="w-full max-w-2xl mx-auto h-auto rounded-xl shadow-lg"
             priority
           />
         </div>

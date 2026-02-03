@@ -23,30 +23,30 @@ The website is configured to display the Instagram handle @sthavishtah. If you n
 ### Running the Project
 
 1. Install dependencies:
-   ```
+   \`\`\`
    npm install --legacy-peer-deps
-   ```
+   \`\`\`
    
    If you encounter dependency issues, run:
-   ```
+   \`\`\`
    npm run fix-deps
-   ```
+   \`\`\`
    This will run a script to fix dependency conflicts.
 
 2. Run the development server:
-   ```
+   \`\`\`
    npm run dev
-   ```
+   \`\`\`
 
 3. Build for production:
-   ```
+   \`\`\`
    npm run build
-   ```
+   \`\`\`
 
 4. Start the production server:
-   ```
+   \`\`\`
    npm start
-   ```
+   \`\`\`
 
 ### Troubleshooting Dependency Issues
 
@@ -54,13 +54,13 @@ If you encounter errors related to React version conflicts during installation:
 
 1. Make sure you have Node.js version 16 or higher installed
 2. Run the fix-deps script:
-   ```
+   \`\`\`
    npm run fix-deps
-   ```
+   \`\`\`
 3. Alternatively, you can manually install with:
-   ```
+   \`\`\`
    npm install --legacy-peer-deps
-   ```
+   \`\`\`
 
 ## Project Structure
 
