@@ -205,7 +205,7 @@ export default function Home() {
         )}
       </header>
 
-      <section className="relative min-h-[85vh] flex items-center justify-center overflow-hidden">
+      <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0">
           <Image
             src="/images/serene-forest-meditation.jpg"
@@ -214,7 +214,7 @@ export default function Home() {
             className="object-cover"
             priority
           />
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-900/50 via-emerald-800/40 to-stone-900/50"></div>
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-900/60 via-emerald-800/50 to-stone-900/60"></div>
         </div>
 
         <div className="container mx-auto px-6 relative z-10 text-center max-w-5xl">
@@ -224,58 +224,41 @@ export default function Home() {
             </div>
           </div>
 
-          {/* CHANGE: Disable text cursor on hero headings */}
           <h1 className="font-playfair text-4xl md:text-6xl lg:text-7xl font-light text-white mb-6 leading-tight select-none pointer-events-none">
             Return to Stillness.
             <br />
             <span className="font-semibold">Practice with Structure.</span>
           </h1>
 
-          <p className="font-lora text-lg md:text-xl text-white/90 max-w-3xl mx-auto mb-12 leading-relaxed select-none">
+          <p className="font-lora text-lg md:text-xl text-white/90 max-w-3xl mx-auto mb-10 leading-relaxed select-none">
             A structured yoga practice rooted in breath and awareness — designed to calm the mind, restore movement, and
             build lasting inner stability.
           </p>
-        </div>
-      </section>
-
-      {/* CTA Section - Begin with Guided Practice */}
-      <div className="container mx-auto px-4 sm:px-6 py-10 sm:py-12">
-        <div className="text-center max-w-4xl mx-auto space-y-6">
-          <h2 className="font-playfair text-2xl sm:text-3xl md:text-4xl mb-6 text-stone-800 leading-tight px-4">
-            Begin with a Guided Practice
-          </h2>
 
           <Button
             size="lg"
-            className="bg-gradient-to-r from-purple-600 to-teal-500 hover:from-purple-700 hover:to-teal-600 text-white px-8 sm:px-10 py-5 sm:py-6 text-base sm:text-lg md:text-xl font-lora shadow-2xl hover:shadow-3xl transition-all duration-300 rounded-xl hover:scale-105 w-full sm:w-auto sm:min-w-[350px] max-w-[450px] mx-auto"
+            className="bg-gradient-to-r from-purple-600 to-teal-500 hover:from-purple-700 hover:to-teal-600 text-white px-10 py-6 text-lg md:text-xl font-lora shadow-2xl hover:shadow-3xl transition-all duration-300 rounded-xl hover:scale-105"
             onClick={handleEnroll}
           >
             <div className="flex flex-col items-center gap-2">
-              <span className="font-semibold">Attend 7 Days FREE →</span>
+              <span className="font-semibold">Attend 7 Days FREE</span>
               <span className="text-xs sm:text-sm font-normal opacity-90">
                 Live sessions • No cost • Open to beginners
               </span>
             </div>
           </Button>
         </div>
-      </div>
 
-      {/* What You Will Gain - Full Image Section */}
-      <section className="py-4 sm:py-6">
-        <div className="container mx-auto px-4 max-w-6xl">
-          <Image
-            src="/images/chatgpt-20image-20feb-203-2c-202026-2c-2006-47-09-20pm.png"
-            alt="What You Will Gain - Yoga Benefits including Karma Yoga, Astanga Yoga, Jnana Yoga, and Bhakti Yoga"
-            width={1200}
-            height={800}
-            className="w-full h-auto rounded-xl shadow-lg"
-            priority
-          />
+        {/* Scroll indicator */}
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
+          <div className="w-6 h-10 border-2 border-white/50 rounded-full flex justify-center pt-2">
+            <div className="w-1.5 h-3 bg-white/70 rounded-full animate-pulse"></div>
+          </div>
         </div>
       </section>
 
-      {/* Offerings Section with Riverside Yoga Background - Enhanced with better cards */}
-      <section className="py-14 md:py-20 relative overflow-hidden">
+      {/* Combined Section - What You Will Gain + The Path We Follow */}
+      <section className="min-h-screen py-8 md:py-12 relative overflow-hidden">
         {/* Background Image with Overlay */}
         <div className="absolute inset-0 -z-10">
           <Image
@@ -285,90 +268,104 @@ export default function Home() {
             className="object-cover object-center"
             sizes="100vw"
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-emerald-900/70 via-emerald-800/60 to-emerald-900/70"></div>
+          <div className="absolute inset-0 bg-gradient-to-b from-emerald-900/80 via-emerald-800/70 to-emerald-900/80"></div>
         </div>
 
-        {/* Light Pattern Overlay */}
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgdmlld0JveD0iMCAwIDYwIDYwIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDM0di00aC0ydjRoLTR2Mmg0djRoMnYtNGg0di0ySDZ6bT0iLz48L2c+PC9nPjwvc3ZnPg==')] opacity-50 -z-10"></div>
-
-        <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent"></div>
-
         <div className="container mx-auto px-4 relative">
+          {/* What You Will Gain - Image */}
           <div className="text-center mb-8">
-            <h2 className="font-playfair text-3xl md:text-4xl font-semibold text-white mb-3 drop-shadow-lg">
+            <h2 className="font-playfair text-2xl md:text-4xl font-semibold text-white mb-4 drop-shadow-lg">
+              What You Will Gain
+            </h2>
+            <div className="max-w-4xl mx-auto">
+              <Image
+                src="/images/chatgpt-20image-20feb-203-2c-202026-2c-2006-47-09-20pm.png"
+                alt="What You Will Gain - Yoga Benefits including Karma Yoga, Astanga Yoga, Jnana Yoga, and Bhakti Yoga"
+                width={1000}
+                height={600}
+                className="w-full h-auto rounded-xl shadow-2xl border-2 border-white/20"
+                priority
+              />
+            </div>
+          </div>
+
+          {/* Divider */}
+          <div className="flex items-center justify-center my-8">
+            <div className="h-px w-24 bg-white/30"></div>
+            <Sparkles className="h-6 w-6 text-white/60 mx-4" />
+            <div className="h-px w-24 bg-white/30"></div>
+          </div>
+
+          {/* The Path We Follow */}
+          <div className="text-center mb-6">
+            <h2 className="font-playfair text-2xl md:text-3xl font-semibold text-white mb-2 drop-shadow-lg">
               The Path We Practiced and Passed On
             </h2>
-            <p className="font-lora text-white/80 max-w-2xl mx-auto drop-shadow-md">
+            <p className="font-lora text-white/80 max-w-2xl mx-auto drop-shadow-md text-sm md:text-base">
               Holistic wellness practices inspired by nature's wisdom.
             </p>
           </div>
 
           <div className="max-w-6xl mx-auto overflow-x-auto scrollbar-hide">
-            <div className="flex gap-6 pb-4 snap-x snap-mandatory">
-              <Card className="flex-shrink-0 w-72 snap-center border-white/20 hover:shadow-xl transition-all duration-300 group bg-white/95 backdrop-blur-sm rounded-xl">
-                <CardContent className="p-6">
-                  <div className="flex items-start gap-4 mb-3">
-                    <div className="p-2.5 rounded-full bg-emerald-100 group-hover:bg-emerald-200 transition-colors flex-shrink-0">
-                      <BookOpen className="h-7 w-7 text-emerald-600" />
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 pb-4">
+              <Card className="border-white/20 hover:shadow-xl transition-all duration-300 group bg-white/95 backdrop-blur-sm rounded-xl">
+                <CardContent className="p-4">
+                  <div className="flex flex-col items-center text-center">
+                    <div className="p-2.5 rounded-full bg-emerald-100 group-hover:bg-emerald-200 transition-colors mb-3">
+                      <BookOpen className="h-6 w-6 text-emerald-600" />
                     </div>
-                    <h3 className="font-playfair text-lg font-semibold text-emerald-800 leading-tight">Bhagavad Gita Study</h3>
+                    <h3 className="font-playfair text-sm font-semibold text-emerald-800 leading-tight">Bhagavad Gita Study</h3>
                   </div>
-                  <p className="text-sm text-gray-600 font-lora leading-relaxed">Discover timeless wisdom through our Gita practice sessions starting now.</p>
                 </CardContent>
               </Card>
-              <Card className="flex-shrink-0 w-72 snap-center border-white/20 hover:shadow-xl transition-all duration-300 group bg-white/95 backdrop-blur-sm rounded-xl">
-                <CardContent className="p-6">
-                  <div className="flex items-start gap-4 mb-3">
-                    <div className="p-2.5 rounded-full bg-emerald-100 group-hover:bg-emerald-200 transition-colors flex-shrink-0">
-                      <Users className="h-7 w-7 text-emerald-600" />
+              <Card className="border-white/20 hover:shadow-xl transition-all duration-300 group bg-white/95 backdrop-blur-sm rounded-xl">
+                <CardContent className="p-4">
+                  <div className="flex flex-col items-center text-center">
+                    <div className="p-2.5 rounded-full bg-emerald-100 group-hover:bg-emerald-200 transition-colors mb-3">
+                      <Users className="h-6 w-6 text-emerald-600" />
                     </div>
-                    <h3 className="font-playfair text-lg font-semibold text-emerald-800 leading-tight">Yoga for Health & Flexibility</h3>
+                    <h3 className="font-playfair text-sm font-semibold text-emerald-800 leading-tight">Yoga for Health</h3>
                   </div>
-                  <p className="text-sm text-gray-600 font-lora leading-relaxed">Gentle practices to improve mobility, reduce stress, and enhance your connection.</p>
                 </CardContent>
               </Card>
-              <Card className="flex-shrink-0 w-72 snap-center border-white/20 hover:shadow-xl transition-all duration-300 group bg-white/95 backdrop-blur-sm rounded-xl">
-                <CardContent className="p-6">
-                  <div className="flex items-start gap-4 mb-3">
-                    <div className="p-2.5 rounded-full bg-emerald-100 group-hover:bg-emerald-200 transition-colors flex-shrink-0">
-                      <Dumbbell className="h-7 w-7 text-emerald-600" />
+              <Card className="border-white/20 hover:shadow-xl transition-all duration-300 group bg-white/95 backdrop-blur-sm rounded-xl">
+                <CardContent className="p-4">
+                  <div className="flex flex-col items-center text-center">
+                    <div className="p-2.5 rounded-full bg-emerald-100 group-hover:bg-emerald-200 transition-colors mb-3">
+                      <Dumbbell className="h-6 w-6 text-emerald-600" />
                     </div>
-                    <h3 className="font-playfair text-lg font-semibold text-emerald-800 leading-tight">Light Muscle Training</h3>
+                    <h3 className="font-playfair text-sm font-semibold text-emerald-800 leading-tight">Muscle Training</h3>
                   </div>
-                  <p className="text-sm text-gray-600 font-lora leading-relaxed">Strengthen your body with movements inspired by natural forms.</p>
                 </CardContent>
               </Card>
-              <Card className="flex-shrink-0 w-72 snap-center border-white/20 hover:shadow-xl transition-all duration-300 group bg-white/95 backdrop-blur-sm rounded-xl">
-                <CardContent className="p-6">
-                  <div className="flex items-start gap-4 mb-3">
-                    <div className="p-2.5 rounded-full bg-emerald-100 group-hover:bg-emerald-200 transition-colors flex-shrink-0">
-                      <Utensils className="h-7 w-7 text-emerald-600" />
+              <Card className="border-white/20 hover:shadow-xl transition-all duration-300 group bg-white/95 backdrop-blur-sm rounded-xl">
+                <CardContent className="p-4">
+                  <div className="flex flex-col items-center text-center">
+                    <div className="p-2.5 rounded-full bg-emerald-100 group-hover:bg-emerald-200 transition-colors mb-3">
+                      <Utensils className="h-6 w-6 text-emerald-600" />
                     </div>
-                    <h3 className="font-playfair text-lg font-semibold text-emerald-800 leading-tight">Natural Diet Plans</h3>
+                    <h3 className="font-playfair text-sm font-semibold text-emerald-800 leading-tight">Natural Diet Plans</h3>
                   </div>
-                  <p className="text-sm text-gray-600 font-lora leading-relaxed">Nourish your body with seasonal, wholesome nutrition plans.</p>
                 </CardContent>
               </Card>
-              <Card className="flex-shrink-0 w-72 snap-center border-white/20 hover:shadow-xl transition-all duration-300 group bg-white/95 backdrop-blur-sm rounded-xl">
-                <CardContent className="p-6">
-                  <div className="flex items-start gap-4 mb-3">
-                    <div className="p-2.5 rounded-full bg-emerald-100 group-hover:bg-emerald-200 transition-colors flex-shrink-0">
-                      <Brain className="h-7 w-7 text-emerald-600" />
+              <Card className="border-white/20 hover:shadow-xl transition-all duration-300 group bg-white/95 backdrop-blur-sm rounded-xl">
+                <CardContent className="p-4">
+                  <div className="flex flex-col items-center text-center">
+                    <div className="p-2.5 rounded-full bg-emerald-100 group-hover:bg-emerald-200 transition-colors mb-3">
+                      <Brain className="h-6 w-6 text-emerald-600" />
                     </div>
-                    <h3 className="font-playfair text-lg font-semibold text-emerald-800 leading-tight">Mental Wellness Sessions</h3>
+                    <h3 className="font-playfair text-sm font-semibold text-emerald-800 leading-tight">Mental Wellness</h3>
                   </div>
-                  <p className="text-sm text-gray-600 font-lora leading-relaxed">Forest-inspired meditation and mindfulness practices.</p>
                 </CardContent>
               </Card>
-              <Card className="flex-shrink-0 w-72 snap-center border-white/20 hover:shadow-xl transition-all duration-300 group bg-white/95 backdrop-blur-sm rounded-xl">
-                <CardContent className="p-6">
-                  <div className="flex items-start gap-4 mb-3">
-                    <div className="p-2.5 rounded-full bg-emerald-100 group-hover:bg-emerald-200 transition-colors flex-shrink-0">
-                      <Calendar className="h-7 w-7 text-emerald-600" />
+              <Card className="border-white/20 hover:shadow-xl transition-all duration-300 group bg-white/95 backdrop-blur-sm rounded-xl">
+                <CardContent className="p-4">
+                  <div className="flex flex-col items-center text-center">
+                    <div className="p-2.5 rounded-full bg-emerald-100 group-hover:bg-emerald-200 transition-colors mb-3">
+                      <Calendar className="h-6 w-6 text-emerald-600" />
                     </div>
-                    <h3 className="font-playfair text-lg font-semibold text-emerald-800 leading-tight">Flexible Batches</h3>
+                    <h3 className="font-playfair text-sm font-semibold text-emerald-800 leading-tight">Flexible Batches</h3>
                   </div>
-                  <p className="text-sm text-gray-600 font-lora leading-relaxed">Join any of our six daily sessions that align with your rhythm.</p>
                 </CardContent>
               </Card>
             </div>
@@ -417,73 +414,98 @@ export default function Home() {
           </div>
 
           {subscriptionPages.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8 mb-8 md:mb-12 max-w-5xl mx-auto">
-              {subscriptionPages.map((page, index) => (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 mb-8 md:mb-12 max-w-5xl mx-auto">
+              {subscriptionPages.map((page) => (
                 <Card key={page.id} className="border border-emerald-200/60 hover:shadow-xl transition-all duration-300 group bg-white rounded-2xl overflow-hidden">
-                  <div className="relative h-40 overflow-hidden">
+                  <div className="relative h-44 overflow-hidden">
                     <Image
                       src={page.hero_image_url || "/images/logo.png"}
                       alt={page.title}
                       fill
                       className="object-cover group-hover:scale-105 transition-transform duration-500"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
                   </div>
                   <CardContent className="p-5">
                     <h3 className="font-playfair text-lg font-semibold text-emerald-800 leading-tight mb-2">{page.title}</h3>
-                    <p className="text-sm text-gray-600 font-lora leading-relaxed">{page.subtitle}</p>
+                    <p className="text-sm text-gray-600 font-lora leading-relaxed mb-4 line-clamp-2">{page.subtitle}</p>
+                    <Button
+                      onClick={() => handleExploreClick(page.slug)}
+                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+                    >
+                      View Program
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
                   </CardContent>
                 </Card>
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8 mb-8 md:mb-12 max-w-5xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 mb-8 md:mb-12 max-w-5xl mx-auto">
               {/* Fallback cards with proper styling */}
               <Card className="border border-emerald-200/60 hover:shadow-xl transition-all duration-300 group bg-white rounded-2xl overflow-hidden">
-                <div className="relative h-40 overflow-hidden">
+                <div className="relative h-44 overflow-hidden">
                   <Image
                     src="/images/logo.png"
                     alt="Yoga Basics"
                     fill
                     className="object-cover group-hover:scale-105 transition-transform duration-500"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
                 </div>
                 <CardContent className="p-5">
                   <h3 className="font-playfair text-lg font-semibold text-emerald-800 leading-tight mb-2">Sthavishtah Traditional Yoga Journey</h3>
-                  <p className="text-sm text-gray-600 font-lora leading-relaxed">A Complete Yoga & Wellness Experience from the Comfort of Your Home</p>
+                  <p className="text-sm text-gray-600 font-lora leading-relaxed mb-4 line-clamp-2">A Complete Yoga & Wellness Experience from the Comfort of Your Home</p>
+                  <Link href="/plans">
+                    <Button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white">
+                      View Program
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </Link>
                 </CardContent>
               </Card>
 
               <Card className="border border-emerald-200/60 hover:shadow-xl transition-all duration-300 group bg-white rounded-2xl overflow-hidden">
-                <div className="relative h-40 overflow-hidden">
+                <div className="relative h-44 overflow-hidden">
                   <Image
                     src="/images/traditional-yoga-mudras.jpg"
                     alt="Mindful Meditation"
                     fill
                     className="object-cover group-hover:scale-105 transition-transform duration-500"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
                 </div>
                 <CardContent className="p-5">
                   <h3 className="font-playfair text-lg font-semibold text-emerald-800 leading-tight mb-2">Mindful Meditation</h3>
-                  <p className="text-sm text-gray-600 font-lora leading-relaxed">Deepen your practice with guided meditation sessions for mental clarity and inner peace.</p>
+                  <p className="text-sm text-gray-600 font-lora leading-relaxed mb-4 line-clamp-2">Deepen your practice with guided meditation sessions for mental clarity and inner peace.</p>
+                  <Link href="/plans">
+                    <Button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white">
+                      View Program
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </Link>
                 </CardContent>
               </Card>
 
               <Card className="border border-emerald-200/60 hover:shadow-xl transition-all duration-300 group bg-white rounded-2xl overflow-hidden">
-                <div className="relative h-40 overflow-hidden">
+                <div className="relative h-44 overflow-hidden">
                   <Image
                     src="/images/riverside-yoga.jpg"
                     alt="Complete Wellness"
                     fill
                     className="object-cover group-hover:scale-105 transition-transform duration-500"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
                 </div>
                 <CardContent className="p-5">
                   <h3 className="font-playfair text-lg font-semibold text-emerald-800 leading-tight mb-2">Complete Wellness</h3>
-                  <p className="text-sm text-gray-600 font-lora leading-relaxed">A comprehensive program combining yoga, meditation, and nutrition for total well-being.</p>
+                  <p className="text-sm text-gray-600 font-lora leading-relaxed mb-4 line-clamp-2">A comprehensive program combining yoga, meditation, and nutrition for total well-being.</p>
+                  <Link href="/plans">
+                    <Button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white">
+                      View Program
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </Link>
                 </CardContent>
               </Card>
             </div>
