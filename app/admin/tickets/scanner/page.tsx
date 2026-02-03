@@ -1,0 +1,370 @@
+"use client"
+
+import { useState, useRef, useEffect } from "react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
+import Link from "next/link"
+import {
+  ArrowLeft,
+  Camera,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
+  QrCode,
+  User,
+  Mail,
+  Phone,
+  Calendar,
+  MapPin,
+} from "lucide-react"
+import { BarcodeDetector } from "barcode-detector"
+
+interface BookingResult {
+  id: string
+  booking_name: string
+  booking_email: string
+  booking_phone: string
+  is_paid: boolean
+  is_attended: boolean
+  attended_at: string | null
+  event_tickets: {
+    event_name: string
+    event_date: string
+    event_time: string
+    venue: string
+  }
+}
+
+export default function QRScannerPage() {
+  const [password, setPassword] = useState("")
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [scanning, setScanning] = useState(false)
+  const [manualCode, setManualCode] = useState("")
+  const [result, setResult] = useState<{
+    success: boolean
+    message: string
+    booking?: BookingResult
+  } | null>(null)
+  const [loading, setLoading] = useState(false)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const streamRef = useRef<MediaStream | null>(null)
+
+  const handleLogin = () => {
+    if (password) {
+      setIsAuthenticated(true)
+    }
+  }
+
+  const startScanner = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" },
+      })
+      streamRef.current = stream
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+        videoRef.current.play()
+      }
+      setScanning(true)
+      scanQRCode()
+    } catch (error) {
+      console.error("Camera access denied:", error)
+      alert("Please allow camera access to scan QR codes")
+    }
+  }
+
+  const stopScanner = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop())
+      streamRef.current = null
+    }
+    setScanning(false)
+  }
+
+  const scanQRCode = () => {
+    if (!videoRef.current || !canvasRef.current || !scanning) return
+
+    const canvas = canvasRef.current
+    const video = videoRef.current
+    const ctx = canvas.getContext("2d")
+
+    if (!ctx) return
+
+    canvas.width = video.videoWidth
+    canvas.height = video.videoHeight
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+
+    // Use BarcodeDetector API if available
+    if ("BarcodeDetector" in window) {
+      const barcodeDetector = new BarcodeDetector({ formats: ["qr_code"] })
+      barcodeDetector
+        .detect(canvas)
+        .then((barcodes: any[]) => {
+          if (barcodes.length > 0) {
+            const qrData = barcodes[0].rawValue
+            verifyQRCode(qrData)
+            stopScanner()
+            return
+          }
+          if (scanning) {
+            requestAnimationFrame(scanQRCode)
+          }
+        })
+        .catch(() => {
+          if (scanning) {
+            requestAnimationFrame(scanQRCode)
+          }
+        })
+    } else {
+      // Fallback: Continue scanning
+      if (scanning) {
+        requestAnimationFrame(scanQRCode)
+      }
+    }
+  }
+
+  const verifyQRCode = async (qrData: string) => {
+    setLoading(true)
+    setResult(null)
+
+    try {
+      const res = await fetch("/api/tickets/verify-qr", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-password": password,
+        },
+        body: JSON.stringify({ qr_code_data: qrData }),
+      })
+
+      const data = await res.json()
+
+      if (data.success) {
+        setResult({
+          success: true,
+          message: "Check-in successful!",
+          booking: data.booking,
+        })
+      } else {
+        setResult({
+          success: false,
+          message: data.error || "Verification failed",
+          booking: data.booking,
+        })
+      }
+    } catch (error) {
+      setResult({
+        success: false,
+        message: "Failed to verify QR code",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleManualVerify = () => {
+    if (manualCode.trim()) {
+      verifyQRCode(manualCode.trim())
+    }
+  }
+
+  useEffect(() => {
+    return () => {
+      stopScanner()
+    }
+  }, [])
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 to-purple-50 p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle className="text-center font-playfair text-2xl text-emerald-800">
+              QR Scanner Login
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label>Admin Password</Label>
+              <Input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+                placeholder="Enter password"
+              />
+            </div>
+            <Button onClick={handleLogin} className="w-full bg-emerald-600 hover:bg-emerald-700">
+              Login
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-purple-50 p-4 sm:p-6">
+      <div className="max-w-2xl mx-auto">
+        <div className="flex items-center gap-4 mb-6">
+          <Link href="/admin/tickets">
+            <Button variant="outline" size="sm">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back
+            </Button>
+          </Link>
+          <h1 className="font-playfair text-2xl font-bold text-emerald-800">QR Scanner</h1>
+        </div>
+
+        <Card className="mb-6">
+          <CardContent className="p-6">
+            {!scanning ? (
+              <div className="text-center space-y-4">
+                <QrCode className="w-16 h-16 mx-auto text-emerald-600" />
+                <p className="text-gray-600">Click to start scanning QR codes</p>
+                <Button onClick={startScanner} className="bg-emerald-600 hover:bg-emerald-700">
+                  <Camera className="w-4 h-4 mr-2" />
+                  Start Scanner
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="relative aspect-square max-w-sm mx-auto bg-black rounded-lg overflow-hidden">
+                  <video
+                    ref={videoRef}
+                    className="w-full h-full object-cover"
+                    playsInline
+                    muted
+                  />
+                  <div className="absolute inset-0 border-4 border-emerald-500 rounded-lg pointer-events-none">
+                    <div className="absolute inset-[20%] border-2 border-white/50 rounded" />
+                  </div>
+                </div>
+                <canvas ref={canvasRef} className="hidden" />
+                <Button
+                  onClick={stopScanner}
+                  variant="destructive"
+                  className="w-full"
+                >
+                  Stop Scanner
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="text-lg">Manual Entry</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label>QR Code Data</Label>
+              <Input
+                value={manualCode}
+                onChange={(e) => setManualCode(e.target.value)}
+                placeholder="Enter QR code data (e.g., TKT-abc12345-xyz)"
+                onKeyDown={(e) => e.key === "Enter" && handleManualVerify()}
+              />
+            </div>
+            <Button
+              onClick={handleManualVerify}
+              disabled={loading || !manualCode.trim()}
+              className="w-full bg-purple-600 hover:bg-purple-700"
+            >
+              {loading ? "Verifying..." : "Verify Manually"}
+            </Button>
+          </CardContent>
+        </Card>
+
+        {result && (
+          <Card
+            className={
+              result.success
+                ? "border-green-500 bg-green-50"
+                : "border-red-500 bg-red-50"
+            }
+          >
+            <CardContent className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                {result.success ? (
+                  <CheckCircle2 className="w-8 h-8 text-green-600" />
+                ) : result.message === "Already checked in" ? (
+                  <AlertCircle className="w-8 h-8 text-orange-600" />
+                ) : (
+                  <XCircle className="w-8 h-8 text-red-600" />
+                )}
+                <div>
+                  <h3
+                    className={`font-semibold text-lg ${
+                      result.success ? "text-green-800" : "text-red-800"
+                    }`}
+                  >
+                    {result.message}
+                  </h3>
+                </div>
+              </div>
+
+              {result.booking && (
+                <div className="space-y-3 mt-4 pt-4 border-t border-gray-200">
+                  <div className="flex items-center gap-2">
+                    <User className="w-4 h-4 text-gray-500" />
+                    <span className="font-medium">{result.booking.booking_name}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Mail className="w-4 h-4 text-gray-500" />
+                    <span className="text-sm">{result.booking.booking_email}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Phone className="w-4 h-4 text-gray-500" />
+                    <span className="text-sm">{result.booking.booking_phone}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-gray-500" />
+                    <span className="text-sm">
+                      {result.booking.event_tickets?.event_name} -{" "}
+                      {new Date(result.booking.event_tickets?.event_date).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-gray-500" />
+                    <span className="text-sm">{result.booking.event_tickets?.venue}</span>
+                  </div>
+                  <div className="flex gap-2 mt-2">
+                    {result.booking.is_paid ? (
+                      <Badge className="bg-green-100 text-green-800">Paid</Badge>
+                    ) : (
+                      <Badge variant="destructive">Unpaid</Badge>
+                    )}
+                    {result.booking.is_attended && (
+                      <Badge className="bg-purple-100 text-purple-800">
+                        Checked In
+                        {result.booking.attended_at &&
+                          ` at ${new Date(result.booking.attended_at).toLocaleTimeString()}`}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <Button
+                onClick={() => {
+                  setResult(null)
+                  setManualCode("")
+                }}
+                variant="outline"
+                className="w-full mt-4"
+              >
+                Scan Next
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    </div>
+  )
+}
