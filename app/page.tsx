@@ -260,71 +260,17 @@ export default function Home() {
         </div>
       </div>
 
-      <section className="py-8 sm:py-10 bg-gradient-to-b from-emerald-50/50 to-white border-y border-emerald-100/40">
-        <div className="container mx-auto px-4 max-w-5xl">
-          <h3 className="font-playfair text-xl sm:text-2xl font-semibold text-emerald-800 text-center mb-6">
-            What You Will Gain
-          </h3>
-          <div className="grid grid-cols-2 gap-3 sm:gap-4 md:gap-6 bg-white/80 backdrop-blur-sm rounded-xl p-4 sm:p-6 shadow-lg border border-emerald-100/50 mb-6">
-            {/* Left Column - 3 outcomes */}
-            <div className="flex flex-col gap-3 sm:gap-4">
-              <div className="flex items-start gap-2 sm:gap-3 p-2 sm:p-3 bg-white/70 rounded-lg shadow-sm">
-                <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-500 mt-1.5 sm:mt-2 flex-shrink-0"></div>
-                <p className="font-lora text-xs sm:text-sm text-gray-700 leading-snug">
-                  Understand yoga beyond just physical exercise
-                </p>
-              </div>
-              <div className="flex items-start gap-2 sm:gap-3 p-2 sm:p-3 bg-white/70 rounded-lg shadow-sm">
-                <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-500 mt-1.5 sm:mt-2 flex-shrink-0"></div>
-                <p className="font-lora text-xs sm:text-sm text-gray-700 leading-snug">
-                  Reduce stress and calm the mind
-                </p>
-              </div>
-              <div className="flex items-start gap-2 sm:gap-3 p-2 sm:p-3 bg-white/70 rounded-lg shadow-sm">
-                <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-500 mt-1.5 sm:mt-2 flex-shrink-0"></div>
-                <p className="font-lora text-xs sm:text-sm text-gray-700 leading-snug">
-                  Build a consistent and disciplined practice
-                </p>
-              </div>
-            </div>
-            {/* Right Column - 3 outcomes */}
-            <div className="flex flex-col gap-3 sm:gap-4">
-              <div className="flex items-start gap-2 sm:gap-3 p-2 sm:p-3 bg-white/70 rounded-lg shadow-sm">
-                <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-purple-500 mt-1.5 sm:mt-2 flex-shrink-0"></div>
-                <p className="font-lora text-xs sm:text-sm text-gray-700 leading-snug">
-                  Improve flexibility, posture, and body strength
-                </p>
-              </div>
-              <div className="flex items-start gap-2 sm:gap-3 p-2 sm:p-3 bg-white/70 rounded-lg shadow-sm">
-                <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-purple-500 mt-1.5 sm:mt-2 flex-shrink-0"></div>
-                <p className="font-lora text-xs sm:text-sm text-gray-700 leading-snug">
-                  Enhance breathing awareness and nervous system balance
-                </p>
-              </div>
-              <div className="flex items-start gap-2 sm:gap-3 p-2 sm:p-3 bg-white/70 rounded-lg shadow-sm">
-                <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-purple-500 mt-1.5 sm:mt-2 flex-shrink-0"></div>
-                <p className="font-lora text-xs sm:text-sm text-gray-700 leading-snug">
-                  Develop mental clarity and emotional stability
-                </p>
-              </div>
-            </div>
-          </div>
-          
-          {/* 4 Pillars of Yoga - Square Boxes */}
-          <div className="grid grid-cols-4 gap-2 sm:gap-4">
-            <div className="bg-gradient-to-br from-orange-400 to-orange-600 rounded-lg p-3 sm:p-4 text-center shadow-md hover:shadow-lg transition-shadow">
-              <span className="text-white font-bold text-xs sm:text-sm md:text-base">Karma Yoga</span>
-            </div>
-            <div className="bg-gradient-to-br from-blue-400 to-blue-600 rounded-lg p-3 sm:p-4 text-center shadow-md hover:shadow-lg transition-shadow">
-              <span className="text-white font-bold text-xs sm:text-sm md:text-base">Astanga Yoga</span>
-            </div>
-            <div className="bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-lg p-3 sm:p-4 text-center shadow-md hover:shadow-lg transition-shadow">
-              <span className="text-white font-bold text-xs sm:text-sm md:text-base">Jnana Yoga</span>
-            </div>
-            <div className="bg-gradient-to-br from-purple-400 to-purple-600 rounded-lg p-3 sm:p-4 text-center shadow-md hover:shadow-lg transition-shadow">
-              <span className="text-white font-bold text-xs sm:text-sm md:text-base">Bhakti Yoga</span>
-            </div>
-          </div>
+      {/* What You Will Gain - Full Image Section */}
+      <section className="py-4 sm:py-6">
+        <div className="container mx-auto px-4 max-w-6xl">
+          <Image
+            src="/images/chatgpt-20image-20feb-203-2c-202026-2c-2006-47-09-20pm.png"
+            alt="What You Will Gain - Yoga Benefits including Karma Yoga, Astanga Yoga, Jnana Yoga, and Bhakti Yoga"
+            width={1200}
+            height={800}
+            className="w-full h-auto rounded-xl shadow-lg"
+            priority
+          />
         </div>
       </section>
 
