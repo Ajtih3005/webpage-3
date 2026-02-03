@@ -139,11 +139,11 @@ export default function Home() {
         }`}
       >
         <div className="container mx-auto flex items-center justify-between max-w-7xl">
-          <Link href="/" className="flex items-center gap-3 group">
+          <Link href="/" className="flex items-center group">
             <div className="relative h-16 w-16 rounded-full overflow-hidden ring-1 ring-purple-200/40 group-hover:ring-purple-300/60 transition-all">
               <Image src="/images/logo.png" alt="Sthavishtah" fill className="object-cover" priority />
             </div>
-            <div className="flex flex-col">
+            <div className="flex flex-col ml-3">
               <span className="font-playfair text-xl font-semibold tracking-tight text-purple-700">STHAVISHTAH</span>
               <span className="text-[10px] tracking-[0.2em] text-gray-500 uppercase">Yoga & Wellness</span>
             </div>
@@ -260,21 +260,19 @@ export default function Home() {
         </div>
       </div>
 
-      <section className="py-12 bg-white border-y border-emerald-100/40">
-        <div className="container mx-auto px-6 text-center">
-          <h2 className="font-playfair text-2xl md:text-3xl font-semibold text-emerald-800 mb-2">
-            BREATHE, BALANCE, BECOME
-          </h2>
-          <div className="flex items-center justify-center gap-3 mb-3">
-            <div className="h-px w-16 bg-emerald-200"></div>
-            <Sparkles className="h-5 w-5 text-emerald-500" />
-            <div className="h-px w-16 bg-emerald-200"></div>
-          </div>
-          <p className="font-lora text-emerald-700/70 text-lg">Next batch starting from December 1, 2025</p>
+      {/* What You Will Gain - Full Image Section */}
+      <section className="py-4 sm:py-6">
+        <div className="container mx-auto px-4 max-w-6xl">
+          <Image
+            src="/images/chatgpt-20image-20feb-203-2c-202026-2c-2006-47-09-20pm.png"
+            alt="What You Will Gain - Yoga Benefits including Karma Yoga, Astanga Yoga, Jnana Yoga, and Bhakti Yoga"
+            width={1200}
+            height={800}
+            className="w-full h-auto rounded-xl shadow-lg"
+            priority
+          />
         </div>
       </section>
-
-      {/* Flexible Batches Section - Moved from earlier position */}
 
       {/* Offerings Section with Riverside Yoga Background - Enhanced with better cards */}
       <section className="py-14 md:py-20 relative overflow-hidden">
@@ -291,7 +289,7 @@ export default function Home() {
         </div>
 
         {/* Light Pattern Overlay */}
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgdmlld0JveD0iMCAwIDYwIDYwIj48ZyBmaWxsPSNub25lIiBBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiMwNDdBMzgiIGZpbGwtb3BhY2l0eT0iMC4wMyI+PHBhdGggZD0iTTM2IDM0di00aC0ydjRoLTR2Mmg0djRoMnYtNGg0di0ySDZ6T00iLz48L2c+PC9nPjwvc3ZnPg==')] opacity-50 -z-10"></div>
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgdmlld0JveD0iMCAwIDYwIDYwIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiMwNDdBMzgiIGZpbGwtb3BhY2l0eT0iMC4wMyI+PHBhdGggZD0iTTM2IDM0di00aC0ydjRoLTR2Mmg0djRoMnYtNGg0di0ySDZ6T00iLz48L2c+PC9nPjwvc3ZnPg==')] opacity-50 -z-10"></div>
 
         <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-emerald-200 to-transparent"></div>
 
@@ -307,36 +305,72 @@ export default function Home() {
 
           <div className="max-w-6xl mx-auto overflow-x-auto">
             <div className="flex gap-6 pb-4 snap-x snap-mandatory">
-              <OfferingCard
-                icon={<BookOpen className="h-7 w-7 text-emerald-600" />}
-                title="Bhagavad Gita Study"
-                description="Discover timeless wisdom through our Gita practice sessions starting now."
-              />
-              <OfferingCard
-                icon={<Users className="h-7 w-7 text-emerald-600" />}
-                title="Yoga for Health & Flexibility"
-                description="Gentle practices to improve mobility, reduce stress, and enhance your connection."
-              />
-              <OfferingCard
-                icon={<Dumbbell className="h-7 w-7 text-emerald-600" />}
-                title="Light Muscle Training"
-                description="Strengthen your body with movements inspired by natural forms."
-              />
-              <OfferingCard
-                icon={<Utensils className="h-7 w-7 text-emerald-600" />}
-                title="Natural Diet Plans"
-                description="Nourish your body with seasonal, wholesome nutrition plans."
-              />
-              <OfferingCard
-                icon={<Brain className="h-7 w-7 text-emerald-600" />}
-                title="Mental Wellness Sessions"
-                description="Forest-inspired meditation and mindfulness practices."
-              />
-              <OfferingCard
-                icon={<Calendar className="h-7 w-7 text-emerald-600" />}
-                title="Flexible Batches"
-                description="Join any of our six daily sessions that align with your rhythm."
-              />
+              <div className="flex-shrink-0 w-72 snap-center border-emerald-200/40 hover:shadow-lg transition-all duration-300 group bg-white/90 backdrop-blur-sm">
+                <CardContent className="p-6">
+                  <div className="flex items-start gap-4 mb-3">
+                    <div className="p-2.5 rounded-full bg-emerald-50 group-hover:bg-emerald-100 transition-colors flex-shrink-0">
+                      <BookOpen className="h-7 w-7 text-emerald-600" />
+                    </div>
+                    <h3 className="font-playfair text-lg font-semibold text-emerald-800 leading-tight">Bhagavad Gita Study</h3>
+                  </div>
+                  <p className="text-sm text-emerald-700/70 font-lora leading-relaxed">Discover timeless wisdom through our Gita practice sessions starting now.</p>
+                </CardContent>
+              </div>
+              <div className="flex-shrink-0 w-72 snap-center border-emerald-200/40 hover:shadow-lg transition-all duration-300 group bg-white/90 backdrop-blur-sm">
+                <CardContent className="p-6">
+                  <div className="flex items-start gap-4 mb-3">
+                    <div className="p-2.5 rounded-full bg-emerald-50 group-hover:bg-emerald-100 transition-colors flex-shrink-0">
+                      <Users className="h-7 w-7 text-emerald-600" />
+                    </div>
+                    <h3 className="font-playfair text-lg font-semibold text-emerald-800 leading-tight">Yoga for Health & Flexibility</h3>
+                  </div>
+                  <p className="text-sm text-emerald-700/70 font-lora leading-relaxed">Gentle practices to improve mobility, reduce stress, and enhance your connection.</p>
+                </CardContent>
+              </div>
+              <div className="flex-shrink-0 w-72 snap-center border-emerald-200/40 hover:shadow-lg transition-all duration-300 group bg-white/90 backdrop-blur-sm">
+                <CardContent className="p-6">
+                  <div className="flex items-start gap-4 mb-3">
+                    <div className="p-2.5 rounded-full bg-emerald-50 group-hover:bg-emerald-100 transition-colors flex-shrink-0">
+                      <Dumbbell className="h-7 w-7 text-emerald-600" />
+                    </div>
+                    <h3 className="font-playfair text-lg font-semibold text-emerald-800 leading-tight">Light Muscle Training</h3>
+                  </div>
+                  <p className="text-sm text-emerald-700/70 font-lora leading-relaxed">Strengthen your body with movements inspired by natural forms.</p>
+                </CardContent>
+              </div>
+              <div className="flex-shrink-0 w-72 snap-center border-emerald-200/40 hover:shadow-lg transition-all duration-300 group bg-white/90 backdrop-blur-sm">
+                <CardContent className="p-6">
+                  <div className="flex items-start gap-4 mb-3">
+                    <div className="p-2.5 rounded-full bg-emerald-50 group-hover:bg-emerald-100 transition-colors flex-shrink-0">
+                      <Utensils className="h-7 w-7 text-emerald-600" />
+                    </div>
+                    <h3 className="font-playfair text-lg font-semibold text-emerald-800 leading-tight">Natural Diet Plans</h3>
+                  </div>
+                  <p className="text-sm text-emerald-700/70 font-lora leading-relaxed">Nourish your body with seasonal, wholesome nutrition plans.</p>
+                </CardContent>
+              </div>
+              <div className="flex-shrink-0 w-72 snap-center border-emerald-200/40 hover:shadow-lg transition-all duration-300 group bg-white/90 backdrop-blur-sm">
+                <CardContent className="p-6">
+                  <div className="flex items-start gap-4 mb-3">
+                    <div className="p-2.5 rounded-full bg-emerald-50 group-hover:bg-emerald-100 transition-colors flex-shrink-0">
+                      <Brain className="h-7 w-7 text-emerald-600" />
+                    </div>
+                    <h3 className="font-playfair text-lg font-semibold text-emerald-800 leading-tight">Mental Wellness Sessions</h3>
+                  </div>
+                  <p className="text-sm text-emerald-700/70 font-lora leading-relaxed">Forest-inspired meditation and mindfulness practices.</p>
+                </CardContent>
+              </div>
+              <div className="flex-shrink-0 w-72 snap-center border-emerald-200/40 hover:shadow-lg transition-all duration-300 group bg-white/90 backdrop-blur-sm">
+                <CardContent className="p-6">
+                  <div className="flex items-start gap-4 mb-3">
+                    <div className="p-2.5 rounded-full bg-emerald-50 group-hover:bg-emerald-100 transition-colors flex-shrink-0">
+                      <Calendar className="h-7 w-7 text-emerald-600" />
+                    </div>
+                    <h3 className="font-playfair text-lg font-semibold text-emerald-800 leading-tight">Flexible Batches</h3>
+                  </div>
+                  <p className="text-sm text-emerald-700/70 font-lora leading-relaxed">Join any of our six daily sessions that align with your rhythm.</p>
+                </CardContent>
+              </div>
             </div>
           </div>
         </div>
@@ -369,7 +403,7 @@ export default function Home() {
 
         <div className="container mx-auto px-4 relative">
           <div className="text-center mb-8 md:mb-16">
-            <div className="inline-block px-3 py-1 md:px-4 md:py-1 rounded-full bg-gradient-to-r from-purple-100 to-pink-100 text-purple-800 text-xs md:text-sm font-medium mb-3 md:mb-4 shadow-md">
+            <div className="inline-block px-3 py-1.5 bg-white/15 backdrop-blur-sm text-white text-xs font-medium mb-4 shadow-md border border-white/20">
               <Package className="inline-block mr-1 h-3 w-3 md:h-4 md:w-4" />
               Wellness Programs
             </div>
@@ -385,134 +419,58 @@ export default function Home() {
           {subscriptionPages.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8 mb-8 md:mb-12">
               {subscriptionPages.map((page, index) => (
-                <Card
-                  key={page.id}
-                  className="overflow-hidden group hover:shadow-xl transition-all duration-300 border-0 shadow-md bg-white/90 backdrop-blur-sm"
-                >
-                  <div
-                    className="h-32 md:h-48 bg-cover bg-center relative"
-                    style={{
-                      backgroundImage: page.hero_image_url
-                        ? `url('${page.hero_image_url}')`
-                        : `url('/placeholder.svg?height=200&width=400')`,
-                    }}
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent group-hover:from-black/70 transition-all duration-300"></div>
-                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20 group-hover:from-purple-500/30 group-hover:to-pink-500/30 transition-all duration-300"></div>
-                    <div className="absolute bottom-2 md:bottom-4 left-2 md:left-4 text-white">
-                      <Badge className="bg-gradient-to-r from-purple-500/90 to-pink-500/90 backdrop-blur-sm mb-1 md:mb-2 text-white border-0 shadow-md text-xs">
-                        Available Now
-                      </Badge>
-                      <h3 className="text-sm md:text-xl font-bold drop-shadow-lg">{page.title}</h3>
+                <div key={page.id} className="flex-shrink-0 w-72 snap-center border-emerald-200/40 hover:shadow-lg transition-all duration-300 group bg-white/90 backdrop-blur-sm">
+                  <CardContent className="p-6">
+                    <div className="flex items-start gap-4 mb-3">
+                      <div className="p-2.5 rounded-full bg-emerald-50 group-hover:bg-emerald-100 transition-colors flex-shrink-0">
+                        {/* Placeholder for dynamic icon */}
+                        <span className="h-7 w-7 text-emerald-600">Icon</span>
+                      </div>
+                      <h3 className="font-playfair text-lg font-semibold text-emerald-800 leading-tight">{page.title}</h3>
                     </div>
-                  </div>
-                  <CardContent className="p-3 md:p-6">
-                    <p className="text-gray-600 mb-3 md:mb-6 line-clamp-2 text-xs md:text-base">{page.subtitle}</p>
-                    <div className="flex justify-center">
-                      <Button
-                        onClick={() => handleExploreClick(page.slug)}
-                        className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold px-4 py-2 md:px-6 md:py-2 shadow-md hover:shadow-lg transition-all duration-300 text-xs md:text-sm"
-                      >
-                        Explore Program
-                        <ArrowRight className="ml-1 md:ml-2 h-3 w-3 md:h-4 md:w-4 group-hover:translate-x-1 transition-transform" />
-                      </Button>
-                    </div>
+                    <p className="text-sm text-emerald-700/70 font-lora leading-relaxed">{page.subtitle}</p>
                   </CardContent>
-                </Card>
+                </div>
               ))}
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8 mb-8 md:mb-12">
               {/* Fallback cards with mobile optimizations */}
-              <Card className="overflow-hidden group hover:shadow-xl transition-all duration-300 border-0 shadow-md bg-white/90 backdrop-blur-sm">
-                <div
-                  className="h-32 md:h-48 bg-cover bg-center relative"
-                  style={{ backgroundImage: "url('/images/serene-forest-meditation.jpg')" }}
-                >
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent group-hover:from-black/70 transition-all duration-300"></div>
-                  <div className="absolute inset-0 bg-gradient-to-br from-green-500/20 to-emerald-500/20 group-hover:from-green-500/30 group-hover:to-emerald-500/30 transition-all duration-300"></div>
-                  <div className="absolute bottom-2 md:bottom-4 left-2 md:left-4 text-white">
-                    <Badge className="bg-green-500/90 backdrop-blur-sm mb-1 md:mb-2 text-white border-0 shadow-md text-xs">
-                      Beginner Friendly
-                    </Badge>
-                    <h3 className="text-sm md:text-xl font-bold drop-shadow-lg">Yoga Basics</h3>
+              <div className="flex-shrink-0 w-72 snap-center border-emerald-200/40 hover:shadow-lg transition-all duration-300 group bg-white/90 backdrop-blur-sm">
+                <CardContent className="p-6">
+                  <div className="flex items-start gap-4 mb-3">
+                    <div className="p-2.5 rounded-full bg-emerald-50 group-hover:bg-emerald-100 transition-colors flex-shrink-0">
+                      <Image src="/images/logo.png" alt="Logo" width={100} height={100} className="rounded-full" />
+                    </div>
+                    <h3 className="font-playfair text-lg font-semibold text-emerald-800 leading-tight">Yoga Basics</h3>
                   </div>
-                </div>
-                <CardContent className="p-3 md:p-6">
-                  <p className="text-gray-600 mb-3 md:mb-6 text-xs md:text-base">
-                    Perfect for beginners starting their yoga journey with gentle poses and breathing techniques.
-                  </p>
-                  <div className="flex justify-center">
-                    <Button
-                      onClick={() => handleExploreClick("yoga-basics")}
-                      className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold px-4 py-2 md:px-6 md:py-2 shadow-md hover:shadow-lg transition-all duration-300 text-xs md:text-sm"
-                    >
-                      Explore Program
-                      <ArrowRight className="ml-1 md:ml-2 h-3 w-3 md:h-4 md:w-4 group-hover:translate-x-1 transition-transform" />
-                    </Button>
-                  </div>
+                  <p className="text-sm text-emerald-700/70 font-lora leading-relaxed">Perfect for beginners starting their yoga journey with gentle poses and breathing techniques.</p>
                 </CardContent>
-              </Card>
+              </div>
 
-              <Card className="overflow-hidden group hover:shadow-xl transition-all duration-300 border-0 shadow-md bg-white/90 backdrop-blur-sm">
-                <div
-                  className="h-32 md:h-48 bg-cover bg-center relative"
-                  style={{ backgroundImage: "url('/images/traditional-yoga-mudras.jpg')" }}
-                >
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent group-hover:from-black/70 transition-all duration-300"></div>
-                  <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/20 to-orange-500/20 group-hover:from-yellow-500/30 group-hover:to-orange-500/30 transition-all duration-300"></div>
-                  <div className="absolute bottom-2 md:bottom-4 left-2 md:left-4 text-white">
-                    <Badge className="bg-yellow-500/90 backdrop-blur-sm mb-1 md:mb-2 text-white border-0 shadow-md text-xs">
-                      Intermediate
-                    </Badge>
-                    <h3 className="text-sm md:text-xl font-bold drop-shadow-lg">Mindful Meditation</h3>
+              <div className="flex-shrink-0 w-72 snap-center border-emerald-200/40 hover:shadow-lg transition-all duration-300 group bg-white/90 backdrop-blur-sm">
+                <CardContent className="p-6">
+                  <div className="flex items-start gap-4 mb-3">
+                    <div className="p-2.5 rounded-full bg-emerald-50 group-hover:bg-emerald-100 transition-colors flex-shrink-0">
+                      <Image src="/images/traditional-yoga-mudras.jpg" alt="Logo" width={100} height={100} className="rounded-full" />
+                    </div>
+                    <h3 className="font-playfair text-lg font-semibold text-emerald-800 leading-tight">Mindful Meditation</h3>
                   </div>
-                </div>
-                <CardContent className="p-3 md:p-6">
-                  <p className="text-gray-600 mb-3 md:mb-6 text-xs md:text-base">
-                    Deepen your practice with guided meditation sessions for mental clarity and inner peace.
-                  </p>
-                  <div className="flex justify-center">
-                    <Button
-                      onClick={() => handleExploreClick("mindful-meditation")}
-                      className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold px-4 py-2 md:px-6 md:py-2 shadow-md hover:shadow-lg transition-all duration-300 text-xs md:text-sm"
-                    >
-                      Explore Program
-                      <ArrowRight className="ml-1 md:ml-2 h-3 w-3 md:h-4 md:w-4 group-hover:translate-x-1 transition-transform" />
-                    </Button>
-                  </div>
+                  <p className="text-sm text-emerald-700/70 font-lora leading-relaxed">Deepen your practice with guided meditation sessions for mental clarity and inner peace.</p>
                 </CardContent>
-              </Card>
+              </div>
 
-              <Card className="overflow-hidden group hover:shadow-xl transition-all duration-300 border-0 shadow-md bg-white/90 backdrop-blur-sm">
-                <div
-                  className="h-32 md:h-48 bg-cover bg-center relative"
-                  style={{ backgroundImage: "url('/images/riverside-yoga.jpg')" }}
-                >
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent group-hover:from-black/70 transition-all duration-300"></div>
-                  <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20 group-hover:from-purple-500/30 group-hover:to-pink-500/30 transition-all duration-300"></div>
-                  <div className="absolute bottom-2 md:bottom-4 left-2 md:left-4 text-white">
-                    <Badge className="bg-purple-500/90 backdrop-blur-sm mb-1 md:mb-2 text-white border-0 shadow-md text-xs">
-                      Holistic
-                    </Badge>
-                    <h3 className="text-sm md:text-xl font-bold drop-shadow-lg">Complete Wellness</h3>
+              <div className="flex-shrink-0 w-72 snap-center border-emerald-200/40 hover:shadow-lg transition-all duration-300 group bg-white/90 backdrop-blur-sm">
+                <CardContent className="p-6">
+                  <div className="flex items-start gap-4 mb-3">
+                    <div className="p-2.5 rounded-full bg-emerald-50 group-hover:bg-emerald-100 transition-colors flex-shrink-0">
+                      <Image src="/images/riverside-yoga.jpg" alt="Logo" width={100} height={100} className="rounded-full" />
+                    </div>
+                    <h3 className="font-playfair text-lg font-semibold text-emerald-800 leading-tight">Complete Wellness</h3>
                   </div>
-                </div>
-                <CardContent className="p-3 md:p-6">
-                  <p className="text-gray-600 mb-3 md:mb-6 text-xs md:text-base">
-                    A comprehensive program combining yoga, meditation, and nutrition for total well-being.
-                  </p>
-                  <div className="flex justify-center">
-                    <Button
-                      onClick={() => handleExploreClick("complete-wellness")}
-                      className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold px-4 py-2 md:px-6 md:py-2 shadow-md hover:shadow-lg transition-all duration-300 text-xs md:text-sm"
-                    >
-                      Explore Program
-                      <ArrowRight className="ml-1 md:ml-2 h-3 w-3 md:h-4 md:w-4 group-hover:translate-x-1 transition-transform" />
-                    </Button>
-                  </div>
+                  <p className="text-sm text-emerald-700/70 font-lora leading-relaxed">A comprehensive program combining yoga, meditation, and nutrition for total well-being.</p>
                 </CardContent>
-              </Card>
+              </div>
             </div>
           )}
 
@@ -691,7 +649,7 @@ export default function Home() {
 
           <div className="grid sm:grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 max-w-4xl mx-auto">
             {/* Morning Batch */}
-            <Card className="border-emerald-200/40 hover:shadow-lg transition-all duration-300">
+            <div className="border-emerald-200/40 hover:shadow-lg transition-all duration-300">
               <div className="h-1 bg-gradient-to-r from-yellow-400 to-orange-400"></div>
               <CardContent className="p-4 sm:p-6">
                 <div className="flex items-center gap-2 mb-3 sm:mb-4">
@@ -713,10 +671,10 @@ export default function Home() {
                   Energizing Flow
                 </Badge>
               </CardContent>
-            </Card>
+            </div>
 
             {/* Evening Batch */}
-            <Card className="border-emerald-200/40 hover:shadow-lg transition-all duration-300">
+            <div className="border-emerald-200/40 hover:shadow-lg transition-all duration-300">
               <div className="h-1 bg-gradient-to-r from-indigo-400 to-purple-400"></div>
               <CardContent className="p-4 sm:p-6">
                 <div className="flex items-center gap-2 mb-3 sm:mb-4">
@@ -738,7 +696,7 @@ export default function Home() {
                   Calming Practice
                 </Badge>
               </CardContent>
-            </Card>
+            </div>
           </div>
         </div>
       </section>
@@ -838,15 +796,12 @@ export default function Home() {
   )
 }
 
-function BatchTime({ number, time, isNew = false }: { number: string; time: string; isNew?: boolean }) {
+function BatchTime({ number, time, isNew = false }) {
   return (
     <div className="flex items-center p-3 sm:p-4 border rounded-lg bg-gradient-to-r from-green-50/80 to-emerald-50/80 hover:from-green-100/80 hover:to-emerald-100/80 transition-colors shadow-sm group border-green-100 hover:border-green-200">
-      <Badge
-        variant="outline"
-        className="mr-3 sm:mr-4 px-2 py-1 sm:px-3 sm:py-1 text-xs sm:text-sm font-bold bg-gradient-to-r from-green-600 to-emerald-600 text-white border-0 shadow-sm group-hover:from-green-700 group-hover:to-emerald-700 transition-colors"
-      >
+      <span className="mr-3 sm:mr-4 px-2 py-1 sm:px-3 sm:py-1 text-xs sm:text-sm font-bold bg-gradient-to-r from-green-600 to-emerald-600 text-white border-0 shadow-sm group-hover:from-green-700 group-hover:to-emerald-700 transition-colors">
         BATCH {number}
-      </Badge>
+      </span>
       <span className="font-medium text-green-800 text-sm sm:text-base">{time}</span>
       {isNew && (
         <span className="ml-auto bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 text-xs px-2 py-1 rounded-full animate-pulse shadow-sm">
@@ -857,11 +812,10 @@ function BatchTime({ number, time, isNew = false }: { number: string; time: stri
   )
 }
 
-// Updated OfferingCard component
-function OfferingCard({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) {
+function OfferingCard({ icon, title, description }) {
   return (
-    <Card className="flex-shrink-0 w-72 snap-center border-emerald-200/40 hover:shadow-lg transition-all duration-300 group bg-white/90 backdrop-blur-sm">
-      <CardContent className="p-6">
+    <div className="flex-shrink-0 w-72 snap-center border-emerald-200/40 hover:shadow-lg transition-all duration-300 group bg-white/90 backdrop-blur-sm">
+      <div className="p-6">
         <div className="flex items-start gap-4 mb-3">
           <div className="p-2.5 rounded-full bg-emerald-50 group-hover:bg-emerald-100 transition-colors flex-shrink-0">
             {icon}
@@ -869,16 +823,16 @@ function OfferingCard({ icon, title, description }: { icon: React.ReactNode; tit
           <h3 className="font-playfair text-lg font-semibold text-emerald-800 leading-tight">{title}</h3>
         </div>
         <p className="text-sm text-emerald-700/70 font-lora leading-relaxed">{description}</p>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }
 
-function WellnessCard({ icon, title, content }: { icon: React.ReactNode; title: string; content: string }) {
+function WellnessCard({ icon, title, content }) {
   return (
-    <Card className="nature-card h-full group overflow-hidden shadow-lg hover:shadow-xl transition-all duration-500 border-0 bg-white/95 backdrop-blur-sm">
+    <div className="nature-card h-full group overflow-hidden shadow-lg hover:shadow-xl transition-all duration-500 border-0 bg-white/95 backdrop-blur-sm">
       <div className="h-1 bg-gradient-to-r from-green-400 to-green-600 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-500"></div>
-      <CardContent className="pt-6 pb-6">
+      <div className="pt-6 pb-6">
         <div className="flex flex-col items-center text-center">
           <div className="mb-4 sm:mb-5 p-3 sm:p-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-full group-hover:from-green-100 group-hover:to-emerald-100 transition-colors shadow-md">
             {icon}
@@ -888,7 +842,7 @@ function WellnessCard({ icon, title, content }: { icon: React.ReactNode; title: 
           </h3>
           <p className="text-gray-700 text-sm sm:text-base">{content}</p>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }
