@@ -67,6 +67,14 @@ interface Stats {
   totalRevenue: number
 }
 
+// Helper function to get password from localStorage (set by AdminLayout)
+const getAdminPassword = () => {
+  if (typeof window !== "undefined") {
+    return localStorage.getItem("adminPassword") || ""
+  }
+  return ""
+}
+
 export default function AdminTicketsPage() {
   const [events, setEvents] = useState<Event[]>([])
   const [bookings, setBookings] = useState<Booking[]>([])
@@ -75,8 +83,6 @@ export default function AdminTicketsPage() {
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [editingEvent, setEditingEvent] = useState<Event | null>(null)
-  const [password, setPassword] = useState("")
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
 
   // Form state for creating/editing events
   const [formData, setFormData] = useState({
@@ -89,34 +95,16 @@ export default function AdminTicketsPage() {
     total_seats: 100,
   })
 
-  // Get password from localStorage (set by AdminLayout)
-  const getPassword = () => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("adminPassword") || ""
-    }
-    return ""
-  }
-
-  const handleLogin = () => {
-    const storedPassword = getPassword()
-    if (storedPassword === password) {
-      setIsAuthenticated(true)
-    } else {
-      alert("Incorrect password")
-    }
-  }
-
   useEffect(() => {
-    if (isAuthenticated) {
-      fetchEvents()
-      fetchBookings()
-    }
-  }, [isAuthenticated])
+    fetchEvents()
+    fetchBookings()
+  }, [])
 
   const fetchEvents = async () => {
     try {
+      const adminPassword = getAdminPassword()
       const res = await fetch("/api/tickets/admin", {
-        headers: { "x-admin-password": password },
+        headers: { "x-admin-password": adminPassword },
       })
       const data = await res.json()
       if (data.success) {
@@ -128,14 +116,14 @@ export default function AdminTicketsPage() {
   }
 
   const fetchBookings = async (eventId?: string) => {
-    const password = getPassword()
     try {
       setLoading(true)
+      const adminPassword = getAdminPassword()
       const url = eventId
         ? `/api/tickets/admin/bookings?event_id=${eventId}`
         : "/api/tickets/admin/bookings"
       const res = await fetch(url, {
-        headers: { "x-admin-password": password },
+        headers: { "x-admin-password": adminPassword },
       })
       const data = await res.json()
       if (data.success) {
@@ -150,13 +138,13 @@ export default function AdminTicketsPage() {
   }
 
   const handleCreateEvent = async () => {
-    const password = getPassword()
     try {
+      const adminPassword = getAdminPassword()
       const res = await fetch("/api/tickets/events", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-admin-password": password,
+          "x-admin-password": adminPassword,
         },
         body: JSON.stringify(formData),
       })
@@ -175,13 +163,13 @@ export default function AdminTicketsPage() {
 
   const handleUpdateEvent = async () => {
     if (!editingEvent) return
-    const password = getPassword()
     try {
+      const adminPassword = getAdminPassword()
       const res = await fetch("/api/tickets/admin", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          "x-admin-password": password,
+          "x-admin-password": adminPassword,
         },
         body: JSON.stringify({ id: editingEvent.id, ...formData }),
       })
@@ -200,11 +188,11 @@ export default function AdminTicketsPage() {
 
   const handleDeleteEvent = async (id: string) => {
     if (!confirm("Are you sure you want to delete this event?")) return
-    const password = getPassword()
     try {
+      const adminPassword = getAdminPassword()
       const res = await fetch(`/api/tickets/admin?id=${id}`, {
         method: "DELETE",
-        headers: { "x-admin-password": password },
+        headers: { "x-admin-password": adminPassword },
       })
       const data = await res.json()
       if (data.success) {
@@ -218,13 +206,13 @@ export default function AdminTicketsPage() {
   }
 
   const toggleEventActive = async (event: Event) => {
-    const password = getPassword()
     try {
+      const adminPassword = getAdminPassword()
       const res = await fetch("/api/tickets/admin", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          "x-admin-password": password,
+          "x-admin-password": adminPassword,
         },
         body: JSON.stringify({ id: event.id, is_active: !event.is_active }),
       })

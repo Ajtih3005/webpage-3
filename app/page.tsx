@@ -134,8 +134,8 @@ export default function Home() {
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-b from-amber-50/30 via-white to-emerald-50/20">
       <header
-        className={`w-full py-4 px-6 sticky top-0 z-50 transition-all duration-500 ${
-          scrolled ? "bg-white/90 backdrop-blur-xl shadow-sm border-b border-gray-200" : "bg-transparent"
+        className={`w-full py-4 px-6 fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
+          scrolled ? "bg-white/95 backdrop-blur-xl shadow-sm border-b border-gray-200" : "bg-transparent"
         }`}
       >
         <div className="container mx-auto flex items-center justify-between max-w-7xl">
@@ -257,6 +257,37 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Begin with Guidance Section - White Background */}
+      <section className="py-16 md:py-24 bg-white">
+        <div className="container mx-auto px-4 text-center max-w-4xl">
+          <div className="inline-block px-4 py-1.5 bg-emerald-100 text-emerald-700 text-xs font-medium rounded-full mb-6 border border-emerald-200">
+            <Sparkles className="inline-block mr-1 h-3 w-3 md:h-4 md:w-4" />
+            Your Journey Starts Here
+          </div>
+          
+          <h2 className="font-playfair text-3xl md:text-5xl font-semibold text-gray-900 mb-6 leading-tight">
+            Begin with Guidance
+          </h2>
+          
+          <p className="font-lora text-lg md:text-xl text-gray-600 max-w-2xl mx-auto mb-10 leading-relaxed">
+            Experience the transformative power of structured yoga practice. Start your 7-day free trial and discover a path to lasting wellness with expert guidance.
+          </p>
+          
+          <Button
+            size="lg"
+            className="bg-gradient-to-r from-purple-600 to-teal-500 hover:from-purple-700 hover:to-teal-600 text-white px-10 py-6 text-lg md:text-xl font-lora shadow-2xl hover:shadow-3xl transition-all duration-300 rounded-xl hover:scale-105"
+            onClick={handleEnroll}
+          >
+            <div className="flex flex-col items-center gap-2">
+              <span className="font-semibold">Attend 7 Days FREE</span>
+              <span className="text-xs sm:text-sm font-normal opacity-90">
+                Live sessions with no cost and open to beginners
+              </span>
+            </div>
+          </Button>
+        </div>
+      </section>
+
       {/* Combined Section - What You Will Gain + The Path We Follow */}
       <section className="min-h-screen py-8 md:py-12 relative overflow-hidden">
         {/* Background Image with Overlay */}
@@ -374,10 +405,21 @@ export default function Home() {
       </section>
 
       {/* Explore Our Subscription Programs Section */}
-      <section className="py-10 md:py-24 bg-gradient-to-br from-emerald-50 via-white to-purple-50/30 relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-emerald-200 via-purple-300 to-emerald-200"></div>
+      <section className="py-10 md:py-24 relative overflow-hidden">
+        {/* Background Image with Overlay */}
+        <div className="absolute inset-0 -z-10">
+          <Image
+            src="/images/traditional-yoga-mudras.jpg"
+            alt="Yoga Background"
+            fill
+            className="object-cover object-center"
+            sizes="100vw"
+          />
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-900/85 via-teal-800/80 to-purple-900/85"></div>
+        </div>
 
-        <div className="absolute top-0 right-0 w-32 h-32 md:w-64 md:h-64 bg-purple-100/30 rounded-full -translate-y-1/2 translate-x-1/2 opacity-30 blur-3xl"></div>
+        {/* Decorative Pattern Overlay */}
+        <div className="absolute inset-0 opacity-10 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgdmlld0JveD0iMCAwIDYwIDYwIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMSI+PHBhdGggZD0iTTM2IDM0di00aC0ydjRoLTR2Mmg0djRoMnYtNGg0di0ySDZ6bT0iLz48L2c+PC9nPjwvc3ZnPg==')] -z-10"></div>
 
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           {[...Array(5)].map((_, i) => (
@@ -391,23 +433,23 @@ export default function Home() {
                 animationDelay: `${Math.random() * 5}s`,
               }}
             >
-              {i % 3 === 0 && <Star className="h-4 w-4 text-purple-300/30" />}
-              {i % 3 === 1 && <Sparkles className="h-5 w-5 text-emerald-300/30" />}
-              {i % 3 === 2 && <Zap className="h-4 w-4 text-yellow-300/30" />}
+              {i % 3 === 0 && <Star className="h-4 w-4 text-white/20" />}
+              {i % 3 === 1 && <Sparkles className="h-5 w-5 text-white/20" />}
+              {i % 3 === 2 && <Zap className="h-4 w-4 text-white/15" />}
             </div>
           ))}
         </div>
 
         <div className="container mx-auto px-4 relative">
           <div className="text-center mb-8 md:mb-16">
-            <div className="inline-block px-3 py-1.5 bg-emerald-100 text-emerald-700 text-xs font-medium rounded-full mb-4 shadow-sm border border-emerald-200">
+            <div className="inline-block px-3 py-1.5 bg-white/15 backdrop-blur-sm text-white text-xs font-medium rounded-full mb-4 shadow-sm border border-white/20">
               <Package className="inline-block mr-1 h-3 w-3 md:h-4 md:w-4" />
               Wellness Programs
             </div>
-            <h2 className="font-playfair text-xl sm:text-2xl md:text-4xl font-bold mb-3 md:mb-4 text-emerald-800">
+            <h2 className="font-playfair text-xl sm:text-2xl md:text-4xl font-bold mb-3 md:mb-4 text-white drop-shadow-lg">
               Discover Our Transformative Programs
             </h2>
-            <p className="text-center text-gray-600 max-w-2xl mx-auto text-sm md:text-base font-lora">
+            <p className="text-center text-white/90 max-w-2xl mx-auto text-sm md:text-base font-lora drop-shadow-md">
               Explore our carefully crafted subscription programs designed to nurture your mind, body, and spirit on
               your wellness journey.
             </p>
@@ -516,14 +558,14 @@ export default function Home() {
             <Link href="/plans">
               <Button
                 size="lg"
-                className="group bg-gradient-to-r from-green-600 to-purple-600 hover:from-green-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-6 md:px-8 relative overflow-hidden text-sm md:text-base"
+                className="group bg-white hover:bg-white/95 text-emerald-800 shadow-lg hover:shadow-xl transition-all duration-300 px-6 md:px-8 relative overflow-hidden text-sm md:text-base font-semibold"
               >
-                <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
+                <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-emerald-100/50 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
                 <span className="relative z-10">Explore All Programs</span>
                 <ExternalLink className="ml-2 h-4 w-4 md:h-5 md:w-5 relative z-10" />
               </Button>
             </Link>
-            <p className="text-xs md:text-sm text-gray-500 mt-3 md:mt-4">
+            <p className="text-xs md:text-sm text-white/80 mt-3 md:mt-4 drop-shadow-sm">
               Browse all programs without signing up. Login or register when you're ready to subscribe.
             </p>
           </div>

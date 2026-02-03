@@ -39,13 +39,6 @@ interface BookingResult {
   }
 }
 
-const getPassword = () => {
-  if (typeof window !== "undefined") {
-    return localStorage.getItem("adminPassword") || ""
-  }
-  return ""
-}
-
 export default function QRScannerPage() {
   const [scanning, setScanning] = useState(false)
   const [manualCode, setManualCode] = useState("")
@@ -55,14 +48,12 @@ export default function QRScannerPage() {
     booking?: BookingResult
   } | null>(null)
   const [loading, setLoading] = useState(false)
-  const [password, setPassword] = useState("")
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
 
   // Get password from localStorage (set by AdminLayout)
-  const getPasswordFromStorage = () => {
+  const getPassword = () => {
     if (typeof window !== "undefined") {
       return localStorage.getItem("adminPassword") || ""
     }
