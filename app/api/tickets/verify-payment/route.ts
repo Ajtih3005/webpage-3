@@ -8,69 +8,65 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature, event_id, attendees } = body
 
-    console.log("[v0] Verify payment called with:", { 
-      razorpay_order_id, 
-      razorpay_payment_id, 
-      event_id, 
-      attendeesCount: attendees?.length 
-    })
-
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
-      console.error("[v0] Missing payment details:", { razorpay_order_id, razorpay_payment_id, razorpay_signature: !!razorpay_signature })
       return NextResponse.json({ success: false, error: "Missing payment details" }, { status: 400 })
     }
 
     if (!event_id || !attendees || !Array.isArray(attendees) || attendees.length === 0) {
-      console.error("[v0] Missing event or attendee details:", { event_id, attendees })
       return NextResponse.json({ success: false, error: "Missing event or attendee details" }, { status: 400 })
     }
 
-    // Verify signature
+    // Get Razorpay credentials
+    const key_id = process.env.RAZORPAY_KEY_ID
     const key_secret = process.env.RAZORPAY_KEY_SECRET
     
-    console.log("[v0] RAZORPAY_KEY_SECRET exists:", !!key_secret)
-    console.log("[v0] RAZORPAY_KEY_SECRET length:", key_secret?.length || 0)
-    
-    if (!key_secret) {
-      console.error("[v0] RAZORPAY_KEY_SECRET is not configured")
+    if (!key_id || !key_secret) {
       return NextResponse.json({ success: false, error: "Payment gateway not configured" }, { status: 500 })
     }
 
+    // Method 1: Try signature verification first
     const body_data = razorpay_order_id + "|" + razorpay_payment_id
     const expected_signature = crypto
       .createHmac("sha256", key_secret)
       .update(body_data)
       .digest("hex")
 
-    console.log("[v0] Signature verification details:", {
-      bodyData: body_data,
-      expectedSignature: expected_signature.substring(0, 20) + "...",
-      receivedSignature: razorpay_signature.substring(0, 20) + "...",
-      expectedSignatureLength: expected_signature.length,
-      receivedSignatureLength: razorpay_signature.length,
-      match: expected_signature === razorpay_signature
-    })
+    let paymentVerified = expected_signature === razorpay_signature
 
-    // TEMPORARY: Log the full comparison for debugging
-    console.log("[v0] Full expected:", expected_signature)
-    console.log("[v0] Full received:", razorpay_signature)
+    // Method 2: If signature fails, verify via Razorpay API directly
+    if (!paymentVerified) {
+      try {
+        const authHeader = Buffer.from(`${key_id}:${key_secret}`).toString("base64")
+        const paymentResponse = await fetch(
+          `https://api.razorpay.com/v1/payments/${razorpay_payment_id}`,
+          {
+            headers: {
+              Authorization: `Basic ${authHeader}`,
+            },
+          }
+        )
 
-    if (expected_signature !== razorpay_signature) {
-      console.error("[v0] Signature mismatch - payment verification failed")
-      // IMPORTANT: Return detailed error for debugging
-      return NextResponse.json({ 
-        success: false, 
-        error: "Payment verification failed - signature mismatch",
-        debug: {
-          orderIdReceived: razorpay_order_id,
-          paymentIdReceived: razorpay_payment_id,
-          signatureLengthExpected: expected_signature.length,
-          signatureLengthReceived: razorpay_signature.length
+        if (paymentResponse.ok) {
+          const paymentData = await paymentResponse.json()
+          // Check if payment is captured and matches the order
+          if (
+            paymentData.status === "captured" &&
+            paymentData.order_id === razorpay_order_id
+          ) {
+            paymentVerified = true
+          }
         }
-      }, { status: 400 })
+      } catch (apiError) {
+        // API verification failed, continue with signature result
+      }
     }
 
-    console.log("[v0] Payment signature verified successfully")
+    if (!paymentVerified) {
+      return NextResponse.json({ 
+        success: false, 
+        error: "Payment verification failed" 
+      }, { status: 400 })
+    }
 
     // Payment verified - now create bookings in database
     const supabase = getSupabaseServerClient()
