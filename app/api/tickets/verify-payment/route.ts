@@ -28,6 +28,9 @@ export async function POST(request: Request) {
     // Verify signature
     const key_secret = process.env.RAZORPAY_KEY_SECRET
     
+    console.log("[v0] RAZORPAY_KEY_SECRET exists:", !!key_secret)
+    console.log("[v0] RAZORPAY_KEY_SECRET length:", key_secret?.length || 0)
+    
     if (!key_secret) {
       console.error("[v0] RAZORPAY_KEY_SECRET is not configured")
       return NextResponse.json({ success: false, error: "Payment gateway not configured" }, { status: 500 })
@@ -39,16 +42,32 @@ export async function POST(request: Request) {
       .update(body_data)
       .digest("hex")
 
-    console.log("[v0] Signature verification:", {
+    console.log("[v0] Signature verification details:", {
       bodyData: body_data,
+      expectedSignature: expected_signature.substring(0, 20) + "...",
+      receivedSignature: razorpay_signature.substring(0, 20) + "...",
       expectedSignatureLength: expected_signature.length,
       receivedSignatureLength: razorpay_signature.length,
       match: expected_signature === razorpay_signature
     })
 
+    // TEMPORARY: Log the full comparison for debugging
+    console.log("[v0] Full expected:", expected_signature)
+    console.log("[v0] Full received:", razorpay_signature)
+
     if (expected_signature !== razorpay_signature) {
       console.error("[v0] Signature mismatch - payment verification failed")
-      return NextResponse.json({ success: false, error: "Payment verification failed - signature mismatch" }, { status: 400 })
+      // IMPORTANT: Return detailed error for debugging
+      return NextResponse.json({ 
+        success: false, 
+        error: "Payment verification failed - signature mismatch",
+        debug: {
+          orderIdReceived: razorpay_order_id,
+          paymentIdReceived: razorpay_payment_id,
+          signatureLengthExpected: expected_signature.length,
+          signatureLengthReceived: razorpay_signature.length
+        }
+      }, { status: 400 })
     }
 
     console.log("[v0] Payment signature verified successfully")
