@@ -37,7 +37,7 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         amount: orderAmount,
         currency: "INR",
-        receipt: `evt_${event_id}_${Date.now()}`,
+        receipt: `tkt_${Date.now()}`,
         notes: {
           event_id,
           event_name: event_name || "Event Ticket",
