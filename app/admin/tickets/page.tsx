@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -27,11 +27,10 @@ import {
   Trash2,
   QrCode,
   Download,
-  ArrowLeft,
   TicketIcon,
   CheckCircle2,
-  XCircle,
 } from "lucide-react"
+import AdminLayout from "@/components/admin-layout"
 
 interface Event {
   id: string
@@ -68,9 +67,15 @@ interface Stats {
   totalRevenue: number
 }
 
+// Helper function to get password from localStorage (set by AdminLayout)
+const getAdminPassword = () => {
+  if (typeof window !== "undefined") {
+    return localStorage.getItem("adminPassword") || ""
+  }
+  return ""
+}
+
 export default function AdminTicketsPage() {
-  const [password, setPassword] = useState("")
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [events, setEvents] = useState<Event[]>([])
   const [bookings, setBookings] = useState<Booking[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
@@ -90,18 +95,16 @@ export default function AdminTicketsPage() {
     total_seats: 100,
   })
 
-  const handleLogin = () => {
-    if (password === process.env.NEXT_PUBLIC_ADMIN_PASSWORD || password) {
-      setIsAuthenticated(true)
-      fetchEvents()
-      fetchBookings()
-    }
-  }
+  useEffect(() => {
+    fetchEvents()
+    fetchBookings()
+  }, [])
 
   const fetchEvents = async () => {
     try {
+      const adminPassword = getAdminPassword()
       const res = await fetch("/api/tickets/admin", {
-        headers: { "x-admin-password": password },
+        headers: { "x-admin-password": adminPassword },
       })
       const data = await res.json()
       if (data.success) {
@@ -115,11 +118,12 @@ export default function AdminTicketsPage() {
   const fetchBookings = async (eventId?: string) => {
     try {
       setLoading(true)
+      const adminPassword = getAdminPassword()
       const url = eventId
         ? `/api/tickets/admin/bookings?event_id=${eventId}`
         : "/api/tickets/admin/bookings"
       const res = await fetch(url, {
-        headers: { "x-admin-password": password },
+        headers: { "x-admin-password": adminPassword },
       })
       const data = await res.json()
       if (data.success) {
@@ -135,11 +139,12 @@ export default function AdminTicketsPage() {
 
   const handleCreateEvent = async () => {
     try {
+      const adminPassword = getAdminPassword()
       const res = await fetch("/api/tickets/events", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-admin-password": password,
+          "x-admin-password": adminPassword,
         },
         body: JSON.stringify(formData),
       })
@@ -159,11 +164,12 @@ export default function AdminTicketsPage() {
   const handleUpdateEvent = async () => {
     if (!editingEvent) return
     try {
+      const adminPassword = getAdminPassword()
       const res = await fetch("/api/tickets/admin", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          "x-admin-password": password,
+          "x-admin-password": adminPassword,
         },
         body: JSON.stringify({ id: editingEvent.id, ...formData }),
       })
@@ -183,9 +189,10 @@ export default function AdminTicketsPage() {
   const handleDeleteEvent = async (id: string) => {
     if (!confirm("Are you sure you want to delete this event?")) return
     try {
+      const adminPassword = getAdminPassword()
       const res = await fetch(`/api/tickets/admin?id=${id}`, {
         method: "DELETE",
-        headers: { "x-admin-password": password },
+        headers: { "x-admin-password": adminPassword },
       })
       const data = await res.json()
       if (data.success) {
@@ -200,11 +207,12 @@ export default function AdminTicketsPage() {
 
   const toggleEventActive = async (event: Event) => {
     try {
+      const adminPassword = getAdminPassword()
       const res = await fetch("/api/tickets/admin", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          "x-admin-password": password,
+          "x-admin-password": adminPassword,
         },
         body: JSON.stringify({ id: event.id, is_active: !event.is_active }),
       })
@@ -262,50 +270,11 @@ export default function AdminTicketsPage() {
     a.click()
   }
 
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 to-purple-50 p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle className="text-center font-playfair text-2xl text-emerald-800">
-              Admin - Event Tickets
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label>Admin Password</Label>
-              <Input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-                placeholder="Enter password"
-              />
-            </div>
-            <Button onClick={handleLogin} className="w-full bg-emerald-600 hover:bg-emerald-700">
-              Login
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-purple-50 p-4 sm:p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
-            <Link href="/admin">
-              <Button variant="outline" size="sm">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back
-              </Button>
-            </Link>
-            <h1 className="font-playfair text-2xl sm:text-3xl font-bold text-emerald-800">
-              Event Tickets Management
-            </h1>
-          </div>
+    <AdminLayout>
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Event Tickets Management</h1>
           <Link href="/admin/tickets/scanner">
             <Button className="bg-purple-600 hover:bg-purple-700">
               <QrCode className="w-4 h-4 mr-2" />
@@ -698,6 +667,6 @@ export default function AdminTicketsPage() {
           </TabsContent>
         </Tabs>
       </div>
-    </div>
+    </AdminLayout>
   )
 }

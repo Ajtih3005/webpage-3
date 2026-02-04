@@ -21,6 +21,7 @@ import {
   MapPin,
 } from "lucide-react"
 import { BarcodeDetector } from "barcode-detector"
+import AdminLayout from "@/components/admin-layout"
 
 interface BookingResult {
   id: string
@@ -39,8 +40,6 @@ interface BookingResult {
 }
 
 export default function QRScannerPage() {
-  const [password, setPassword] = useState("")
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [scanning, setScanning] = useState(false)
   const [manualCode, setManualCode] = useState("")
   const [result, setResult] = useState<{
@@ -53,10 +52,12 @@ export default function QRScannerPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
 
-  const handleLogin = () => {
-    if (password) {
-      setIsAuthenticated(true)
+  // Get password from localStorage (set by AdminLayout)
+  const getPassword = () => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("adminPassword") || ""
     }
+    return ""
   }
 
   const startScanner = async () => {
@@ -128,6 +129,7 @@ export default function QRScannerPage() {
   }
 
   const verifyQRCode = async (qrData: string) => {
+    const password = getPassword()
     setLoading(true)
     setResult(null)
 
@@ -178,46 +180,17 @@ export default function QRScannerPage() {
     }
   }, [])
 
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 to-purple-50 p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle className="text-center font-playfair text-2xl text-emerald-800">
-              QR Scanner Login
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label>Admin Password</Label>
-              <Input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-                placeholder="Enter password"
-              />
-            </div>
-            <Button onClick={handleLogin} className="w-full bg-emerald-600 hover:bg-emerald-700">
-              Login
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-purple-50 p-4 sm:p-6">
-      <div className="max-w-2xl mx-auto">
-        <div className="flex items-center gap-4 mb-6">
+    <AdminLayout>
+      <div className="max-w-2xl mx-auto space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-gray-900">QR Scanner</h1>
           <Link href="/admin/tickets">
             <Button variant="outline" size="sm">
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Back
+              Back to Tickets
             </Button>
           </Link>
-          <h1 className="font-playfair text-2xl font-bold text-emerald-800">QR Scanner</h1>
         </div>
 
         <Card className="mb-6">
@@ -365,6 +338,6 @@ export default function QRScannerPage() {
           </Card>
         )}
       </div>
-    </div>
+    </AdminLayout>
   )
 }

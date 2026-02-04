@@ -235,6 +235,12 @@ function AdminLayout({ children }: AdminLayoutProps) {
       icon: Star,
       active: pathname.startsWith("/admin/reviews"),
     },
+    {
+      title: "Event Tickets",
+      href: "/admin/tickets",
+      icon: Ticket,
+      active: pathname.startsWith("/admin/tickets"),
+    },
   ]
 
   return (

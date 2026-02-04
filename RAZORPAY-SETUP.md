@@ -12,10 +12,10 @@ This guide will help you properly set up your Razorpay integration with separate
 2. **Create Development Environment File**:
    - Copy `.env.development.template` to `.env.development`
    - Replace the placeholders with your actual test keys:
-     ```
+     \`\`\`
      RAZORPAY_KEY_ID=rzp_test_your_test_key_here
      RAZORPAY_KEY_SECRET=your_test_secret_here
-     ```
+     \`\`\`
    - Keep your existing Supabase and other configuration values
 
 3. **Switch to Development Environment**:
@@ -32,10 +32,10 @@ This guide will help you properly set up your Razorpay integration with separate
 1. **Secure Your Live Keys**:
    - Copy `.env.production.template` to `.env.production`
    - Replace the placeholders with your actual live keys:
-     ```
+     \`\`\`
      RAZORPAY_KEY_ID=rzp_live_your_live_key_here
      RAZORPAY_KEY_SECRET=your_live_secret_here
-     ```
+     \`\`\`
    - Update your production URL and other settings
 
 2. **Switch to Production Environment (Local Testing)**:
@@ -57,11 +57,11 @@ This guide will help you set up your application to use Razorpay live keys.
    - Replace the placeholders with your actual live keys
 
 2. **Add Your Live Keys**:
-   ```
+   \`\`\`
    RAZORPAY_KEY_ID=rzp_live_your_actual_key
    RAZORPAY_KEY_SECRET=your_actual_secret
    RAZORPAY_WEBHOOK_SECRET=your_webhook_secret
-   ```
+   \`\`\`
 
 3. **Restart Your Application**:
    - After updating the `.env.local` file, restart your Next.js server
@@ -82,11 +82,11 @@ When deploying to production:
 
 2. **Never Commit API Keys to Version Control**:
    - Add these files to your `.gitignore`:
-     ```
+     \`\`\`
      .env.development
      .env.production
      .env.local
-     ```
+     \`\`\`
 
 ## 4. Testing Your Integration
 
@@ -113,6 +113,6 @@ If you encounter issues:
 
 If you encounter issues:
 1. Visit `/admin/api-verification` to check your configuration
-```
+\`\`\`
 
 Let's also create a client component to fetch the Razorpay key from the server:
