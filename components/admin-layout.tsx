@@ -245,9 +245,9 @@ function AdminLayout({ children }: AdminLayoutProps) {
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="flex flex-col w-full">
+        <div className="flex flex-col h-full w-full">
           {/* Logo Section */}
-          <div className="flex items-center h-16 px-6 border-b bg-white">
+          <div className="flex items-center h-16 px-6 border-b bg-white flex-shrink-0">
             <div className="flex items-center space-x-3">
               <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
                 <span className="text-white font-bold text-sm">S</span>
@@ -263,7 +263,7 @@ function AdminLayout({ children }: AdminLayoutProps) {
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+          <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto overscroll-contain min-h-0">
             {navigationItems.map((item, index) => (
               <Link
                 key={index}
@@ -282,7 +282,7 @@ function AdminLayout({ children }: AdminLayoutProps) {
           </nav>
 
           {/* Logout Section */}
-          <div className="p-4 border-t">
+          <div className="p-4 border-t flex-shrink-0">
             <Button
               variant="ghost"
               className="w-full justify-start text-gray-700 hover:bg-gray-100"
