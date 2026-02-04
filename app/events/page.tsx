@@ -232,14 +232,17 @@ export default function EventsPage() {
               })
 
               const verifyData = await verifyRes.json()
+              console.log("[v0] Verify payment response:", verifyData)
               if (verifyData.success) {
                 setBookingSuccess(true)
                 setBookingResult({ bookings: verifyData.bookings, event: selectedEvent })
               } else {
-                setError("Payment verification failed. Please contact support.")
+                console.error("[v0] Payment verification failed:", verifyData)
+                setError(verifyData.error || "Payment verification failed. Please contact support.")
               }
             } catch (err) {
-              setError("Payment verification failed. Please contact support.")
+              console.error("[v0] Payment verification error:", err)
+              setError(err instanceof Error ? err.message : "Payment verification failed. Please contact support.")
             }
             setProcessing(false)
           },
