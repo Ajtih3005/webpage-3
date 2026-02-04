@@ -3,10 +3,14 @@ import { NextResponse } from "next/server"
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { bookings, amount, event_name } = body
+    const { event_id, event_name, attendees, amount } = body
 
-    if (!bookings || !Array.isArray(bookings) || bookings.length === 0) {
-      return NextResponse.json({ success: false, error: "No bookings provided" }, { status: 400 })
+    if (!event_id) {
+      return NextResponse.json({ success: false, error: "Event ID is required" }, { status: 400 })
+    }
+
+    if (!attendees || !Array.isArray(attendees) || attendees.length === 0) {
+      return NextResponse.json({ success: false, error: "No attendees provided" }, { status: 400 })
     }
 
     if (!amount || amount <= 0) {
@@ -23,6 +27,7 @@ export async function POST(request: Request) {
     const orderAmount = Math.round(amount * 100) // Convert to paise
     const authHeader = `Basic ${Buffer.from(`${key_id}:${key_secret}`).toString("base64")}`
 
+    // Store attendee details in notes (will be used after payment verification)
     const response = await fetch("https://api.razorpay.com/v1/orders", {
       method: "POST",
       headers: {
@@ -32,11 +37,13 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         amount: orderAmount,
         currency: "INR",
-        receipt: `tickets_${bookings[0]}_${Date.now()}`,
+        receipt: `evt_${event_id}_${Date.now()}`,
         notes: {
-          booking_ids: bookings.join(","),
+          event_id,
           event_name: event_name || "Event Ticket",
-          ticket_count: bookings.length,
+          ticket_count: attendees.length.toString(),
+          // Store attendee data as JSON string
+          attendees_data: JSON.stringify(attendees),
         },
       }),
     })

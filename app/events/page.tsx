@@ -177,34 +177,10 @@ export default function EventsPage() {
     setError(null)
 
     try {
-      // Book for each attendee
-      const bookings = []
-      
-      for (const attendee of attendees) {
-        const res = await fetch("/api/tickets/book", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ticket_id: selectedEvent.id,
-            name: attendee.name,
-            email: attendee.email,
-            phone: attendee.phone,
-            passkey: null,
-            user_id: null,
-          }),
-        })
-
-        const data = await res.json()
-        if (!data.success) {
-          throw new Error(data.error || "Failed to create booking")
-        }
-        bookings.push(data)
-      }
-
-      // Check if payment is required
       const totalAmount = getTotalPrice()
       
       if (totalAmount > 0) {
+        // PAID EVENT - Only create booking after payment is verified
         // Load Razorpay script
         const loaded = await loadRazorpayScript()
         if (!loaded) {
@@ -215,14 +191,15 @@ export default function EventsPage() {
           throw new Error("Payment gateway not configured")
         }
 
-        // Create combined order
+        // Create order (no booking created yet)
         const orderRes = await fetch("/api/tickets/create-combined-order", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            bookings: bookings.map(b => b.booking.id),
-            amount: totalAmount,
+            event_id: selectedEvent.id,
             event_name: selectedEvent.event_name,
+            attendees: attendees,
+            amount: totalAmount,
           }),
         })
 
@@ -241,7 +218,7 @@ export default function EventsPage() {
           order_id: orderData.order.id,
           handler: async (response: any) => {
             try {
-              // Verify payment
+              // Verify payment AND create bookings
               const verifyRes = await fetch("/api/tickets/verify-payment", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -249,7 +226,8 @@ export default function EventsPage() {
                   razorpay_order_id: response.razorpay_order_id,
                   razorpay_payment_id: response.razorpay_payment_id,
                   razorpay_signature: response.razorpay_signature,
-                  booking_ids: bookings.map(b => b.booking.id),
+                  event_id: selectedEvent.id,
+                  attendees: attendees,
                 }),
               })
 
@@ -283,9 +261,31 @@ export default function EventsPage() {
         const rzp = new (window as any).Razorpay(options)
         rzp.open()
       } else {
-        // Free tickets - mark as successful
-        setBookingSuccess(true)
-        setBookingResult({ bookings: bookings.map(b => b.booking), event: selectedEvent })
+        // FREE EVENT - Create bookings directly
+        const bookings = []
+        for (const attendee of attendees) {
+          const res = await fetch("/api/tickets/book", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ticket_id: selectedEvent.id,
+              name: attendee.name,
+              email: attendee.email,
+              phone: attendee.phone,
+            }),
+          })
+          const data = await res.json()
+          if (data.success) {
+            bookings.push(data.booking)
+          }
+        }
+        
+        if (bookings.length > 0) {
+          setBookingSuccess(true)
+          setBookingResult({ bookings, event: selectedEvent })
+        } else {
+          throw new Error("Failed to create bookings")
+        }
         setProcessing(false)
       }
     } catch (err) {
