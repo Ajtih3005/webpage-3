@@ -51,6 +51,7 @@ export default function QRScannerPage() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
+  const scanningRef = useRef(false)
 
   // Get password from localStorage (set by AdminLayout)
   const getPassword = () => {
@@ -68,10 +69,13 @@ export default function QRScannerPage() {
       streamRef.current = stream
       if (videoRef.current) {
         videoRef.current.srcObject = stream
-        videoRef.current.play()
+        // Wait for video to be ready before scanning
+        videoRef.current.onloadedmetadata = () => {
+          videoRef.current?.play()
+          scanningRef.current = true
+          setScanning(true)
+        }
       }
-      setScanning(true)
-      scanQRCode()
     } catch (error) {
       console.error("Camera access denied:", error)
       alert("Please allow camera access to scan QR codes")
@@ -79,6 +83,7 @@ export default function QRScannerPage() {
   }
 
   const stopScanner = () => {
+    scanningRef.current = false
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop())
       streamRef.current = null
@@ -87,13 +92,19 @@ export default function QRScannerPage() {
   }
 
   const scanQRCode = () => {
-    if (!videoRef.current || !canvasRef.current || !scanning) return
+    if (!videoRef.current || !canvasRef.current || !scanningRef.current) return
 
     const canvas = canvasRef.current
     const video = videoRef.current
     const ctx = canvas.getContext("2d")
 
-    if (!ctx) return
+    if (!ctx || video.videoWidth === 0 || video.videoHeight === 0) {
+      // Video not ready yet, try again
+      if (scanningRef.current) {
+        requestAnimationFrame(scanQRCode)
+      }
+      return
+    }
 
     canvas.width = video.videoWidth
     canvas.height = video.videoHeight
@@ -111,20 +122,21 @@ export default function QRScannerPage() {
             stopScanner()
             return
           }
-          if (scanning) {
+          // Continue scanning if still active
+          if (scanningRef.current) {
             requestAnimationFrame(scanQRCode)
           }
         })
         .catch(() => {
-          if (scanning) {
+          // Continue scanning on error if still active
+          if (scanningRef.current) {
             requestAnimationFrame(scanQRCode)
           }
         })
     } else {
-      // Fallback: Continue scanning
-      if (scanning) {
-        requestAnimationFrame(scanQRCode)
-      }
+      // BarcodeDetector not supported - show error
+      alert("QR scanning is not supported in this browser. Please use Chrome or Edge, or try manual entry.")
+      stopScanner()
     }
   }
 
@@ -173,6 +185,13 @@ export default function QRScannerPage() {
       verifyQRCode(manualCode.trim())
     }
   }
+
+  // Start scanning when scanning state becomes true
+  useEffect(() => {
+    if (scanning) {
+      scanQRCode()
+    }
+  }, [scanning])
 
   useEffect(() => {
     return () => {

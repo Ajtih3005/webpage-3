@@ -77,14 +77,6 @@ function AdminLayout({ children }: AdminLayoutProps) {
     router.push("/admin/login")
   }
 
-  const forceLogin = () => {
-    if (typeof window !== "undefined") {
-      const validPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || "admin123"
-      localStorage.setItem("adminPassword", validPassword)
-      setIsAuthenticated(true)
-    }
-  }
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -108,10 +100,7 @@ function AdminLayout({ children }: AdminLayoutProps) {
             <p className="text-gray-600">Please log in to access the admin panel</p>
           </div>
           <div className="space-y-4">
-            <Button onClick={forceLogin} className="w-full bg-blue-600 hover:bg-blue-700">
-              Force Login
-            </Button>
-            <Button onClick={() => router.push("/admin/login")} variant="outline" className="w-full">
+            <Button onClick={() => router.push("/admin/login")} className="w-full bg-blue-600 hover:bg-blue-700">
               Go to Login Page
             </Button>
           </div>
