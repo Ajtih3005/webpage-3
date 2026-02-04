@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -52,6 +52,8 @@ export default function QRScannerPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const scanningRef = useRef(false)
+  const detectorRef = useRef<BarcodeDetector | null>(null)
+  const animationFrameRef = useRef<number | null>(null)
 
   // Get password from localStorage (set by AdminLayout)
   const getPassword = () => {
@@ -61,38 +63,48 @@ export default function QRScannerPage() {
     return ""
   }
 
-  const startScanner = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" },
-      })
-      streamRef.current = stream
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        // Wait for video to be ready before scanning
-        videoRef.current.onloadedmetadata = () => {
-          videoRef.current?.play()
-          scanningRef.current = true
-          setScanning(true)
-        }
-      }
-    } catch (error) {
-      console.error("Camera access denied:", error)
-      alert("Please allow camera access to scan QR codes")
+  // Initialize barcode detector once
+  useEffect(() => {
+    // Use the polyfill - it works on all browsers
+    detectorRef.current = new BarcodeDetector({ formats: ["qr_code"] })
+    console.log("[v0] BarcodeDetector initialized using polyfill")
+    
+    return () => {
+      detectorRef.current = null
     }
-  }
+  }, [])
 
-  const stopScanner = () => {
+  const stopScanner = useCallback(() => {
+    console.log("[v0] Stopping scanner")
     scanningRef.current = false
+    
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current)
+      animationFrameRef.current = null
+    }
+    
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop())
       streamRef.current = null
     }
+    
+    if (videoRef.current) {
+      videoRef.current.srcObject = null
+    }
+    
     setScanning(false)
-  }
+  }, [])
 
-  const scanQRCode = () => {
-    if (!videoRef.current || !canvasRef.current || !scanningRef.current) return
+  const scanQRCode = useCallback(() => {
+    if (!videoRef.current || !canvasRef.current || !scanningRef.current || !detectorRef.current) {
+      console.log("[v0] Scanner refs not ready:", {
+        video: !!videoRef.current,
+        canvas: !!canvasRef.current,
+        scanning: scanningRef.current,
+        detector: !!detectorRef.current
+      })
+      return
+    }
 
     const canvas = canvasRef.current
     const video = videoRef.current
@@ -100,8 +112,13 @@ export default function QRScannerPage() {
 
     if (!ctx || video.videoWidth === 0 || video.videoHeight === 0) {
       // Video not ready yet, try again
+      console.log("[v0] Video not ready, retrying...", {
+        hasCtx: !!ctx,
+        videoWidth: video.videoWidth,
+        videoHeight: video.videoHeight
+      })
       if (scanningRef.current) {
-        requestAnimationFrame(scanQRCode)
+        animationFrameRef.current = requestAnimationFrame(scanQRCode)
       }
       return
     }
@@ -110,33 +127,88 @@ export default function QRScannerPage() {
     canvas.height = video.videoHeight
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
 
-    // Use BarcodeDetector API if available
-    if ("BarcodeDetector" in window) {
-      const barcodeDetector = new BarcodeDetector({ formats: ["qr_code"] })
-      barcodeDetector
-        .detect(canvas)
-        .then((barcodes: any[]) => {
-          if (barcodes.length > 0) {
-            const qrData = barcodes[0].rawValue
-            verifyQRCode(qrData)
-            stopScanner()
-            return
+    // Use the polyfill detector
+    detectorRef.current
+      .detect(canvas)
+      .then((barcodes: { rawValue: string }[]) => {
+        if (barcodes.length > 0) {
+          console.log("[v0] QR Code detected:", barcodes[0].rawValue)
+          const qrData = barcodes[0].rawValue
+          verifyQRCode(qrData)
+          stopScanner()
+          return
+        }
+        // Continue scanning if still active
+        if (scanningRef.current) {
+          animationFrameRef.current = requestAnimationFrame(scanQRCode)
+        }
+      })
+      .catch((error: Error) => {
+        console.log("[v0] Scan error:", error)
+        // Continue scanning on error if still active
+        if (scanningRef.current) {
+          animationFrameRef.current = requestAnimationFrame(scanQRCode)
+        }
+      })
+  }, [stopScanner])
+
+  const startScanner = async () => {
+    console.log("[v0] Starting scanner...")
+    
+    if (!detectorRef.current) {
+      // Re-initialize detector if needed
+      detectorRef.current = new BarcodeDetector({ formats: ["qr_code"] })
+    }
+    
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { 
+          facingMode: "environment",
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
+      })
+      console.log("[v0] Camera stream obtained")
+      streamRef.current = stream
+      
+      if (videoRef.current) {
+        const video = videoRef.current
+        
+        // Set scanning state immediately so UI updates
+        setScanning(true)
+        scanningRef.current = true
+        
+        // Set up the video element
+        video.srcObject = stream
+        
+        // Function to start scanning once video is ready
+        const startScanningLoop = () => {
+          console.log("[v0] Video dimensions:", video.videoWidth, "x", video.videoHeight)
+          if (video.videoWidth > 0 && video.videoHeight > 0) {
+            console.log("[v0] Starting QR scan loop")
+            scanQRCode()
+          } else {
+            // Video not ready yet, wait and retry
+            console.log("[v0] Video not ready, waiting...")
+            setTimeout(startScanningLoop, 200)
           }
-          // Continue scanning if still active
-          if (scanningRef.current) {
-            requestAnimationFrame(scanQRCode)
-          }
-        })
-        .catch(() => {
-          // Continue scanning on error if still active
-          if (scanningRef.current) {
-            requestAnimationFrame(scanQRCode)
-          }
-        })
-    } else {
-      // BarcodeDetector not supported - show error
-      alert("QR scanning is not supported in this browser. Please use Chrome or Edge, or try manual entry.")
-      stopScanner()
+        }
+        
+        // Try to play the video
+        try {
+          await video.play()
+          console.log("[v0] Video play() succeeded")
+          // Give it a moment to render frames
+          setTimeout(startScanningLoop, 500)
+        } catch (playError) {
+          console.error("[v0] Video play error:", playError)
+          // Still try to start scanning - autoPlay might work
+          setTimeout(startScanningLoop, 500)
+        }
+      }
+    } catch (error) {
+      console.error("[v0] Camera access denied:", error)
+      alert("Please allow camera access to scan QR codes")
     }
   }
 
@@ -186,12 +258,7 @@ export default function QRScannerPage() {
     }
   }
 
-  // Start scanning when scanning state becomes true
-  useEffect(() => {
-    if (scanning) {
-      scanQRCode()
-    }
-  }, [scanning])
+  // Cleanup on unmount
 
   useEffect(() => {
     return () => {
@@ -231,6 +298,7 @@ export default function QRScannerPage() {
                     className="w-full h-full object-cover"
                     playsInline
                     muted
+                    autoPlay
                   />
                   <div className="absolute inset-0 border-4 border-emerald-500 rounded-lg pointer-events-none">
                     <div className="absolute inset-[20%] border-2 border-white/50 rounded" />
