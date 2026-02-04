@@ -140,26 +140,26 @@ export default function Home() {
       >
         <div className="container mx-auto flex items-center justify-between max-w-7xl">
           <Link href="/" className="flex items-center group">
-            <div className="relative h-16 w-16 rounded-full overflow-hidden ring-1 ring-purple-200/40 group-hover:ring-purple-300/60 transition-all">
+            <div className="relative h-14 w-14 rounded-full overflow-hidden ring-2 ring-white/60 shadow-lg bg-white/90 backdrop-blur-sm group-hover:ring-white transition-all">
               <Image src="/images/logo.png" alt="Sthavishtah" fill className="object-cover" priority />
             </div>
-            <div className="flex flex-col ml-3">
-              <span className="font-playfair text-xl font-semibold tracking-tight text-purple-700">STHAVISHTAH</span>
-              <span className="text-[10px] tracking-[0.2em] text-gray-500 uppercase">Yoga & Wellness</span>
+            <div className="flex flex-col ml-3 px-3 py-1.5 rounded-lg bg-white/80 backdrop-blur-sm shadow-sm">
+              <span className="font-playfair text-lg font-semibold tracking-tight text-purple-700">STHAVISHTAH</span>
+              <span className="text-[9px] tracking-[0.2em] text-gray-600 uppercase">Yoga & Wellness</span>
             </div>
           </Link>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center gap-8">
-            <Link href="/updates" className="text-sm text-gray-600 hover:text-gray-800 transition-colors font-lora">
+          <nav className="hidden md:flex items-center gap-3">
+            <Link href="/updates" className="px-4 py-2 text-sm text-gray-700 hover:text-gray-900 transition-colors font-lora bg-white/80 backdrop-blur-sm rounded-full shadow-sm hover:shadow-md border border-white/50">
               Updates
             </Link>
-            <Link href="/user/login" className="text-sm text-gray-600 hover:text-gray-800 transition-colors font-lora">
+            <Link href="/user/login" className="px-4 py-2 text-sm text-gray-700 hover:text-gray-900 transition-colors font-lora bg-white/80 backdrop-blur-sm rounded-full shadow-sm hover:shadow-md border border-white/50">
               Sign In
             </Link>
             <Link
               href="/user/register"
-              className="px-6 py-2.5 bg-gradient-to-r from-purple-600 to-teal-500 text-white text-sm rounded-full hover:from-purple-700 hover:to-teal-600 transition-all hover:shadow-lg font-lora"
+              className="px-6 py-2.5 bg-gradient-to-r from-purple-600 to-teal-500 text-white text-sm rounded-full hover:from-purple-700 hover:to-teal-600 transition-all hover:shadow-lg font-lora shadow-md"
             >
               Get Started
             </Link>
@@ -230,23 +230,10 @@ export default function Home() {
             <span className="font-semibold">Practice with Structure.</span>
           </h1>
 
-          <p className="font-lora text-lg md:text-xl text-white/90 max-w-3xl mx-auto mb-10 leading-relaxed select-none">
+          <p className="font-lora text-lg md:text-xl text-white/90 max-w-3xl mx-auto leading-relaxed select-none">
             A structured yoga practice rooted in breath and awareness — designed to calm the mind, restore movement, and
             build lasting inner stability.
           </p>
-
-          <Button
-            size="lg"
-            className="bg-gradient-to-r from-purple-600 to-teal-500 hover:from-purple-700 hover:to-teal-600 text-white px-10 py-6 text-lg md:text-xl font-lora shadow-2xl hover:shadow-3xl transition-all duration-300 rounded-xl hover:scale-105"
-            onClick={handleEnroll}
-          >
-            <div className="flex flex-col items-center gap-2">
-              <span className="font-semibold">Attend 7 Days FREE</span>
-              <span className="text-xs sm:text-sm font-normal opacity-90">
-                Live sessions • No cost • Open to beginners
-              </span>
-            </div>
-          </Button>
         </div>
 
         {/* Scroll indicator */}
@@ -303,11 +290,8 @@ export default function Home() {
         </div>
 
         <div className="container mx-auto px-4 relative">
-          {/* What You Will Gain - Image */}
+          {/* What You Will Gain - Image Only */}
           <div className="text-center mb-8">
-            <h2 className="font-playfair text-2xl md:text-4xl font-semibold text-white mb-4 drop-shadow-lg">
-              What You Will Gain
-            </h2>
             <div className="max-w-4xl mx-auto">
               <Image
                 src="/images/chatgpt-20image-20feb-203-2c-202026-2c-2006-47-09-20pm.png"
@@ -405,51 +389,20 @@ export default function Home() {
       </section>
 
       {/* Explore Our Subscription Programs Section */}
-      <section className="py-10 md:py-24 relative overflow-hidden">
-        {/* Background Image with Overlay */}
-        <div className="absolute inset-0 -z-10">
-          <Image
-            src="/images/traditional-yoga-mudras.jpg"
-            alt="Yoga Background"
-            fill
-            className="object-cover object-center"
-            sizes="100vw"
-          />
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-900/85 via-teal-800/80 to-purple-900/85"></div>
-        </div>
-
-        {/* Decorative Pattern Overlay */}
-        <div className="absolute inset-0 opacity-10 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgdmlld0JveD0iMCAwIDYwIDYwIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMSI+PHBhdGggZD0iTTM2IDM0di00aC0ydjRoLTR2Mmg0djRoMnYtNGg0di0ySDZ6bT0iLz48L2c+PC9nPjwvc3ZnPg==')] -z-10"></div>
-
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          {[...Array(5)].map((_, i) => (
-            <div
-              key={i}
-              className="absolute animate-float-slow hidden md:block"
-              style={{
-                top: `${Math.random() * 100}%`,
-                left: `${Math.random() * 100}%`,
-                animationDuration: `${Math.random() * 20 + 15}s`,
-                animationDelay: `${Math.random() * 5}s`,
-              }}
-            >
-              {i % 3 === 0 && <Star className="h-4 w-4 text-white/20" />}
-              {i % 3 === 1 && <Sparkles className="h-5 w-5 text-white/20" />}
-              {i % 3 === 2 && <Zap className="h-4 w-4 text-white/15" />}
-            </div>
-          ))}
-        </div>
+      <section className="py-10 md:py-16 relative overflow-hidden bg-gradient-to-br from-emerald-800 via-teal-700 to-emerald-900">
+        {/* Subtle Pattern Overlay */}
+        <div className="absolute inset-0 opacity-5 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgdmlld0JveD0iMCAwIDYwIDYwIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMSI+PHBhdGggZD0iTTM2IDM0di00aC0ydjRoLTR2Mmg0djRoMnYtNGg0di0ySDZ6bT0iLz48L2c+PC9nPjwvc3ZnPg==')]"></div>
 
         <div className="container mx-auto px-4 relative">
-          <div className="text-center mb-8 md:mb-16">
-            <div className="inline-block px-3 py-1.5 bg-white/15 backdrop-blur-sm text-white text-xs font-medium rounded-full mb-4 shadow-sm border border-white/20">
+          <div className="text-center mb-6 md:mb-10">
+            <div className="inline-block px-3 py-1.5 bg-white/20 backdrop-blur-sm text-white text-xs font-medium rounded-full mb-3 shadow-sm border border-white/30">
               <Package className="inline-block mr-1 h-3 w-3 md:h-4 md:w-4" />
               Wellness Programs
             </div>
-            <h2 className="font-playfair text-xl sm:text-2xl md:text-4xl font-bold mb-3 md:mb-4 text-white drop-shadow-lg">
+            <h2 className="font-playfair text-2xl sm:text-3xl md:text-4xl font-bold mb-2 md:mb-3 text-white">
               Discover Our Transformative Programs
             </h2>
-            <p className="text-center text-white/90 max-w-2xl mx-auto text-sm md:text-base font-lora drop-shadow-md">
+            <p className="text-center text-white/90 max-w-2xl mx-auto text-sm md:text-base font-lora">
               Explore our carefully crafted subscription programs designed to nurture your mind, body, and spirit on
               your wellness journey.
             </p>
@@ -554,20 +507,16 @@ export default function Home() {
           )}
 
           {/* CTA Button */}
-          <div className="text-center">
+          <div className="text-center mt-6">
             <Link href="/plans">
               <Button
                 size="lg"
-                className="group bg-white hover:bg-white/95 text-emerald-800 shadow-lg hover:shadow-xl transition-all duration-300 px-6 md:px-8 relative overflow-hidden text-sm md:text-base font-semibold"
+                className="bg-white hover:bg-white/95 text-emerald-800 shadow-lg hover:shadow-xl transition-all duration-300 px-8 font-semibold"
               >
-                <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-emerald-100/50 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
-                <span className="relative z-10">Explore All Programs</span>
-                <ExternalLink className="ml-2 h-4 w-4 md:h-5 md:w-5 relative z-10" />
+                Explore All Programs
+                <ExternalLink className="ml-2 h-4 w-4" />
               </Button>
             </Link>
-            <p className="text-xs md:text-sm text-white/80 mt-3 md:mt-4 drop-shadow-sm">
-              Browse all programs without signing up. Login or register when you're ready to subscribe.
-            </p>
           </div>
         </div>
       </section>
@@ -679,37 +628,18 @@ export default function Home() {
         </section>
       )}
 
-      <section className="relative py-6 md:py-12 overflow-hidden">
-        {/* Background Image with Overlay */}
-        <div className="absolute inset-0 -z-10">
-          <Image
-            src="/images/forest-yoga-bg.jpg"
-            alt="Forest Yoga Background"
-            fill
-            className="object-cover object-center"
-            sizes="100vw"
-          />
-          <div className="absolute inset-0 bg-gradient-to-br from-green-900/80 to-green-800/80"></div>
-        </div>
-
-        {/* Decorative Pattern Overlay */}
-        <div className="absolute inset-0 opacity-10 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgdmlld0JveD0iMCAwIDYwIDYwIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMSI+PHBhdGggZD0iTTM2IDM0di00aC0ydjRoLTR2Mmg0djRoMnYtNGg0di0ySDZ6bT0iLz48L2c+PC9nPjwvc3ZnPg==')] -z-10"></div>
-
+      <section className="relative py-8 md:py-10 overflow-hidden bg-gradient-to-br from-green-800 via-emerald-700 to-green-900">
         <div className="container mx-auto px-4 text-center">
-          <div className="inline-block mb-3 md:mb-4 px-3 sm:px-4 bg-white/15 backdrop-blur-sm rounded-full text-white font-medium border border-white/20 shadow-lg text-xs md:text-sm">
-            <Star className="inline-block h-3 w-3 md:h-4 md:w-4 mr-1 animate-pulse" />
+          <div className="inline-block mb-2 md:mb-3 px-3 bg-white/20 backdrop-blur-sm rounded-full text-white font-medium border border-white/30 text-xs">
+            <Star className="inline-block h-3 w-3 mr-1" />
             What Our Students Say
           </div>
 
-          <h2 className="text-base sm:text-lg md:text-2xl font-bold mb-2 md:mb-4 text-white drop-shadow-lg">
-            Transformative Experiences from Our Community
+          <h2 className="text-lg sm:text-xl md:text-2xl font-bold mb-3 text-white">
+            Transformative Experiences
           </h2>
 
-          <p className="text-sm md:text-lg mb-4 md:mb-6 text-white/90 drop-shadow-lg max-w-xl mx-auto">
-            Discover how our practices have changed lives.
-          </p>
-
-          <div className="max-w-6xl mx-auto">
+          <div className="max-w-5xl mx-auto">
             <ReviewCarousel />
           </div>
         </div>
