@@ -172,18 +172,22 @@ export default function QRScannerPage() {
       streamRef.current = stream
       
       if (videoRef.current) {
-        videoRef.current.srcObject = stream
+        const video = videoRef.current
+        video.srcObject = stream
         
-        // Wait for video to be ready before scanning
-        videoRef.current.onloadedmetadata = () => {
-          console.log("[v0] Video metadata loaded")
-          videoRef.current?.play().then(() => {
+        // Set scanning state immediately so UI updates
+        setScanning(true)
+        scanningRef.current = true
+        
+        // Use canplay event which is more reliable on mobile
+        const handleCanPlay = () => {
+          console.log("[v0] Video can play")
+          video.play().then(() => {
             console.log("[v0] Video playing, starting scan loop")
-            scanningRef.current = true
-            setScanning(true)
             // Start scanning after a small delay to ensure video is fully ready
             setTimeout(() => {
               if (scanningRef.current) {
+                console.log("[v0] Starting QR scan loop")
                 scanQRCode()
               }
             }, 500)
@@ -191,6 +195,16 @@ export default function QRScannerPage() {
             console.error("[v0] Video play error:", err)
           })
         }
+        
+        // Try multiple events since different browsers fire different ones
+        video.addEventListener('canplay', handleCanPlay, { once: true })
+        video.addEventListener('loadeddata', () => {
+          console.log("[v0] Video loadeddata event fired")
+        }, { once: true })
+        
+        // Also try to play immediately in case events already fired
+        video.load()
+        console.log("[v0] Video load() called")
       }
     } catch (error) {
       console.error("[v0] Camera access denied:", error)
@@ -284,6 +298,7 @@ export default function QRScannerPage() {
                     className="w-full h-full object-cover"
                     playsInline
                     muted
+                    autoPlay
                   />
                   <div className="absolute inset-0 border-4 border-emerald-500 rounded-lg pointer-events-none">
                     <div className="absolute inset-[20%] border-2 border-white/50 rounded" />
