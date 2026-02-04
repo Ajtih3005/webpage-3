@@ -173,38 +173,38 @@ export default function QRScannerPage() {
       
       if (videoRef.current) {
         const video = videoRef.current
-        video.srcObject = stream
         
         // Set scanning state immediately so UI updates
         setScanning(true)
         scanningRef.current = true
         
-        // Use canplay event which is more reliable on mobile
-        const handleCanPlay = () => {
-          console.log("[v0] Video can play")
-          video.play().then(() => {
-            console.log("[v0] Video playing, starting scan loop")
-            // Start scanning after a small delay to ensure video is fully ready
-            setTimeout(() => {
-              if (scanningRef.current) {
-                console.log("[v0] Starting QR scan loop")
-                scanQRCode()
-              }
-            }, 500)
-          }).catch((err) => {
-            console.error("[v0] Video play error:", err)
-          })
+        // Set up the video element
+        video.srcObject = stream
+        
+        // Function to start scanning once video is ready
+        const startScanningLoop = () => {
+          console.log("[v0] Video dimensions:", video.videoWidth, "x", video.videoHeight)
+          if (video.videoWidth > 0 && video.videoHeight > 0) {
+            console.log("[v0] Starting QR scan loop")
+            scanQRCode()
+          } else {
+            // Video not ready yet, wait and retry
+            console.log("[v0] Video not ready, waiting...")
+            setTimeout(startScanningLoop, 200)
+          }
         }
         
-        // Try multiple events since different browsers fire different ones
-        video.addEventListener('canplay', handleCanPlay, { once: true })
-        video.addEventListener('loadeddata', () => {
-          console.log("[v0] Video loadeddata event fired")
-        }, { once: true })
-        
-        // Also try to play immediately in case events already fired
-        video.load()
-        console.log("[v0] Video load() called")
+        // Try to play the video
+        try {
+          await video.play()
+          console.log("[v0] Video play() succeeded")
+          // Give it a moment to render frames
+          setTimeout(startScanningLoop, 500)
+        } catch (playError) {
+          console.error("[v0] Video play error:", playError)
+          // Still try to start scanning - autoPlay might work
+          setTimeout(startScanningLoop, 500)
+        }
       }
     } catch (error) {
       console.error("[v0] Camera access denied:", error)
