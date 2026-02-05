@@ -258,10 +258,15 @@ export default function QRScannerPage() {
     }
   }
 
-  // Cleanup on unmount
-
+  // Auto-start scanner on mount and cleanup on unmount
   useEffect(() => {
+    // Auto-start the scanner when page loads
+    const timer = setTimeout(() => {
+      startScanner()
+    }, 500)
+    
     return () => {
+      clearTimeout(timer)
       stopScanner()
     }
   }, [])
@@ -283,11 +288,11 @@ export default function QRScannerPage() {
           <CardContent className="p-6">
             {!scanning ? (
               <div className="text-center space-y-4">
-                <QrCode className="w-16 h-16 mx-auto text-emerald-600" />
-                <p className="text-gray-600">Click to start scanning QR codes</p>
+                <QrCode className="w-16 h-16 mx-auto text-emerald-600 animate-pulse" />
+                <p className="text-gray-600">Opening scanner...</p>
                 <Button onClick={startScanner} className="bg-emerald-600 hover:bg-emerald-700">
                   <Camera className="w-4 h-4 mr-2" />
-                  Start Scanner
+                  Open Scanner
                 </Button>
               </div>
             ) : (

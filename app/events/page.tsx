@@ -43,6 +43,9 @@ interface Event {
 
 interface Attendee {
   name: string
+}
+
+interface BookerInfo {
   email: string
   phone: string
 }
@@ -54,7 +57,8 @@ export default function EventsPage() {
   const [showBookingPage, setShowBookingPage] = useState(false)
   
   // Booking state
-  const [attendees, setAttendees] = useState<Attendee[]>([{ name: "", email: "", phone: "" }])
+  const [attendees, setAttendees] = useState<Attendee[]>([{ name: "" }])
+  const [bookerInfo, setBookerInfo] = useState<BookerInfo>({ email: "", phone: "" })
   const [termsAccepted, setTermsAccepted] = useState(false)
   const [processing, setProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -113,7 +117,8 @@ export default function EventsPage() {
   const openBookingPage = (event: Event) => {
     setSelectedEvent(event)
     setShowBookingPage(true)
-    setAttendees([{ name: "", email: "", phone: "" }])
+    setAttendees([{ name: "" }])
+    setBookerInfo({ email: "", phone: "" })
     setTermsAccepted(false)
     setError(null)
     setBookingSuccess(false)
@@ -123,7 +128,8 @@ export default function EventsPage() {
   const closeBookingPage = () => {
     setShowBookingPage(false)
     setSelectedEvent(null)
-    setAttendees([{ name: "", email: "", phone: "" }])
+    setAttendees([{ name: "" }])
+    setBookerInfo({ email: "", phone: "" })
     setTermsAccepted(false)
     setError(null)
     setBookingSuccess(false)
@@ -131,7 +137,7 @@ export default function EventsPage() {
 
   const addAttendee = () => {
     if (selectedEvent && attendees.length < selectedEvent.available_seats) {
-      setAttendees([...attendees, { name: "", email: "", phone: "" }])
+      setAttendees([...attendees, { name: "" }])
     }
   }
 
@@ -153,7 +159,9 @@ export default function EventsPage() {
   }
 
   const isFormValid = () => {
-    return attendees.every(a => a.name && a.email && a.phone && a.phone.length >= 10)
+    const allNamesValid = attendees.every(a => a.name.trim() !== "")
+    const bookerValid = bookerInfo.email.trim() !== "" && bookerInfo.phone.length >= 10
+    return allNamesValid && bookerValid
   }
 
   const loadRazorpayScript = (): Promise<boolean> => {
@@ -191,6 +199,13 @@ export default function EventsPage() {
           throw new Error("Payment gateway not configured")
         }
 
+        // Create attendees array with booker info for all
+        const attendeesWithInfo = attendees.map(a => ({
+          name: a.name,
+          email: bookerInfo.email,
+          phone: bookerInfo.phone,
+        }))
+
         // Create order (no booking created yet)
         const orderRes = await fetch("/api/tickets/create-combined-order", {
           method: "POST",
@@ -198,7 +213,7 @@ export default function EventsPage() {
           body: JSON.stringify({
             event_id: selectedEvent.id,
             event_name: selectedEvent.event_name,
-            attendees: attendees,
+            attendees: attendeesWithInfo,
             amount: totalAmount,
           }),
         })
@@ -227,7 +242,7 @@ export default function EventsPage() {
                   razorpay_payment_id: response.razorpay_payment_id,
                   razorpay_signature: response.razorpay_signature,
                   event_id: selectedEvent.id,
-                  attendees: attendees,
+                  attendees: attendeesWithInfo,
                 }),
               })
 
@@ -248,8 +263,8 @@ export default function EventsPage() {
           },
           prefill: {
             name: attendees[0].name,
-            email: attendees[0].email,
-            contact: attendees[0].phone,
+            email: bookerInfo.email,
+            contact: bookerInfo.phone,
           },
           theme: {
             color: "#059669",
@@ -273,8 +288,8 @@ export default function EventsPage() {
             body: JSON.stringify({
               ticket_id: selectedEvent.id,
               name: attendee.name,
-              email: attendee.email,
-              phone: attendee.phone,
+              email: bookerInfo.email,
+              phone: bookerInfo.phone,
             }),
           })
           const data = await res.json()
@@ -282,7 +297,7 @@ export default function EventsPage() {
             bookings.push(data.booking)
           }
         }
-        
+
         if (bookings.length > 0) {
           setBookingSuccess(true)
           setBookingResult({ bookings, event: selectedEvent })
@@ -484,28 +499,41 @@ export default function EventsPage() {
                   </div>
                 </div>
 
-                {/* Attendee Forms */}
-                <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+                {/* Contact Information - Asked Once */}
+                <div className="p-4 border-2 border-emerald-200 rounded-lg bg-emerald-50/50 space-y-3">
+                  <h4 className="font-semibold text-gray-900">Contact Information</h4>
+                  <p className="text-xs text-gray-600">This will be used for all tickets</p>
+                  <div className="grid gap-3">
+                    <div>
+                      <Label className="text-xs">Email *</Label>
+                      <Input
+                        type="email"
+                        value={bookerInfo.email}
+                        onChange={(e) => setBookerInfo({ ...bookerInfo, email: e.target.value })}
+                        placeholder="email@example.com"
+                        className="mt-1 bg-white"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Phone *</Label>
+                      <Input
+                        value={bookerInfo.phone}
+                        onChange={(e) => setBookerInfo({ ...bookerInfo, phone: e.target.value.replace(/\D/g, "").slice(0, 10) })}
+                        placeholder="10-digit phone number"
+                        maxLength={10}
+                        className="mt-1 bg-white"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Attendee Names */}
+                <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2">
                   {attendees.map((attendee, index) => (
-                    <div key={index} className="p-4 border rounded-lg bg-white space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium text-sm text-gray-700">
-                          Attendee {index + 1}
-                        </span>
-                        {attendees.length > 1 && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeAttendee(index)}
-                            className="h-8 text-red-500 hover:text-red-700 hover:bg-red-50"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
-                      <div className="grid gap-3">
-                        <div>
-                          <Label className="text-xs">Full Name *</Label>
+                    <div key={index} className="p-3 border rounded-lg bg-white">
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1">
+                          <Label className="text-xs text-gray-600">Attendee {index + 1} Name *</Label>
                           <Input
                             value={attendee.name}
                             onChange={(e) => updateAttendee(index, "name", e.target.value)}
@@ -513,26 +541,16 @@ export default function EventsPage() {
                             className="mt-1"
                           />
                         </div>
-                        <div>
-                          <Label className="text-xs">Email *</Label>
-                          <Input
-                            type="email"
-                            value={attendee.email}
-                            onChange={(e) => updateAttendee(index, "email", e.target.value)}
-                            placeholder="email@example.com"
-                            className="mt-1"
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-xs">Phone *</Label>
-                          <Input
-                            value={attendee.phone}
-                            onChange={(e) => updateAttendee(index, "phone", e.target.value.replace(/\D/g, "").slice(0, 10))}
-                            placeholder="10-digit phone number"
-                            maxLength={10}
-                            className="mt-1"
-                          />
-                        </div>
+                        {attendees.length > 1 && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeAttendee(index)}
+                            className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50 mt-5"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </div>
                   ))}
