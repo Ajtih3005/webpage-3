@@ -1,4 +1,4 @@
-import { createClient } from "@/utils/supabase/server"
+import { getSupabaseServerClient } from "@/lib/supabase"
 import { NextResponse } from "next/server"
 
 // GET - Validate influencer code
@@ -11,7 +11,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ success: false, valid: false })
     }
 
-    const supabase = await createClient()
+    const supabase = getSupabaseServerClient()
 
     const { data, error } = await supabase
       .from("influencer_links")

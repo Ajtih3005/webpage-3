@@ -70,6 +70,7 @@ export default function ReferralCodesAdmin() {
     usage_limit: "",
     expires_at: "",
     notes: "",
+    applies_to_tickets: false,
   })
 
   const [showBulkDialog, setShowBulkDialog] = useState(false)
@@ -198,6 +199,7 @@ export default function ReferralCodesAdmin() {
         usage_limit: formData.usage_limit ? Number(formData.usage_limit) : null,
         expires_at: formData.expires_at || null,
         notes: formData.notes || null,
+        applies_to_tickets: formData.applies_to_tickets,
       }))
 
       const { error } = await supabase.from("referral_codes").insert(payloads)
@@ -214,6 +216,7 @@ export default function ReferralCodesAdmin() {
         usage_limit: "",
         expires_at: "",
         notes: "",
+        applies_to_tickets: false,
       })
       fetchCodes()
     } catch (error: any) {
@@ -543,6 +546,7 @@ export default function ReferralCodesAdmin() {
                     usage_limit: "",
                     expires_at: "",
                     notes: "",
+                    applies_to_tickets: false,
                   })
                 }}
               >
@@ -648,6 +652,14 @@ export default function ReferralCodesAdmin() {
                   <Label>Active</Label>
                 </div>
 
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    checked={formData.applies_to_tickets}
+                    onCheckedChange={(checked) => setFormData({ ...formData, applies_to_tickets: checked })}
+                  />
+                  <Label>Also applies to Event Tickets</Label>
+                </div>
+
                 <div className="flex gap-2">
                   <Button type="submit" disabled={loading} className="flex-1">
                     {loading ? "Saving..." : editingCode ? "Update Code" : "Create Code"}
@@ -677,9 +689,14 @@ export default function ReferralCodesAdmin() {
                         <Copy className="h-4 w-4" />
                       )}
                     </Button>
-                    <span className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-800">
-                      {codeEntries.length} subscription(s)
-                    </span>
+<span className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-800">
+                                      {codeEntries.length} subscription(s)
+                                    </span>
+                                    {codeEntries[0]?.applies_to_tickets && (
+                                      <span className="text-xs px-2 py-1 rounded bg-green-100 text-green-800">
+                                        Tickets
+                                      </span>
+                                    )}
                   </CardTitle>
                   <CardDescription>Total uses: {codeEntries.reduce((sum, c) => sum + c.times_used, 0)}</CardDescription>
                 </div>

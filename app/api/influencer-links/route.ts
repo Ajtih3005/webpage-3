@@ -1,5 +1,10 @@
-import { createClient } from "@/utils/supabase/server"
+import { getSupabaseServerClient } from "@/lib/supabase"
 import { NextResponse } from "next/server"
+
+// Function to create Supabase client
+async function createClient() {
+  return getSupabaseServerClient();
+}
 
 // GET - Fetch all influencer links with stats
 export async function GET() {
