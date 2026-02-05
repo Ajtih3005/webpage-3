@@ -24,6 +24,7 @@ interface ReferralCode {
   valid_from: string
   expires_at: string | null
   notes: string | null
+  applies_to_tickets?: boolean
   subscription?: { name: string }
 }
 

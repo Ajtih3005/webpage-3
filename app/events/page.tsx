@@ -10,6 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import Link from "next/link"
 import Image from "next/image"
+import { useSearchParams } from "next/navigation"
 import {
   Calendar,
   Clock,
@@ -66,10 +67,68 @@ export default function EventsPage() {
   const [bookingResult, setBookingResult] = useState<any>(null)
   const [razorpayKey, setRazorpayKey] = useState<string | null>(null)
 
+  // Influencer tracking (from URL ref param)
+  const searchParams = useSearchParams()
+  const [influencerCode, setInfluencerCode] = useState<string | null>(null)
+
+  // Referral code discount (user enters manually)
+  const [referralCode, setReferralCode] = useState("")
+  const [referralDiscount, setReferralDiscount] = useState<number>(0)
+  const [referralApplied, setReferralApplied] = useState(false)
+  const [applyingReferral, setApplyingReferral] = useState(false)
+  const [referralError, setReferralError] = useState<string | null>(null)
+
   useEffect(() => {
     fetchEvents()
     fetchRazorpayKey()
-  }, [])
+    // Capture influencer ref from URL
+    const ref = searchParams.get("ref")
+    if (ref) {
+      validateInfluencerCode(ref)
+    }
+  }, [searchParams])
+
+  const validateInfluencerCode = async (code: string) => {
+    try {
+      const res = await fetch(`/api/influencer-links/validate?code=${code}`)
+      const data = await res.json()
+      if (data.valid) {
+        setInfluencerCode(code.toLowerCase())
+      }
+    } catch (err) {
+      console.error("Failed to validate influencer code:", err)
+    }
+  }
+
+  const applyReferralCode = async () => {
+    if (!referralCode.trim()) return
+    
+    setApplyingReferral(true)
+    setReferralError(null)
+    
+    try {
+      const res = await fetch(`/api/user-referral-discount?code=${referralCode.trim()}`)
+      const data = await res.json()
+      
+      if (data.success && data.discount) {
+        setReferralDiscount(data.discount.discount_percent)
+        setReferralApplied(true)
+      } else {
+        setReferralError("Invalid or expired referral code")
+      }
+    } catch (err) {
+      setReferralError("Failed to apply referral code")
+    } finally {
+      setApplyingReferral(false)
+    }
+  }
+
+  const removeReferralCode = () => {
+    setReferralCode("")
+    setReferralDiscount(0)
+    setReferralApplied(false)
+    setReferralError(null)
+  }
 
   const fetchRazorpayKey = async () => {
     try {
@@ -123,6 +182,11 @@ export default function EventsPage() {
     setError(null)
     setBookingSuccess(false)
     setBookingResult(null)
+    // Reset referral code state but keep influencer code
+    setReferralCode("")
+    setReferralDiscount(0)
+    setReferralApplied(false)
+    setReferralError(null)
   }
 
   const closeBookingPage = () => {
@@ -154,6 +218,15 @@ export default function EventsPage() {
   }
 
   const getTotalPrice = () => {
+    if (!selectedEvent) return 0
+    const basePrice = selectedEvent.ticket_price * attendees.length
+    if (referralApplied && referralDiscount > 0) {
+      return Math.round(basePrice * (1 - referralDiscount / 100))
+    }
+    return basePrice
+  }
+
+  const getOriginalPrice = () => {
     if (!selectedEvent) return 0
     return selectedEvent.ticket_price * attendees.length
   }
@@ -243,6 +316,10 @@ export default function EventsPage() {
                   razorpay_signature: response.razorpay_signature,
                   event_id: selectedEvent.id,
                   attendees: attendeesWithInfo,
+                  influencer_code: influencerCode,
+                  referral_code: referralApplied ? referralCode : null,
+                  discount_applied: referralApplied ? getOriginalPrice() - totalAmount : 0,
+                  original_price: getOriginalPrice(),
                 }),
               })
 
@@ -290,6 +367,8 @@ export default function EventsPage() {
               name: attendee.name,
               email: bookerInfo.email,
               phone: bookerInfo.phone,
+              influencer_code: influencerCode,
+              referral_code: referralApplied ? referralCode : null,
             }),
           })
           const data = await res.json()
@@ -556,6 +635,44 @@ export default function EventsPage() {
                   ))}
                 </div>
 
+                {/* Referral Code */}
+                {selectedEvent && selectedEvent.ticket_price > 0 && (
+                  <div className="p-4 border rounded-lg bg-gray-50 space-y-3">
+                    <h4 className="font-semibold text-gray-900">Have a Referral Code?</h4>
+                    {!referralApplied ? (
+                      <div className="flex gap-2">
+                        <Input
+                          value={referralCode}
+                          onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                          placeholder="Enter referral code"
+                          className="bg-white"
+                        />
+                        <Button
+                          onClick={applyReferralCode}
+                          disabled={applyingReferral || !referralCode.trim()}
+                          variant="outline"
+                          className="shrink-0 bg-transparent"
+                        >
+                          {applyingReferral ? <Loader2 className="h-4 w-4 animate-spin" /> : "Apply"}
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg p-3">
+                        <div className="flex items-center gap-2">
+                          <Check className="h-5 w-5 text-green-600" />
+                          <span className="font-medium text-green-700">{referralDiscount}% discount applied!</span>
+                        </div>
+                        <Button variant="ghost" size="sm" onClick={removeReferralCode} className="text-gray-500 hover:text-gray-700">
+                          Remove
+                        </Button>
+                      </div>
+                    )}
+                    {referralError && (
+                      <p className="text-sm text-red-500">{referralError}</p>
+                    )}
+                  </div>
+                )}
+
                 {/* Terms & Conditions */}
                 <div className="space-y-3">
                   <h4 className="font-semibold text-gray-900 flex items-center gap-2">
@@ -596,7 +713,14 @@ export default function EventsPage() {
                         Processing...
                       </>
                     ) : getTotalPrice() > 0 ? (
-                      `Pay ₹${getTotalPrice()}`
+                      referralApplied ? (
+                        <span className="flex items-center gap-2">
+                          <span className="line-through text-gray-300">₹{getOriginalPrice()}</span>
+                          <span>Pay ₹{getTotalPrice()}</span>
+                        </span>
+                      ) : (
+                        `Pay ₹${getTotalPrice()}`
+                      )
                     ) : (
                       "Confirm Booking"
                     )}

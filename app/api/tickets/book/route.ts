@@ -17,7 +17,7 @@ function generateQRCodeData(bookingId: string): string {
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { ticket_id, name, email, phone, passkey, user_id } = body
+    const { ticket_id, name, email, phone, passkey, user_id, influencer_code, referral_code } = body
 
     if (!ticket_id || !name || !email || !phone) {
       return NextResponse.json({ success: false, error: "Missing required fields" }, { status: 400 })
@@ -46,19 +46,25 @@ export async function POST(request: Request) {
     const qrCodeData = generateQRCodeData(tempId)
 
     // Create booking (unpaid initially)
+    const bookingInsert: Record<string, any> = {
+      ticket_id,
+      user_id: user_id || null,
+      booking_name: name,
+      booking_email: email,
+      booking_phone: phone,
+      passkey: passkey || null, // NULL if registered user
+      qr_code_data: qrCodeData,
+      is_paid: false,
+      is_attended: false,
+    }
+    
+    // Add tracking data if provided
+    if (influencer_code) bookingInsert.influencer_code = influencer_code
+    if (referral_code) bookingInsert.referral_code_used = referral_code
+
     const { data: booking, error: bookingError } = await supabase
       .from("ticket_bookings")
-      .insert({
-        ticket_id,
-        user_id: user_id || null,
-        booking_name: name,
-        booking_email: email,
-        booking_phone: phone,
-        passkey: passkey || null, // NULL if registered user
-        qr_code_data: qrCodeData,
-        is_paid: false,
-        is_attended: false,
-      })
+      .insert(bookingInsert)
       .select()
       .single()
 
