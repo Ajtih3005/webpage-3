@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from "uuid"
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, event_id, attendees } = body
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, event_id, attendees, influencer_code, referral_code, discount_applied, original_price } = body
 
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
       return NextResponse.json({ success: false, error: "Missing payment details" }, { status: 400 })
@@ -78,7 +78,7 @@ export async function POST(request: Request) {
       const qrCodeData = `TICKET-${uuidv4()}`
 
       // Insert booking with CORRECT column names matching the database schema
-      const bookingData = {
+      const bookingData: Record<string, any> = {
         ticket_id: event_id,
         booking_name: attendee.name,
         booking_email: attendee.email,
@@ -89,6 +89,12 @@ export async function POST(request: Request) {
         razorpay_signature: razorpay_signature,
         qr_code_data: qrCodeData,
       }
+      
+      // Add tracking data if provided
+      if (influencer_code) bookingData.influencer_code = influencer_code
+      if (referral_code) bookingData.referral_code_used = referral_code
+      if (discount_applied) bookingData.discount_applied = discount_applied
+      if (original_price) bookingData.original_price = original_price
 
       console.log("[v0] Inserting booking:", bookingData)
 
