@@ -14,21 +14,19 @@ export async function GET(request: NextRequest) {
     const supabase = getSupabaseBrowserClient()
 
     // Check if referral code exists, is active, and applies to tickets
-    const { data: referralData, error: referralError } = await supabase
+    const { data: referralEntries, error: referralError } = await supabase
       .from("referral_codes")
       .select("*")
       .eq("code", code.toUpperCase())
       .eq("is_active", true)
-      .single()
+      .eq("applies_to_tickets", true)
 
-    if (referralError || !referralData) {
-      return NextResponse.json({ success: false, error: "Invalid referral code" })
+    if (referralError || !referralEntries || referralEntries.length === 0) {
+      return NextResponse.json({ success: false, error: "Invalid referral code or does not apply to tickets" })
     }
 
-    // Check if code applies to tickets
-    if (referralData.applies_to_tickets === false) {
-      return NextResponse.json({ success: false, error: "This code does not apply to tickets" })
-    }
+    // Use the first entry that applies to tickets
+    const referralData = referralEntries[0]
 
     // Check if code is expired
     if (referralData.expires_at) {
@@ -43,11 +41,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Referral code usage limit reached" })
     }
 
+    // Use ticket_discount_percentage if available, otherwise fall back to discount_percentage
+    const ticketDiscount = referralData.ticket_discount_percentage || referralData.discount_percentage
+
     return NextResponse.json({
       success: true,
       discount: {
         code: referralData.code,
-        discount_percent: referralData.discount_percentage,
+        discount_percent: ticketDiscount,
       },
     })
   } catch (error) {
