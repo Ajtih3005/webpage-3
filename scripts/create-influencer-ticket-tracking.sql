@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS influencer_links (
 
 -- 2. Add columns to ticket_bookings for tracking
 ALTER TABLE ticket_bookings 
-ADD COLUMN IF NOT EXISTS influencer_code VARCHAR(50) REFERENCES influencer_links(code);
+ADD COLUMN IF NOT EXISTS influencer_code VARCHAR(50);
 
 ALTER TABLE ticket_bookings 
 ADD COLUMN IF NOT EXISTS referral_code_used VARCHAR(50);
@@ -27,19 +27,15 @@ ADD COLUMN IF NOT EXISTS discount_applied DECIMAL(10, 2) DEFAULT 0;
 ALTER TABLE ticket_bookings 
 ADD COLUMN IF NOT EXISTS original_price DECIMAL(10, 2);
 
--- 3. Extend referral_codes to support tickets (add event_ticket_id column)
+-- 3. Extend referral_codes to support tickets
 ALTER TABLE referral_codes 
-ADD COLUMN IF NOT EXISTS event_ticket_id UUID;
-
-ALTER TABLE referral_codes 
-ADD COLUMN IF NOT EXISTS applies_to VARCHAR(20) DEFAULT 'subscription' CHECK (applies_to IN ('subscription', 'ticket', 'both'));
+ADD COLUMN IF NOT EXISTS applies_to_tickets BOOLEAN DEFAULT false;
 
 -- 4. Create indexes
 CREATE INDEX IF NOT EXISTS idx_influencer_links_code ON influencer_links(code);
 CREATE INDEX IF NOT EXISTS idx_influencer_links_active ON influencer_links(is_active);
 CREATE INDEX IF NOT EXISTS idx_ticket_bookings_influencer ON ticket_bookings(influencer_code);
 CREATE INDEX IF NOT EXISTS idx_ticket_bookings_referral ON ticket_bookings(referral_code_used);
-CREATE INDEX IF NOT EXISTS idx_referral_codes_applies_to ON referral_codes(applies_to);
 
 -- 5. Create view for influencer stats
 CREATE OR REPLACE VIEW influencer_ticket_stats AS
@@ -65,4 +61,4 @@ COMMENT ON TABLE influencer_links IS 'Stores influencer tracking links for ticke
 COMMENT ON COLUMN ticket_bookings.influencer_code IS 'Tracks which influencer link was used (no discount)';
 COMMENT ON COLUMN ticket_bookings.referral_code_used IS 'Tracks which referral/discount code was used';
 COMMENT ON COLUMN ticket_bookings.discount_applied IS 'Amount of discount applied in INR';
-COMMENT ON COLUMN referral_codes.applies_to IS 'Whether code applies to subscription, ticket, or both';
+COMMENT ON COLUMN referral_codes.applies_to_tickets IS 'Whether code also applies to ticket bookings';
