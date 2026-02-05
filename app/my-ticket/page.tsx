@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -15,14 +15,12 @@ import {
   User,
   Mail,
   Phone,
-  QrCode,
   TicketIcon,
   Loader2,
   Download,
   CheckCircle2,
 } from "lucide-react"
 import QRCode from "qrcode"
-import { useEffect, useRef } from "react"
 
 interface Booking {
   id: string
@@ -63,15 +61,12 @@ function QRCodeDisplay({ data, size = 150 }: { data: string; size?: number }) {
 
 export default function MyTicketPage() {
   const [phone, setPhone] = useState("")
-  const [passkey, setPasskey] = useState("")
-  const [isRegisteredUser, setIsRegisteredUser] = useState(false)
-  const [userId, setUserId] = useState<string | null>(null)
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
-  const [step, setStep] = useState<"phone" | "verify" | "tickets">("phone")
+  const [step, setStep] = useState<"phone" | "tickets">("phone")
 
-  const checkPhone = async () => {
+  const fetchBookings = async () => {
     if (!phone || phone.length < 10) {
       setError("Please enter a valid phone number")
       return
@@ -81,47 +76,10 @@ export default function MyTicketPage() {
     setError("")
 
     try {
-      const res = await fetch("/api/tickets/check-phone", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone }),
-      })
-      const data = await res.json()
-
-      if (data.success) {
-        if (data.exists) {
-          // Registered user - fetch tickets directly
-          setIsRegisteredUser(true)
-          setUserId(data.user.id)
-          await fetchBookings(data.user.id)
-        } else {
-          // Not registered - need passkey
-          setIsRegisteredUser(false)
-          setStep("verify")
-        }
-      } else {
-        setError(data.error || "Failed to check phone")
-      }
-    } catch (err) {
-      setError("Failed to check phone number")
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const fetchBookings = async (uid?: string) => {
-    setLoading(true)
-    setError("")
-
-    try {
       const res = await fetch("/api/tickets/my-bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          phone,
-          passkey: isRegisteredUser ? null : passkey,
-          user_id: uid || userId,
-        }),
+        body: JSON.stringify({ phone }),
       })
       const data = await res.json()
 
@@ -131,7 +89,7 @@ export default function MyTicketPage() {
       } else {
         setError(data.error || "No bookings found")
       }
-    } catch (err) {
+    } catch {
       setError("Failed to fetch bookings")
     } finally {
       setLoading(false)
@@ -156,7 +114,7 @@ export default function MyTicketPage() {
     ctx.fillStyle = "#ffffff"
     ctx.font = "bold 24px Arial"
     ctx.textAlign = "center"
-    ctx.fillText("Joyful Yog", canvas.width / 2, 40)
+    ctx.fillText("Sthavishtah Yoga & Wellness", canvas.width / 2, 40)
 
     // Event Name
     ctx.fillStyle = "#1f2937"
@@ -224,7 +182,7 @@ export default function MyTicketPage() {
           <Link href="/" className="flex items-center gap-2">
             <ArrowLeft className="w-5 h-5" />
             <span className="font-playfair text-xl font-semibold text-emerald-800">
-              Joyful Yog
+              Sthavishtah Yoga & Wellness
             </span>
           </Link>
           <Link href="/events">
@@ -257,78 +215,24 @@ export default function MyTicketPage() {
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="Enter your phone number"
                   maxLength={10}
-                  onKeyDown={(e) => e.key === "Enter" && checkPhone()}
+                  onKeyDown={(e) => e.key === "Enter" && fetchBookings()}
                 />
               </div>
               {error && <p className="text-red-500 text-sm">{error}</p>}
               <Button
-                onClick={checkPhone}
+                onClick={fetchBookings}
                 disabled={loading || phone.length < 10}
                 className="w-full bg-emerald-600 hover:bg-emerald-700"
               >
                 {loading ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Checking...
+                    Loading...
                   </>
                 ) : (
-                  "Continue"
+                  "View Tickets"
                 )}
               </Button>
-            </CardContent>
-          </Card>
-        )}
-
-        {step === "verify" && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Enter Your Passkey</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-gray-600">
-                Enter the 4-digit passkey you created when booking
-              </p>
-              <div>
-                <Label>4-Digit Passkey</Label>
-                <Input
-                  type="password"
-                  value={passkey}
-                  onChange={(e) =>
-                    setPasskey(e.target.value.replace(/\D/g, "").slice(0, 4))
-                  }
-                  placeholder="Enter passkey"
-                  maxLength={4}
-                  onKeyDown={(e) => e.key === "Enter" && fetchBookings()}
-                />
-              </div>
-              {error && <p className="text-red-500 text-sm">{error}</p>}
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setStep("phone")
-                    setPasskey("")
-                    setError("")
-                  }}
-                  className="flex-1"
-                >
-                  Back
-                </Button>
-                <Button
-                  onClick={() => fetchBookings()}
-                  disabled={loading || passkey.length !== 4}
-                  className="flex-1 bg-emerald-600 hover:bg-emerald-700"
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Loading...
-                    </>
-                  ) : (
-                    "View Tickets"
-                  )}
-                </Button>
-              </div>
             </CardContent>
           </Card>
         )}
@@ -342,13 +246,12 @@ export default function MyTicketPage() {
                 onClick={() => {
                   setStep("phone")
                   setPhone("")
-                  setPasskey("")
                   setBookings([])
                   setError("")
                 }}
               >
                 <ArrowLeft className="w-4 h-4 mr-2" />
-                Logout
+                Back
               </Button>
               <Badge variant="outline" className="text-emerald-600">
                 {bookings.length} ticket(s)
