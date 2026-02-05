@@ -17,7 +17,7 @@ interface ReferralCode {
   id: number
   code: string
   discount_percentage: number
-  subscription_id: number
+  subscription_id: number | null
   is_active: boolean
   usage_limit: number | null
   times_used: number
@@ -25,6 +25,7 @@ interface ReferralCode {
   expires_at: string | null
   notes: string | null
   applies_to_tickets?: boolean
+  ticket_discount_percentage?: number | null
   subscription?: { name: string }
 }
 
@@ -71,6 +72,7 @@ export default function ReferralCodesAdmin() {
     expires_at: "",
     notes: "",
     applies_to_tickets: false,
+    ticket_discount: 10,
   })
 
   const [showBulkDialog, setShowBulkDialog] = useState(false)
@@ -176,8 +178,8 @@ export default function ReferralCodesAdmin() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (formData.selectedSubscriptions.length === 0) {
-      alert("Please select at least one subscription")
+    if (formData.selectedSubscriptions.length === 0 && !formData.applies_to_tickets) {
+      alert("Please select at least one subscription or enable tickets")
       return
     }
 
@@ -191,16 +193,35 @@ export default function ReferralCodesAdmin() {
         if (deleteError) throw deleteError
       }
 
-      const payloads = formData.selectedSubscriptions.map((subscriptionId) => ({
-        code: formData.code.toUpperCase(),
-        discount_percentage: formData.subscriptionDiscounts[subscriptionId],
-        subscription_id: subscriptionId,
-        is_active: formData.is_active,
-        usage_limit: formData.usage_limit ? Number(formData.usage_limit) : null,
-        expires_at: formData.expires_at || null,
-        notes: formData.notes || null,
-        applies_to_tickets: formData.applies_to_tickets,
-      }))
+      let payloads: any[] = []
+      
+      // If subscriptions selected, create entry for each
+      if (formData.selectedSubscriptions.length > 0) {
+        payloads = formData.selectedSubscriptions.map((subscriptionId) => ({
+          code: formData.code.toUpperCase(),
+          discount_percentage: formData.subscriptionDiscounts[subscriptionId],
+          subscription_id: subscriptionId,
+          is_active: formData.is_active,
+          usage_limit: formData.usage_limit ? Number(formData.usage_limit) : null,
+          expires_at: formData.expires_at || null,
+          notes: formData.notes || null,
+          applies_to_tickets: formData.applies_to_tickets,
+          ticket_discount_percentage: formData.applies_to_tickets ? formData.ticket_discount : null,
+        }))
+      } else if (formData.applies_to_tickets) {
+        // Tickets only - create one entry without subscription
+        payloads = [{
+          code: formData.code.toUpperCase(),
+          discount_percentage: formData.ticket_discount, // Use ticket discount as main discount
+          subscription_id: null,
+          is_active: formData.is_active,
+          usage_limit: formData.usage_limit ? Number(formData.usage_limit) : null,
+          expires_at: formData.expires_at || null,
+          notes: formData.notes || null,
+          applies_to_tickets: true,
+          ticket_discount_percentage: formData.ticket_discount,
+        }]
+      }
 
       const { error } = await supabase.from("referral_codes").insert(payloads)
 
@@ -217,6 +238,7 @@ export default function ReferralCodesAdmin() {
         expires_at: "",
         notes: "",
         applies_to_tickets: false,
+        ticket_discount: 10,
       })
       fetchCodes()
     } catch (error: any) {
@@ -547,6 +569,7 @@ export default function ReferralCodesAdmin() {
                     expires_at: "",
                     notes: "",
                     applies_to_tickets: false,
+                    ticket_discount: 10,
                   })
                 }}
               >
@@ -578,7 +601,28 @@ export default function ReferralCodesAdmin() {
                 </div>
 
                 <div className="space-y-3">
-                  <Label>Select Subscriptions & Set Discounts</Label>
+                  <div className="flex items-center justify-between">
+                    <Label>Select Subscriptions & Set Discounts</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        if (formData.selectedSubscriptions.length === subscriptions.length) {
+                          // Deselect all
+                          setFormData({ ...formData, selectedSubscriptions: [], subscriptionDiscounts: {} })
+                        } else {
+                          // Select all with default 10% discount
+                          const allIds = subscriptions.map(s => s.id)
+                          const discounts: Record<number, number> = {}
+                          allIds.forEach(id => { discounts[id] = formData.subscriptionDiscounts[id] || 10 })
+                          setFormData({ ...formData, selectedSubscriptions: allIds, subscriptionDiscounts: discounts })
+                        }
+                      }}
+                    >
+                      {formData.selectedSubscriptions.length === subscriptions.length ? "Deselect All" : "Select All"}
+                    </Button>
+                  </div>
                   <div className="border rounded-lg p-4 space-y-3 max-h-[400px] overflow-y-auto">
                     {subscriptions.length === 0 && (
                       <p className="text-sm text-muted-foreground">No subscriptions found</p>
@@ -652,12 +696,34 @@ export default function ReferralCodesAdmin() {
                   <Label>Active</Label>
                 </div>
 
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    checked={formData.applies_to_tickets}
-                    onCheckedChange={(checked) => setFormData({ ...formData, applies_to_tickets: checked })}
-                  />
-                  <Label>Also applies to Event Tickets</Label>
+                {/* Tickets Section */}
+                <div className="space-y-3">
+                  <Label>Event Tickets</Label>
+                  <div className="border rounded-lg p-4 space-y-3 bg-emerald-50/50">
+                    <div className="flex items-center gap-3 p-3 border rounded-lg bg-white">
+                      <Checkbox
+                        checked={formData.applies_to_tickets}
+                        onCheckedChange={(checked) => setFormData({ ...formData, applies_to_tickets: checked as boolean })}
+                      />
+                      <div className="flex-1">
+                        <Label className="font-medium">All Event Tickets</Label>
+                        <p className="text-xs text-muted-foreground">Apply this code to all event ticket bookings</p>
+                      </div>
+                      {formData.applies_to_tickets && (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={formData.ticket_discount}
+                            onChange={(e) => setFormData({ ...formData, ticket_discount: Number(e.target.value) })}
+                            className="w-20"
+                          />
+                          <span className="text-sm text-muted-foreground">%</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 <div className="flex gap-2">
