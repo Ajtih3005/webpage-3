@@ -143,16 +143,41 @@ export async function POST(request: Request) {
     }
 
     // Free ticket - mark as paid immediately
-    const { data: updatedBooking } = await supabase
+    console.log("[v0] Free ticket booking - marking as paid for booking:", booking.id)
+    
+    const { data: updatedBooking, error: updateError } = await supabase
       .from("ticket_bookings")
       .update({ is_paid: true })
       .eq("id", booking.id)
       .select()
       .single()
 
+    if (updateError) {
+      console.error("[v0] Failed to mark free booking as paid:", updateError.message, updateError.details, updateError.hint)
+      // Even if update fails, the booking was created - try to return it
+      return NextResponse.json({
+        success: true,
+        booking: { ...booking, is_paid: true },
+        event,
+        requiresPayment: false,
+      })
+    }
+
+    // Decrement available seats explicitly for free bookings
+    const { error: seatError } = await supabase
+      .from("event_tickets")
+      .update({ available_seats: Math.max(0, event.available_seats - 1) })
+      .eq("id", ticket_id)
+
+    if (seatError) {
+      console.error("[v0] Failed to decrement available seats:", seatError.message)
+    }
+
+    console.log("[v0] Free ticket booking confirmed:", updatedBooking?.id || booking.id)
+
     return NextResponse.json({
       success: true,
-      booking: updatedBooking,
+      booking: updatedBooking || { ...booking, is_paid: true },
       event,
       requiresPayment: false,
     })

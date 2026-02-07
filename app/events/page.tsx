@@ -371,24 +371,37 @@ export default function EventsPage() {
         })
         rzp.open()
       } else {
-        // FREE EVENT - Create bookings directly
+        // FREE EVENT - Create bookings directly (no payment needed)
+        console.log("[v0] Free event booking for", attendees.length, "attendee(s)")
         const bookings = []
+        const errors: string[] = []
+        
         for (const attendee of attendees) {
-          const res = await fetch("/api/tickets/book", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              ticket_id: selectedEvent.id,
-              name: attendee.name,
-              email: bookerInfo.email,
-              phone: bookerInfo.phone,
-              influencer_code: influencerCode,
-              referral_code: referralApplied ? referralCode : null,
-            }),
-          })
-          const data = await res.json()
-          if (data.success) {
-            bookings.push(data.booking)
+          try {
+            const res = await fetch("/api/tickets/book", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                ticket_id: selectedEvent.id,
+                name: attendee.name,
+                email: bookerInfo.email,
+                phone: bookerInfo.phone,
+                influencer_code: influencerCode,
+                referral_code: referralApplied ? referralCode : null,
+              }),
+            })
+            
+            const data = await res.json()
+            console.log("[v0] Free booking response for", attendee.name, ":", JSON.stringify(data))
+            
+            if (data.success && data.booking) {
+              bookings.push(data.booking)
+            } else {
+              errors.push(data.error || `Booking failed for ${attendee.name}`)
+            }
+          } catch (fetchErr) {
+            console.error("[v0] Free booking fetch error for", attendee.name, ":", fetchErr)
+            errors.push(`Network error booking for ${attendee.name}`)
           }
         }
 
@@ -396,7 +409,7 @@ export default function EventsPage() {
           setBookingSuccess(true)
           setBookingResult({ bookings, event: selectedEvent })
         } else {
-          throw new Error("Failed to create bookings")
+          throw new Error(errors.length > 0 ? errors[0] : "Failed to create bookings. Please try again.")
         }
         setProcessing(false)
       }
