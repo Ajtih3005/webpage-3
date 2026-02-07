@@ -372,7 +372,6 @@ export default function EventsPage() {
         rzp.open()
       } else {
         // FREE EVENT - Create bookings directly (no payment needed)
-        console.log("[v0] Free event booking for", attendees.length, "attendee(s)")
         const bookings = []
         const errors: string[] = []
         
@@ -392,7 +391,6 @@ export default function EventsPage() {
             })
             
             const data = await res.json()
-            console.log("[v0] Free booking response for", attendee.name, ":", JSON.stringify(data))
             
             if (data.success && data.booking) {
               bookings.push(data.booking)
@@ -400,7 +398,6 @@ export default function EventsPage() {
               errors.push(data.error || `Booking failed for ${attendee.name}`)
             }
           } catch (fetchErr) {
-            console.error("[v0] Free booking fetch error for", attendee.name, ":", fetchErr)
             errors.push(`Network error booking for ${attendee.name}`)
           }
         }
