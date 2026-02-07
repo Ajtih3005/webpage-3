@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getSupabaseBrowserClient } from "@/lib/supabase"
+import { getSupabaseServerClient } from "@/lib/supabase"
 
 // GET - Validate referral code for tickets (user enters code manually)
 export async function GET(request: NextRequest) {
@@ -11,9 +11,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Missing code" }, { status: 400 })
     }
 
-    const supabase = getSupabaseBrowserClient()
+    const supabase = getSupabaseServerClient()
 
-    // Check if referral code exists, is active, and applies to tickets
+    // Try with applies_to_tickets filter first, fall back to without it
+    let referralData = null
+
     const { data: referralEntries, error: referralError } = await supabase
       .from("referral_codes")
       .select("*")
@@ -21,12 +23,25 @@ export async function GET(request: NextRequest) {
       .eq("is_active", true)
       .eq("applies_to_tickets", true)
 
-    if (referralError || !referralEntries || referralEntries.length === 0) {
-      return NextResponse.json({ success: false, error: "Invalid referral code or does not apply to tickets" })
+    if (!referralError && referralEntries && referralEntries.length > 0) {
+      referralData = referralEntries[0]
+    } else {
+      // Fallback: applies_to_tickets column may not exist, try without it
+      const { data: fallbackEntries, error: fallbackError } = await supabase
+        .from("referral_codes")
+        .select("*")
+        .eq("code", code.toUpperCase())
+        .eq("is_active", true)
+
+      if (fallbackError || !fallbackEntries || fallbackEntries.length === 0) {
+        return NextResponse.json({ success: false, error: "Invalid referral code" })
+      }
+      referralData = fallbackEntries[0]
     }
 
-    // Use the first entry that applies to tickets
-    const referralData = referralEntries[0]
+    if (!referralData) {
+      return NextResponse.json({ success: false, error: "Invalid referral code or does not apply to tickets" })
+    }
 
     // Check if code is expired
     if (referralData.expires_at) {
@@ -68,7 +83,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing userId or subscriptionId" }, { status: 400 })
     }
 
-    const supabase = getSupabaseBrowserClient()
+    const supabase = getSupabaseServerClient()
 
     // Get user's referral code
     const { data: userData, error: userError } = await supabase

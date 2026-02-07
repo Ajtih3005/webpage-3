@@ -323,14 +323,24 @@ export default function EventsPage() {
                 }),
               })
 
-              const verifyData = await verifyRes.json()
-              console.log("[v0] Verify payment response:", verifyData)
+              let verifyData: any
+              try {
+                verifyData = await verifyRes.json()
+              } catch (parseErr) {
+                console.error("[v0] Failed to parse verify response:", verifyRes.status, parseErr)
+                setError(`Server error (${verifyRes.status}). Payment was received - please contact support.`)
+                setProcessing(false)
+                return
+              }
+
+              console.log("[v0] Verify payment response:", JSON.stringify(verifyData))
               if (verifyData.success) {
                 setBookingSuccess(true)
                 setBookingResult({ bookings: verifyData.bookings, event: selectedEvent })
               } else {
-                console.error("[v0] Payment verification failed:", verifyData)
-                setError(verifyData.error || "Payment verification failed. Please contact support.")
+                console.error("[v0] Payment verification failed:", JSON.stringify(verifyData))
+                const paymentIdMsg = verifyData.payment_id ? ` Payment ID: ${verifyData.payment_id}` : ""
+                setError((verifyData.error || "Payment verification failed.") + paymentIdMsg + " Please contact support if money was deducted.")
               }
             } catch (err) {
               console.error("[v0] Payment verification error:", err)
@@ -354,6 +364,11 @@ export default function EventsPage() {
         }
 
         const rzp = new (window as any).Razorpay(options)
+        rzp.on("payment.failed", (response: any) => {
+          console.error("[v0] Razorpay payment failed:", JSON.stringify(response.error))
+          setError(`Payment failed: ${response.error?.description || "Unknown error"}. Your money will be refunded if debited.`)
+          setProcessing(false)
+        })
         rzp.open()
       } else {
         // FREE EVENT - Create bookings directly
