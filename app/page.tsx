@@ -323,10 +323,10 @@ export default function Home() {
 
           {/* The Path We Follow */}
           <div className="text-center mb-6">
-            <h2 className="font-playfair text-2xl md:text-3xl font-semibold text-white mb-2 drop-shadow-lg">
+            <h2 className="font-playfair text-2xl md:text-3xl font-semibold text-amber-300 mb-2 drop-shadow-lg">
               The Path We Practiced and Passed On
             </h2>
-            <p className="font-lora text-white/80 max-w-2xl mx-auto drop-shadow-md text-sm md:text-base">
+            <p className="font-lora text-amber-100/90 max-w-2xl mx-auto drop-shadow-md text-sm md:text-base">
               Holistic wellness practices inspired by nature's wisdom.
             </p>
           </div>

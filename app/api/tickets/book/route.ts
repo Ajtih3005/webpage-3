@@ -45,32 +45,47 @@ export async function POST(request: Request) {
     const tempId = crypto.randomUUID()
     const qrCodeData = generateQRCodeData(tempId)
 
-    // Create booking (unpaid initially)
-    const bookingInsert: Record<string, any> = {
+    // Core booking data - columns guaranteed to exist
+    const coreBookingData: Record<string, any> = {
       ticket_id,
       user_id: user_id || null,
       booking_name: name,
       booking_email: email,
       booking_phone: phone,
-      passkey: passkey || null, // NULL if registered user
+      passkey: passkey || null,
       qr_code_data: qrCodeData,
       is_paid: false,
       is_attended: false,
     }
-    
-    // Add tracking data if provided
-    if (influencer_code) bookingInsert.influencer_code = influencer_code
-    if (referral_code) bookingInsert.referral_code_used = referral_code
 
-    const { data: booking, error: bookingError } = await supabase
+    // Try with tracking columns first, fallback to core only
+    const trackingData: Record<string, any> = { ...coreBookingData }
+    if (influencer_code) trackingData.influencer_code = influencer_code
+    if (referral_code) trackingData.referral_code_used = referral_code
+
+    let booking = null
+
+    const { data: d1, error: e1 } = await supabase
       .from("ticket_bookings")
-      .insert(bookingInsert)
+      .insert(trackingData)
       .select()
       .single()
 
-    if (bookingError) {
-      console.error("[v0] Error creating booking:", bookingError)
-      return NextResponse.json({ success: false, error: bookingError.message }, { status: 500 })
+    if (!e1 && d1) {
+      booking = d1
+    } else {
+      console.log("[v0] Insert with tracking columns failed:", e1?.message, "- retrying without")
+      const { data: d2, error: e2 } = await supabase
+        .from("ticket_bookings")
+        .insert(coreBookingData)
+        .select()
+        .single()
+
+      if (e2) {
+        console.error("[v0] Core booking insert also failed:", e2.message)
+        return NextResponse.json({ success: false, error: e2.message }, { status: 500 })
+      }
+      booking = d2
     }
 
     // Create Razorpay order if ticket has price
