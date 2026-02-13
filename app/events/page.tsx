@@ -372,6 +372,8 @@ export default function EventsPage() {
         rzp.open()
       } else {
         // FREE EVENT - Create bookings directly (no payment needed)
+        // This covers both originally-free events AND events that became free after discount
+        const isFreeAfterDiscount = selectedEvent.ticket_price > 0 && totalAmount === 0
         const bookings = []
         const errors: string[] = []
         
@@ -387,6 +389,7 @@ export default function EventsPage() {
                 phone: bookerInfo.phone,
                 influencer_code: influencerCode,
                 referral_code: referralApplied ? referralCode : null,
+                is_free_after_discount: isFreeAfterDiscount,
               }),
             })
             

@@ -17,7 +17,7 @@ function generateQRCodeData(bookingId: string): string {
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { ticket_id, name, email, phone, passkey, user_id, influencer_code, referral_code } = body
+    const { ticket_id, name, email, phone, passkey, user_id, influencer_code, referral_code, is_free_after_discount } = body
 
     if (!ticket_id || !name || !email || !phone) {
       return NextResponse.json({ success: false, error: "Missing required fields" }, { status: 400 })
@@ -88,8 +88,8 @@ export async function POST(request: Request) {
       booking = d2
     }
 
-    // Create Razorpay order if ticket has price
-    if (event.ticket_price > 0) {
+    // Create Razorpay order if ticket has price AND it's not free after discount
+    if (event.ticket_price > 0 && !is_free_after_discount) {
       const key_id = process.env.RAZORPAY_KEY_ID || ""
       const key_secret = process.env.RAZORPAY_KEY_SECRET || ""
 
