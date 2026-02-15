@@ -19,8 +19,8 @@ import {
   Phone,
   Calendar,
   MapPin,
+  Loader2,
 } from "lucide-react"
-import { BarcodeDetector } from "barcode-detector"
 import AdminLayout from "@/components/admin-layout"
 
 interface BookingResult {
@@ -48,14 +48,11 @@ export default function QRScannerPage() {
     booking?: BookingResult
   } | null>(null)
   const [loading, setLoading] = useState(false)
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const streamRef = useRef<MediaStream | null>(null)
-  const scanningRef = useRef(false)
-  const detectorRef = useRef<BarcodeDetector | null>(null)
-  const animationFrameRef = useRef<number | null>(null)
+  const [cameraError, setCameraError] = useState<string | null>(null)
+  const [initializing, setInitializing] = useState(false)
+  const scannerContainerRef = useRef<string>("qr-reader-" + Math.random().toString(36).slice(2))
+  const html5QrScannerRef = useRef<any>(null)
 
-  // Get password from localStorage (set by AdminLayout)
   const getPassword = () => {
     if (typeof window !== "undefined") {
       return localStorage.getItem("adminPassword") || ""
@@ -63,156 +60,7 @@ export default function QRScannerPage() {
     return ""
   }
 
-  // Initialize barcode detector once
-  useEffect(() => {
-    // Use the polyfill - it works on all browsers
-    detectorRef.current = new BarcodeDetector({ formats: ["qr_code"] })
-    console.log("[v0] BarcodeDetector initialized using polyfill")
-    
-    return () => {
-      detectorRef.current = null
-    }
-  }, [])
-
-  const stopScanner = useCallback(() => {
-    console.log("[v0] Stopping scanner")
-    scanningRef.current = false
-    
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current)
-      animationFrameRef.current = null
-    }
-    
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop())
-      streamRef.current = null
-    }
-    
-    if (videoRef.current) {
-      videoRef.current.srcObject = null
-    }
-    
-    setScanning(false)
-  }, [])
-
-  const scanQRCode = useCallback(() => {
-    if (!videoRef.current || !canvasRef.current || !scanningRef.current || !detectorRef.current) {
-      console.log("[v0] Scanner refs not ready:", {
-        video: !!videoRef.current,
-        canvas: !!canvasRef.current,
-        scanning: scanningRef.current,
-        detector: !!detectorRef.current
-      })
-      return
-    }
-
-    const canvas = canvasRef.current
-    const video = videoRef.current
-    const ctx = canvas.getContext("2d")
-
-    if (!ctx || video.videoWidth === 0 || video.videoHeight === 0) {
-      // Video not ready yet, try again
-      console.log("[v0] Video not ready, retrying...", {
-        hasCtx: !!ctx,
-        videoWidth: video.videoWidth,
-        videoHeight: video.videoHeight
-      })
-      if (scanningRef.current) {
-        animationFrameRef.current = requestAnimationFrame(scanQRCode)
-      }
-      return
-    }
-
-    canvas.width = video.videoWidth
-    canvas.height = video.videoHeight
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-
-    // Use the polyfill detector
-    detectorRef.current
-      .detect(canvas)
-      .then((barcodes: { rawValue: string }[]) => {
-        if (barcodes.length > 0) {
-          console.log("[v0] QR Code detected:", barcodes[0].rawValue)
-          const qrData = barcodes[0].rawValue
-          verifyQRCode(qrData)
-          stopScanner()
-          return
-        }
-        // Continue scanning if still active
-        if (scanningRef.current) {
-          animationFrameRef.current = requestAnimationFrame(scanQRCode)
-        }
-      })
-      .catch((error: Error) => {
-        console.log("[v0] Scan error:", error)
-        // Continue scanning on error if still active
-        if (scanningRef.current) {
-          animationFrameRef.current = requestAnimationFrame(scanQRCode)
-        }
-      })
-  }, [stopScanner])
-
-  const startScanner = async () => {
-    console.log("[v0] Starting scanner...")
-    
-    if (!detectorRef.current) {
-      // Re-initialize detector if needed
-      detectorRef.current = new BarcodeDetector({ formats: ["qr_code"] })
-    }
-    
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { 
-          facingMode: "environment",
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        },
-      })
-      console.log("[v0] Camera stream obtained")
-      streamRef.current = stream
-      
-      if (videoRef.current) {
-        const video = videoRef.current
-        
-        // Set scanning state immediately so UI updates
-        setScanning(true)
-        scanningRef.current = true
-        
-        // Set up the video element
-        video.srcObject = stream
-        
-        // Function to start scanning once video is ready
-        const startScanningLoop = () => {
-          console.log("[v0] Video dimensions:", video.videoWidth, "x", video.videoHeight)
-          if (video.videoWidth > 0 && video.videoHeight > 0) {
-            console.log("[v0] Starting QR scan loop")
-            scanQRCode()
-          } else {
-            // Video not ready yet, wait and retry
-            console.log("[v0] Video not ready, waiting...")
-            setTimeout(startScanningLoop, 200)
-          }
-        }
-        
-        // Try to play the video
-        try {
-          await video.play()
-          console.log("[v0] Video play() succeeded")
-          // Give it a moment to render frames
-          setTimeout(startScanningLoop, 500)
-        } catch (playError) {
-          console.error("[v0] Video play error:", playError)
-          // Still try to start scanning - autoPlay might work
-          setTimeout(startScanningLoop, 500)
-        }
-      }
-    } catch (error) {
-      console.error("[v0] Camera access denied:", error)
-      alert("Please allow camera access to scan QR codes")
-    }
-  }
-
-  const verifyQRCode = async (qrData: string) => {
+  const verifyQRCode = useCallback(async (qrData: string) => {
     const password = getPassword()
     setLoading(true)
     setResult(null)
@@ -242,7 +90,7 @@ export default function QRScannerPage() {
           booking: data.booking,
         })
       }
-    } catch (error) {
+    } catch {
       setResult({
         success: false,
         message: "Failed to verify QR code",
@@ -250,7 +98,113 @@ export default function QRScannerPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
+
+  const stopScanner = useCallback(async () => {
+    try {
+      if (html5QrScannerRef.current) {
+        const scannerState = html5QrScannerRef.current.getState()
+        // State 2 = SCANNING, State 3 = PAUSED
+        if (scannerState === 2 || scannerState === 3) {
+          await html5QrScannerRef.current.stop()
+        }
+        html5QrScannerRef.current.clear()
+        html5QrScannerRef.current = null
+      }
+    } catch (e) {
+      console.log("[v0] Error stopping scanner:", e)
+    }
+    setScanning(false)
+  }, [])
+
+  const startScanner = useCallback(async () => {
+    setCameraError(null)
+    setInitializing(true)
+
+    try {
+      // Dynamically import html5-qrcode so it only loads in browser
+      const { Html5Qrcode } = await import("html5-qrcode")
+
+      // Stop any existing scanner first
+      if (html5QrScannerRef.current) {
+        try {
+          const state = html5QrScannerRef.current.getState()
+          if (state === 2 || state === 3) {
+            await html5QrScannerRef.current.stop()
+          }
+          html5QrScannerRef.current.clear()
+        } catch {
+          // ignore
+        }
+      }
+
+      const scanner = new Html5Qrcode(scannerContainerRef.current)
+      html5QrScannerRef.current = scanner
+
+      setScanning(true)
+
+      await scanner.start(
+        { facingMode: "environment" },
+        {
+          fps: 10,
+          qrbox: { width: 250, height: 250 },
+          aspectRatio: 1.0,
+        },
+        (decodedText: string) => {
+          // QR code scanned successfully
+          console.log("[v0] QR scanned:", decodedText)
+          verifyQRCode(decodedText)
+          // Stop scanner after successful scan
+          scanner.stop().then(() => {
+            scanner.clear()
+            html5QrScannerRef.current = null
+            setScanning(false)
+          }).catch(() => {
+            setScanning(false)
+          })
+        },
+        () => {
+          // QR code not found in frame - this is normal, just keep scanning
+        }
+      )
+
+      setInitializing(false)
+    } catch (error: any) {
+      console.error("[v0] Scanner start error:", error)
+      setInitializing(false)
+      setScanning(false)
+
+      if (error?.message?.includes("Permission") || error?.name === "NotAllowedError") {
+        setCameraError("Camera permission denied. Please allow camera access in your browser settings and try again.")
+      } else if (error?.name === "NotFoundError" || error?.message?.includes("no camera")) {
+        setCameraError("No camera found on this device.")
+      } else if (error?.name === "NotReadableError") {
+        setCameraError("Camera is in use by another application. Please close other apps using the camera.")
+      } else {
+        setCameraError(`Could not start camera: ${error?.message || "Unknown error"}. You can use manual entry below.`)
+      }
+    }
+  }, [verifyQRCode])
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (html5QrScannerRef.current) {
+        try {
+          const state = html5QrScannerRef.current.getState()
+          if (state === 2 || state === 3) {
+            html5QrScannerRef.current.stop().then(() => {
+              html5QrScannerRef.current?.clear()
+            })
+          } else {
+            html5QrScannerRef.current.clear()
+          }
+        } catch {
+          // ignore cleanup errors
+        }
+      }
+    }
+  }, [])
 
   const handleManualVerify = () => {
     if (manualCode.trim()) {
@@ -258,18 +212,14 @@ export default function QRScannerPage() {
     }
   }
 
-  // Auto-start scanner on mount and cleanup on unmount
-  useEffect(() => {
-    // Auto-start the scanner when page loads
-    const timer = setTimeout(() => {
+  const handleScanAgain = async () => {
+    setResult(null)
+    setManualCode("")
+    // Small delay to let the DOM update before re-starting scanner
+    setTimeout(() => {
       startScanner()
-    }, 500)
-    
-    return () => {
-      clearTimeout(timer)
-      stopScanner()
-    }
-  }, [])
+    }, 300)
+  }
 
   return (
     <AdminLayout>
@@ -284,32 +234,35 @@ export default function QRScannerPage() {
           </Link>
         </div>
 
+        {/* Scanner Card */}
         <Card className="mb-6">
           <CardContent className="p-6">
-            {!scanning ? (
-              <div className="text-center space-y-4">
-                <QrCode className="w-16 h-16 mx-auto text-emerald-600 animate-pulse" />
-                <p className="text-gray-600">Opening scanner...</p>
-                <Button onClick={startScanner} className="bg-emerald-600 hover:bg-emerald-700">
-                  <Camera className="w-4 h-4 mr-2" />
-                  Open Scanner
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="relative aspect-square max-w-sm mx-auto bg-black rounded-lg overflow-hidden">
-                  <video
-                    ref={videoRef}
-                    className="w-full h-full object-cover"
-                    playsInline
-                    muted
-                    autoPlay
-                  />
-                  <div className="absolute inset-0 border-4 border-emerald-500 rounded-lg pointer-events-none">
-                    <div className="absolute inset-[20%] border-2 border-white/50 rounded" />
+            {cameraError && (
+              <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-sm text-red-800">{cameraError}</p>
+                    <Button
+                      onClick={startScanner}
+                      size="sm"
+                      className="mt-2 bg-red-600 hover:bg-red-700"
+                    >
+                      Try Again
+                    </Button>
                   </div>
                 </div>
-                <canvas ref={canvasRef} className="hidden" />
+              </div>
+            )}
+
+            {/* This div is the container for html5-qrcode's camera view */}
+            <div
+              id={scannerContainerRef.current}
+              className={scanning ? "w-full max-w-sm mx-auto rounded-lg overflow-hidden" : "hidden"}
+            />
+
+            {scanning && (
+              <div className="mt-4">
                 <Button
                   onClick={stopScanner}
                   variant="destructive"
@@ -319,9 +272,30 @@ export default function QRScannerPage() {
                 </Button>
               </div>
             )}
+
+            {!scanning && !cameraError && (
+              <div className="text-center space-y-4">
+                {initializing ? (
+                  <>
+                    <Loader2 className="w-16 h-16 mx-auto text-emerald-600 animate-spin" />
+                    <p className="text-gray-600">Starting camera...</p>
+                  </>
+                ) : (
+                  <>
+                    <QrCode className="w-16 h-16 mx-auto text-emerald-600" />
+                    <p className="text-gray-600">Tap the button below to open the camera and scan a QR code.</p>
+                    <Button onClick={startScanner} className="bg-emerald-600 hover:bg-emerald-700">
+                      <Camera className="w-4 h-4 mr-2" />
+                      Open Scanner
+                    </Button>
+                  </>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
 
+        {/* Manual Entry Card */}
         <Card className="mb-6">
           <CardHeader>
             <CardTitle className="text-lg">Manual Entry</CardTitle>
@@ -341,11 +315,19 @@ export default function QRScannerPage() {
               disabled={loading || !manualCode.trim()}
               className="w-full bg-purple-600 hover:bg-purple-700"
             >
-              {loading ? "Verifying..." : "Verify Manually"}
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Verifying...
+                </>
+              ) : (
+                "Verify Manually"
+              )}
             </Button>
           </CardContent>
         </Card>
 
+        {/* Result Card */}
         {result && (
           <Card
             className={
@@ -417,10 +399,7 @@ export default function QRScannerPage() {
               )}
 
               <Button
-                onClick={() => {
-                  setResult(null)
-                  setManualCode("")
-                }}
+                onClick={handleScanAgain}
                 variant="outline"
                 className="w-full mt-4"
               >
