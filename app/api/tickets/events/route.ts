@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { getSupabaseServerClient } from "@/lib/supabase"
 
-// GET - List all active events
+// GET - List all active events (with dynamically computed available_seats)
 export async function GET() {
   try {
     const supabase = getSupabaseServerClient()
@@ -18,7 +18,37 @@ export async function GET() {
       return NextResponse.json({ success: false, error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ success: true, events })
+    if (!events || events.length === 0) {
+      return NextResponse.json({ success: true, events: [] })
+    }
+
+    // Dynamically compute available_seats by counting actual paid bookings
+    const eventIds = events.map((e: any) => e.id)
+    const { data: bookings, error: bookingsError } = await supabase
+      .from("ticket_bookings")
+      .select("ticket_id, is_paid")
+      .in("ticket_id", eventIds)
+      .eq("is_paid", true)
+
+    if (bookingsError) {
+      console.error("[v0] Error fetching bookings for seat count:", bookingsError)
+      // Fallback: return events with stored available_seats
+      return NextResponse.json({ success: true, events })
+    }
+
+    // Count paid bookings per event
+    const paidCountMap: Record<string, number> = {}
+    for (const b of bookings || []) {
+      paidCountMap[b.ticket_id] = (paidCountMap[b.ticket_id] || 0) + 1
+    }
+
+    // Override available_seats with dynamic calculation
+    const eventsWithCorrectSeats = events.map((event: any) => ({
+      ...event,
+      available_seats: Math.max(0, event.total_seats - (paidCountMap[event.id] || 0)),
+    }))
+
+    return NextResponse.json({ success: true, events: eventsWithCorrectSeats })
   } catch (error) {
     console.error("[v0] Error:", error)
     return NextResponse.json({ success: false, error: "Failed to fetch events" }, { status: 500 })

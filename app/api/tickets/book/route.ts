@@ -37,7 +37,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: "Event not found or not available" }, { status: 404 })
     }
 
-    if (event.available_seats <= 0) {
+    // Dynamically compute available seats by counting actual paid bookings
+    const { count: paidCount, error: countError } = await supabase
+      .from("ticket_bookings")
+      .select("*", { count: "exact", head: true })
+      .eq("ticket_id", ticket_id)
+      .eq("is_paid", true)
+
+    const actualAvailable = event.total_seats - (paidCount || 0)
+
+    if (actualAvailable <= 0) {
       return NextResponse.json({ success: false, error: "No seats available" }, { status: 400 })
     }
 
