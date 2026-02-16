@@ -20,6 +20,8 @@ import {
   Calendar,
   MapPin,
   Loader2,
+  Check,
+  X,
 } from "lucide-react"
 import AdminLayout from "@/components/admin-layout"
 
@@ -39,6 +41,40 @@ interface BookingResult {
   }
 }
 
+function ScanResultOverlay({
+  success,
+  onDone,
+}: {
+  success: boolean
+  onDone: () => void
+}) {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onDone()
+    }, 1800)
+    return () => clearTimeout(timer)
+  }, [onDone])
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="scan-result-overlay flex flex-col items-center gap-4">
+        {success ? (
+          <div className="rounded-full bg-green-500 p-6 shadow-[0_0_60px_rgba(34,197,94,0.5)]">
+            <Check className="h-24 w-24 text-white" strokeWidth={3} />
+          </div>
+        ) : (
+          <div className="rounded-full bg-red-500 p-6 shadow-[0_0_60px_rgba(239,68,68,0.5)]">
+            <X className="h-24 w-24 text-white" strokeWidth={3} />
+          </div>
+        )}
+        <p className="text-2xl font-bold text-white">
+          {success ? "Check-in Successful" : "Verification Failed"}
+        </p>
+      </div>
+    </div>
+  )
+}
+
 export default function QRScannerPage() {
   const [scanning, setScanning] = useState(false)
   const [manualCode, setManualCode] = useState("")
@@ -50,7 +86,11 @@ export default function QRScannerPage() {
   const [loading, setLoading] = useState(false)
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [initializing, setInitializing] = useState(false)
-  const scannerContainerRef = useRef<string>("qr-reader-" + Math.random().toString(36).slice(2))
+  const [showOverlay, setShowOverlay] = useState(false)
+  const [overlaySuccess, setOverlaySuccess] = useState(false)
+  const scannerContainerRef = useRef<string>(
+    "qr-reader-" + Math.random().toString(36).slice(2)
+  )
   const html5QrScannerRef = useRef<any>(null)
 
   const getPassword = () => {
@@ -78,12 +118,16 @@ export default function QRScannerPage() {
       const data = await res.json()
 
       if (data.success) {
+        setOverlaySuccess(true)
+        setShowOverlay(true)
         setResult({
           success: true,
           message: "Check-in successful!",
           booking: data.booking,
         })
       } else {
+        setOverlaySuccess(false)
+        setShowOverlay(true)
         setResult({
           success: false,
           message: data.error || "Verification failed",
@@ -91,6 +135,8 @@ export default function QRScannerPage() {
         })
       }
     } catch {
+      setOverlaySuccess(false)
+      setShowOverlay(true)
       setResult({
         success: false,
         message: "Failed to verify QR code",
@@ -104,7 +150,6 @@ export default function QRScannerPage() {
     try {
       if (html5QrScannerRef.current) {
         const scannerState = html5QrScannerRef.current.getState()
-        // State 2 = SCANNING, State 3 = PAUSED
         if (scannerState === 2 || scannerState === 3) {
           await html5QrScannerRef.current.stop()
         }
@@ -112,7 +157,7 @@ export default function QRScannerPage() {
         html5QrScannerRef.current = null
       }
     } catch (e) {
-      console.log("[v0] Error stopping scanner:", e)
+      // ignore stop errors
     }
     setScanning(false)
   }, [])
@@ -122,10 +167,8 @@ export default function QRScannerPage() {
     setInitializing(true)
 
     try {
-      // Dynamically import html5-qrcode so it only loads in browser
       const { Html5Qrcode } = await import("html5-qrcode")
 
-      // Stop any existing scanner first
       if (html5QrScannerRef.current) {
         try {
           const state = html5QrScannerRef.current.getState()
@@ -151,42 +194,52 @@ export default function QRScannerPage() {
           aspectRatio: 1.0,
         },
         (decodedText: string) => {
-          // QR code scanned successfully
-          console.log("[v0] QR scanned:", decodedText)
           verifyQRCode(decodedText)
-          // Stop scanner after successful scan
-          scanner.stop().then(() => {
-            scanner.clear()
-            html5QrScannerRef.current = null
-            setScanning(false)
-          }).catch(() => {
-            setScanning(false)
-          })
+          scanner
+            .stop()
+            .then(() => {
+              scanner.clear()
+              html5QrScannerRef.current = null
+              setScanning(false)
+            })
+            .catch(() => {
+              setScanning(false)
+            })
         },
         () => {
-          // QR code not found in frame - this is normal, just keep scanning
+          // QR code not found in frame - keep scanning
         }
       )
 
       setInitializing(false)
     } catch (error: any) {
-      console.error("[v0] Scanner start error:", error)
       setInitializing(false)
       setScanning(false)
 
-      if (error?.message?.includes("Permission") || error?.name === "NotAllowedError") {
-        setCameraError("Camera permission denied. Please allow camera access in your browser settings and try again.")
-      } else if (error?.name === "NotFoundError" || error?.message?.includes("no camera")) {
+      if (
+        error?.message?.includes("Permission") ||
+        error?.name === "NotAllowedError"
+      ) {
+        setCameraError(
+          "Camera permission denied. Please allow camera access in your browser settings and try again."
+        )
+      } else if (
+        error?.name === "NotFoundError" ||
+        error?.message?.includes("no camera")
+      ) {
         setCameraError("No camera found on this device.")
       } else if (error?.name === "NotReadableError") {
-        setCameraError("Camera is in use by another application. Please close other apps using the camera.")
+        setCameraError(
+          "Camera is in use by another application. Please close other apps using the camera."
+        )
       } else {
-        setCameraError(`Could not start camera: ${error?.message || "Unknown error"}. You can use manual entry below.`)
+        setCameraError(
+          `Could not start camera: ${error?.message || "Unknown error"}. You can use manual entry below.`
+        )
       }
     }
   }, [verifyQRCode])
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (html5QrScannerRef.current) {
@@ -215,7 +268,6 @@ export default function QRScannerPage() {
   const handleScanAgain = async () => {
     setResult(null)
     setManualCode("")
-    // Small delay to let the DOM update before re-starting scanner
     setTimeout(() => {
       startScanner()
     }, 300)
@@ -223,6 +275,14 @@ export default function QRScannerPage() {
 
   return (
     <AdminLayout>
+      {/* Full-screen tick / cross overlay */}
+      {showOverlay && (
+        <ScanResultOverlay
+          success={overlaySuccess}
+          onDone={() => setShowOverlay(false)}
+        />
+      )}
+
       <div className="max-w-2xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-gray-900">QR Scanner</h1>
@@ -246,7 +306,7 @@ export default function QRScannerPage() {
                     <Button
                       onClick={startScanner}
                       size="sm"
-                      className="mt-2 bg-red-600 hover:bg-red-700"
+                      className="mt-2 bg-red-600 hover:bg-red-700 text-white"
                     >
                       Try Again
                     </Button>
@@ -255,10 +315,14 @@ export default function QRScannerPage() {
               </div>
             )}
 
-            {/* This div is the container for html5-qrcode's camera view */}
+            {/* Camera container - mirror effect is applied via CSS in globals.css */}
             <div
               id={scannerContainerRef.current}
-              className={scanning ? "w-full max-w-sm mx-auto rounded-lg overflow-hidden" : "hidden"}
+              className={
+                scanning
+                  ? "w-full max-w-sm mx-auto rounded-lg overflow-hidden"
+                  : "hidden"
+              }
             />
 
             {scanning && (
@@ -283,8 +347,14 @@ export default function QRScannerPage() {
                 ) : (
                   <>
                     <QrCode className="w-16 h-16 mx-auto text-emerald-600" />
-                    <p className="text-gray-600">Tap the button below to open the camera and scan a QR code.</p>
-                    <Button onClick={startScanner} className="bg-emerald-600 hover:bg-emerald-700">
+                    <p className="text-gray-600">
+                      Tap the button below to open the camera and scan a QR
+                      code.
+                    </p>
+                    <Button
+                      onClick={startScanner}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                    >
                       <Camera className="w-4 h-4 mr-2" />
                       Open Scanner
                     </Button>
@@ -313,7 +383,7 @@ export default function QRScannerPage() {
             <Button
               onClick={handleManualVerify}
               disabled={loading || !manualCode.trim()}
-              className="w-full bg-purple-600 hover:bg-purple-700"
+              className="w-full bg-purple-600 hover:bg-purple-700 text-white"
             >
               {loading ? (
                 <>
@@ -327,7 +397,7 @@ export default function QRScannerPage() {
           </CardContent>
         </Card>
 
-        {/* Result Card */}
+        {/* Result Card (detailed info, shown after overlay auto-dismisses) */}
         {result && (
           <Card
             className={
@@ -360,30 +430,42 @@ export default function QRScannerPage() {
                 <div className="space-y-3 mt-4 pt-4 border-t border-gray-200">
                   <div className="flex items-center gap-2">
                     <User className="w-4 h-4 text-gray-500" />
-                    <span className="font-medium">{result.booking.booking_name}</span>
+                    <span className="font-medium">
+                      {result.booking.booking_name}
+                    </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Mail className="w-4 h-4 text-gray-500" />
-                    <span className="text-sm">{result.booking.booking_email}</span>
+                    <span className="text-sm">
+                      {result.booking.booking_email}
+                    </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Phone className="w-4 h-4 text-gray-500" />
-                    <span className="text-sm">{result.booking.booking_phone}</span>
+                    <span className="text-sm">
+                      {result.booking.booking_phone}
+                    </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Calendar className="w-4 h-4 text-gray-500" />
                     <span className="text-sm">
                       {result.booking.event_tickets?.event_name} -{" "}
-                      {new Date(result.booking.event_tickets?.event_date).toLocaleDateString()}
+                      {new Date(
+                        result.booking.event_tickets?.event_date
+                      ).toLocaleDateString()}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <MapPin className="w-4 h-4 text-gray-500" />
-                    <span className="text-sm">{result.booking.event_tickets?.venue}</span>
+                    <span className="text-sm">
+                      {result.booking.event_tickets?.venue}
+                    </span>
                   </div>
                   <div className="flex gap-2 mt-2">
                     {result.booking.is_paid ? (
-                      <Badge className="bg-green-100 text-green-800">Paid</Badge>
+                      <Badge className="bg-green-100 text-green-800">
+                        Paid
+                      </Badge>
                     ) : (
                       <Badge variant="destructive">Unpaid</Badge>
                     )}
