@@ -48,6 +48,7 @@
     "framer-motion": "latest",
     "fs": "latest",
     "html2canvas": "latest",
+    "html5-qrcode": "2.3.8",
     "jsonwebtoken": "^9.0.2",
     "jspdf": "latest",
     "lodash": "latest",

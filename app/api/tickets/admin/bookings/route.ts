@@ -53,3 +53,35 @@ export async function GET(request: Request) {
     return NextResponse.json({ success: false, error: "Failed to fetch bookings" }, { status: 500 })
   }
 }
+
+// DELETE - Delete a booking (seats are recalculated dynamically so no need to manually update available_seats)
+export async function DELETE(request: Request) {
+  const authHeader = request.headers.get("x-admin-password")
+  if (authHeader !== process.env.ADMIN_PASSWORD) {
+    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
+  }
+
+  try {
+    const { searchParams } = new URL(request.url)
+    const bookingId = searchParams.get("id")
+
+    if (!bookingId) {
+      return NextResponse.json({ success: false, error: "Booking ID required" }, { status: 400 })
+    }
+
+    const supabase = getSupabaseServerClient()
+
+    const { error } = await supabase
+      .from("ticket_bookings")
+      .delete()
+      .eq("id", bookingId)
+
+    if (error) {
+      return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true, message: "Booking deleted" })
+  } catch (error) {
+    return NextResponse.json({ success: false, error: "Failed to delete booking" }, { status: 500 })
+  }
+}
