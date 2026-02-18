@@ -25,31 +25,31 @@ export async function GET(request: Request) {
     }
 
     // Dynamically compute available_seats by counting actual paid bookings
-    const eventIds = events.map((e: any) => e.id)
-    const { data: bookings, error: bookingsError } = await supabase
-      .from("ticket_bookings")
-      .select("ticket_id, is_paid")
-      .in("ticket_id", eventIds)
-      .eq("is_paid", true)
+    let finalEvents = events
+    try {
+      const eventIds = events.map((e: any) => e.id)
+      const { data: bookings, error: bookingsError } = await supabase
+        .from("ticket_bookings")
+        .select("ticket_id")
+        .in("ticket_id", eventIds)
+        .eq("is_paid", true)
 
-    if (bookingsError) {
-      console.error("[v0] Error fetching bookings for seat count:", bookingsError)
-      return NextResponse.json({ success: true, events })
+      if (!bookingsError && bookings) {
+        const paidCountMap: Record<string, number> = {}
+        for (const b of bookings) {
+          paidCountMap[b.ticket_id] = (paidCountMap[b.ticket_id] || 0) + 1
+        }
+
+        finalEvents = events.map((event: any) => ({
+          ...event,
+          available_seats: Math.max(0, event.total_seats - (paidCountMap[event.id] || 0)),
+        }))
+      }
+    } catch (countErr) {
+      console.error("[v0] Error counting bookings, using stored seats:", countErr)
     }
 
-    // Count paid bookings per event
-    const paidCountMap: Record<string, number> = {}
-    for (const b of bookings || []) {
-      paidCountMap[b.ticket_id] = (paidCountMap[b.ticket_id] || 0) + 1
-    }
-
-    // Override available_seats with dynamic calculation
-    const eventsWithCorrectSeats = events.map((event: any) => ({
-      ...event,
-      available_seats: Math.max(0, event.total_seats - (paidCountMap[event.id] || 0)),
-    }))
-
-    return NextResponse.json({ success: true, events: eventsWithCorrectSeats })
+    return NextResponse.json({ success: true, events: finalEvents })
   } catch (error) {
     return NextResponse.json({ success: false, error: "Failed to fetch events" }, { status: 500 })
   }
