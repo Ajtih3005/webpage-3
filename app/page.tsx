@@ -154,6 +154,9 @@ export default function Home() {
             <Link href="/updates" className="px-4 py-2 text-sm text-gray-700 hover:text-gray-900 transition-colors font-lora bg-white/80 backdrop-blur-sm rounded-full shadow-sm hover:shadow-md border border-white/50">
               Updates
             </Link>
+            <Link href="/swarasya" className="px-4 py-2 text-sm text-gray-700 hover:text-gray-900 transition-colors font-lora bg-white/80 backdrop-blur-sm rounded-full shadow-sm hover:shadow-md border border-white/50">
+              Swarasya
+            </Link>
             <Link href="/events" className="px-4 py-2 text-sm text-gray-700 hover:text-gray-900 transition-colors font-lora bg-white/80 backdrop-blur-sm rounded-full shadow-sm hover:shadow-md border border-white/50">
               Tickets
             </Link>
@@ -188,6 +191,13 @@ export default function Home() {
                 className="text-gray-700 hover:text-gray-900 py-2 font-lora"
               >
                 Updates
+              </Link>
+              <Link
+                href="/swarasya"
+                onClick={() => setMobileMenuOpen(false)}
+                className="text-gray-700 hover:text-gray-900 py-2 font-lora"
+              >
+                Swarasya
               </Link>
               <Link
                 href="/events"
