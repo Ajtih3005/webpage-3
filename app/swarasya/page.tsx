@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -10,8 +10,7 @@ import {
   Music, 
   Users, 
   Heart, 
-  Play, 
-  Pause,
+  Play,
   Instagram, 
   Youtube,
   Mic2,
@@ -28,13 +27,22 @@ interface BandMember {
   bio: string
 }
 
+// INSTRUCTIONS: To add band member photos from Google Drive:
+// 1. Right-click on the image in Google Drive
+// 2. Select "Get link" and make sure it's set to "Anyone with the link"
+// 3. Copy the file ID from the URL (the long string between /d/ and /view)
+// 4. Use this format: https://drive.google.com/uc?export=view&id=YOUR_FILE_ID
+// Example: If your link is https://drive.google.com/file/d/1ABC123xyz/view
+// Your image URL would be: https://drive.google.com/uc?export=view&id=1ABC123xyz
+
 const bandMembers: BandMember[] = [
   {
     id: 1,
     name: "Member Name",
     role: "Lead Vocalist",
     instrument: "Vocals & Harmonium",
-    image: "/placeholder.svg?height=400&width=400&query=indian musician with harmonium",
+    // Replace with Google Drive URL: https://drive.google.com/uc?export=view&id=YOUR_FILE_ID
+    image: "",
     bio: "Bringing soulful melodies that connect the heart to the divine."
   },
   {
@@ -42,7 +50,8 @@ const bandMembers: BandMember[] = [
     name: "Member Name",
     role: "Percussionist",
     instrument: "Tabla & Mridangam",
-    image: "/placeholder.svg?height=400&width=400&query=tabla player indian musician",
+    // Replace with Google Drive URL: https://drive.google.com/uc?export=view&id=YOUR_FILE_ID
+    image: "",
     bio: "Creating rhythms that resonate with the pulse of the universe."
   },
   {
@@ -50,7 +59,8 @@ const bandMembers: BandMember[] = [
     name: "Member Name",
     role: "Instrumentalist",
     instrument: "Flute & Violin",
-    image: "/placeholder.svg?height=400&width=400&query=flute player indian classical musician",
+    // Replace with Google Drive URL: https://drive.google.com/uc?export=view&id=YOUR_FILE_ID
+    image: "",
     bio: "Weaving melodies that transport listeners to a state of peace."
   },
   {
@@ -58,7 +68,8 @@ const bandMembers: BandMember[] = [
     name: "Member Name",
     role: "Backing Vocals",
     instrument: "Vocals & Tanpura",
-    image: "/placeholder.svg?height=400&width=400&query=indian classical singer tanpura",
+    // Replace with Google Drive URL: https://drive.google.com/uc?export=view&id=YOUR_FILE_ID
+    image: "",
     bio: "Providing the harmonic foundation that grounds our spiritual journey."
   }
 ]
@@ -88,7 +99,6 @@ const albums = [
 ]
 
 export default function SwarasyaPage() {
-  const [isPlaying, setIsPlaying] = useState(false)
   const [scrolled, setScrolled] = useState(false)
 
   useEffect(() => {
@@ -160,24 +170,7 @@ export default function SwarasyaPage() {
             Where ancient melodies meet modern souls. Music that transcends, heals, and elevates the spirit on its journey toward inner peace.
           </p>
 
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button 
-              size="lg"
-              onClick={() => setIsPlaying(!isPlaying)}
-              className="bg-amber-500 hover:bg-amber-600 text-stone-900 font-semibold px-8 py-6 text-lg rounded-full shadow-xl hover:shadow-2xl transition-all"
-            >
-              {isPlaying ? <Pause className="mr-2 h-5 w-5" /> : <Play className="mr-2 h-5 w-5" />}
-              {isPlaying ? "Pause Music" : "Listen Now"}
-            </Button>
-            <Button 
-              size="lg"
-              variant="outline"
-              className="border-amber-400/50 text-amber-100 hover:bg-amber-500/20 px-8 py-6 text-lg rounded-full"
-            >
-              <Disc3 className="mr-2 h-5 w-5" />
-              View Albums
-            </Button>
-          </div>
+          
         </div>
 
         {/* Scroll indicator */}
@@ -213,10 +206,10 @@ export default function SwarasyaPage() {
             <div className="relative">
               <div className="aspect-square rounded-2xl overflow-hidden border-2 border-amber-500/30 shadow-2xl">
                 <Image
-                  src="/images/logo.png"
-                  alt="Swarasya Performance"
+                  src="/images/swarasya-logo.jpeg"
+                  alt="Swarasya Logo"
                   fill
-                  className="object-cover"
+                  className="object-contain bg-white p-4"
                 />
               </div>
               <div className="absolute -bottom-6 -right-6 bg-amber-500 text-stone-900 px-6 py-4 rounded-xl shadow-xl">
@@ -248,12 +241,19 @@ export default function SwarasyaPage() {
             {bandMembers.map((member) => (
               <Card key={member.id} className="bg-stone-900/80 border-amber-900/30 overflow-hidden group hover:shadow-xl hover:shadow-amber-500/10 transition-all duration-300">
                 <div className="relative aspect-square overflow-hidden">
-                  <Image
-                    src={member.image}
-                    alt={member.name}
-                    fill
-                    className="object-cover group-hover:scale-105 transition-transform duration-500"
-                  />
+                  {member.image ? (
+                    <Image
+                      src={member.image}
+                      alt={member.name}
+                      fill
+                      className="object-cover group-hover:scale-105 transition-transform duration-500"
+                      unoptimized
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-stone-700 flex items-center justify-center">
+                      <Users className="h-16 w-16 text-stone-500" />
+                    </div>
+                  )}
                   <div className="absolute inset-0 bg-gradient-to-t from-stone-900 via-transparent to-transparent"></div>
                 </div>
                 <CardContent className="p-5">
@@ -349,8 +349,8 @@ export default function SwarasyaPage() {
         <div className="container mx-auto px-6 max-w-6xl">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-4">
-              <div className="relative h-12 w-12 rounded-full overflow-hidden border-2 border-amber-500/30">
-                <Image src="/images/logo.png" alt="Sthavishtah" fill className="object-cover" />
+              <div className="relative h-12 w-12 rounded-full overflow-hidden border-2 border-amber-500/30 bg-white">
+                <Image src="/images/swarasya-logo.jpeg" alt="Swarasya" fill className="object-contain p-1" />
               </div>
               <div>
                 <p className="font-playfair text-lg font-semibold text-white">SWARASYA</p>
