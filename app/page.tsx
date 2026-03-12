@@ -810,12 +810,12 @@ export default function Home() {
             />
           ))}
         </div>
-        <div className="container mx-auto px-6">
+        <div className="container mx-auto px-6 relative z-10">
           <div className="grid md:grid-cols-3 gap-8 md:gap-12">
             {/* Brand Column */}
             <div>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="relative h-14 w-14 rounded-full overflow-hidden">
+              <div className="flex items-center gap-3 mb-4 group">
+                <div className="relative h-14 w-14 rounded-full overflow-hidden group-hover:scale-105 transition-transform duration-300">
                   <Image src="/images/logo.png" alt="Sthavishtah" fill className="object-cover" />
                 </div>
                 <span className="font-playfair text-xl font-semibold">STHAVISHTAH YOGA</span>
@@ -849,20 +849,20 @@ export default function Home() {
             <div>
               <h3 className="font-playfair text-lg font-semibold mb-4">Quick Links</h3>
               <nav className="space-y-2 text-sm">
-                <Link href="/user/login" className="flex items-center gap-2 hover:text-white/80 transition-colors">
-                  <ArrowRight className="w-4 h-4" />
+                <Link href="/user/login" className="flex items-center gap-2 hover:text-white/80 transition-colors group">
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   Login
                 </Link>
-                <Link href="/user/register" className="flex items-center gap-2 hover:text-white/80 transition-colors">
-                  <ArrowRight className="w-4 h-4" />
+                <Link href="/user/register" className="flex items-center gap-2 hover:text-white/80 transition-colors group">
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   Register
                 </Link>
-                <Link href="/instructors" className="flex items-center gap-2 hover:text-white/80 transition-colors">
-                  <ArrowRight className="w-4 h-4" />
+                <Link href="/instructors" className="flex items-center gap-2 hover:text-white/80 transition-colors group">
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   Instructors
                 </Link>
-                <Link href="/admin" className="flex items-center gap-2 hover:text-white/80 transition-colors">
-                  <ArrowRight className="w-4 h-4" />
+                <Link href="/admin" className="flex items-center gap-2 hover:text-white/80 transition-colors group">
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   Admin
                 </Link>
               </nav>
@@ -876,7 +876,7 @@ export default function Home() {
 
 function BatchTime({ number, time, isNew = false }) {
   return (
-    <div className="flex items-center p-3 sm:p-4 border rounded-lg bg-gradient-to-r from-green-50/80 to-emerald-50/80 hover:from-green-100/80 hover:to-emerald-100/80 transition-colors shadow-sm group border-green-100 hover:border-green-200">
+    <div className="flex items-center p-3 sm:p-4 border rounded-lg bg-gradient-to-r from-green-50/80 to-emerald-50/80 hover:from-green-100/80 hover:to-emerald-100/80 transition-all duration-300 shadow-sm group border-green-100 hover:border-green-200 hover:shadow-md hover:-translate-y-0.5">
       <span className="mr-3 sm:mr-4 px-2 py-1 sm:px-3 sm:py-1 text-xs sm:text-sm font-bold bg-gradient-to-r from-green-600 to-emerald-600 text-white border-0 shadow-sm group-hover:from-green-700 group-hover:to-emerald-700 transition-colors">
         BATCH {number}
       </span>
@@ -892,13 +892,13 @@ function BatchTime({ number, time, isNew = false }) {
 
 function OfferingCard({ icon, title, description }) {
   return (
-    <div className="flex-shrink-0 w-72 snap-center border-emerald-200/40 hover:shadow-lg transition-all duration-300 group bg-white/90 backdrop-blur-sm">
+    <div className="flex-shrink-0 w-72 snap-center border-emerald-200/40 hover:shadow-xl transition-all duration-500 group bg-white/90 backdrop-blur-sm hover:-translate-y-1">
       <div className="p-6">
         <div className="flex items-start gap-4 mb-3">
-          <div className="p-2.5 rounded-full bg-emerald-50 group-hover:bg-emerald-100 transition-colors flex-shrink-0">
+          <div className="p-2.5 rounded-full bg-emerald-50 group-hover:bg-emerald-100 transition-all duration-300 flex-shrink-0 group-hover:scale-110">
             {icon}
           </div>
-          <h3 className="font-playfair text-lg font-semibold text-emerald-800 leading-tight">{title}</h3>
+          <h3 className="font-playfair text-lg font-semibold text-emerald-800 leading-tight group-hover:text-emerald-900 transition-colors">{title}</h3>
         </div>
         <p className="text-sm text-emerald-700/70 font-lora leading-relaxed">{description}</p>
       </div>
@@ -908,11 +908,11 @@ function OfferingCard({ icon, title, description }) {
 
 function WellnessCard({ icon, title, content }) {
   return (
-    <div className="nature-card h-full group overflow-hidden shadow-lg hover:shadow-xl transition-all duration-500 border-0 bg-white/95 backdrop-blur-sm">
+    <div className="nature-card h-full group overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-500 border-0 bg-white/95 backdrop-blur-sm hover:-translate-y-2">
       <div className="h-1 bg-gradient-to-r from-green-400 to-green-600 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-500"></div>
       <div className="pt-6 pb-6">
         <div className="flex flex-col items-center text-center">
-          <div className="mb-4 sm:mb-5 p-3 sm:p-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-full group-hover:from-green-100 group-hover:to-emerald-100 transition-colors shadow-md">
+          <div className="mb-4 sm:mb-5 p-3 sm:p-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-full group-hover:from-green-100 group-hover:to-emerald-100 transition-all duration-300 shadow-md group-hover:scale-110 group-hover:rotate-3">
             {icon}
           </div>
           <h3 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4 bg-clip-text text-transparent bg-gradient-to-r from-green-700 to-emerald-700 group-hover:from-green-800 group-hover:to-emerald-800 transition-colors">
