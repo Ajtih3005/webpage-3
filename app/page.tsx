@@ -237,38 +237,63 @@ export default function Home() {
           <div className="absolute inset-0 bg-gradient-to-br from-emerald-900/60 via-emerald-800/50 to-stone-900/60"></div>
         </div>
 
+        {/* Animated floating particles */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          {[...Array(20)].map((_, i) => (
+            <div
+              key={i}
+              className="absolute w-2 h-2 bg-white/20 rounded-full animate-float-gentle"
+              style={{
+                left: `${Math.random() * 100}%`,
+                top: `${Math.random() * 100}%`,
+                animationDelay: `${Math.random() * 5}s`,
+                animationDuration: `${8 + Math.random() * 4}s`,
+              }}
+            />
+          ))}
+        </div>
+
+        {/* Animated gradient orbs */}
+        <div className="absolute top-20 left-10 w-64 h-64 bg-emerald-400/10 rounded-full blur-3xl animate-float-slow" />
+        <div className="absolute bottom-20 right-10 w-80 h-80 bg-teal-400/10 rounded-full blur-3xl animate-float-gentle" style={{ animationDelay: '2s' }} />
+        <div className="absolute top-1/2 left-1/4 w-48 h-48 bg-amber-400/10 rounded-full blur-3xl animate-breathe" />
+
         <div className="container mx-auto px-6 relative z-10 text-center max-w-5xl">
-          <div className="mb-8">
-            <div className="inline-block p-4 rounded-full bg-white/10 backdrop-blur-sm mb-6">
-              <Image src="/images/logo.png" alt="Logo" width={100} height={100} className="rounded-full" />
+          <div className="mb-8 animate-scale-in">
+            <div className="inline-block p-4 rounded-full bg-white/10 backdrop-blur-sm mb-6 animate-pulse-glow">
+              <Image src="/images/logo.png" alt="Logo" width={100} height={100} className="rounded-full animate-breathe" />
             </div>
           </div>
 
           <h1 className="font-playfair text-4xl md:text-6xl lg:text-7xl font-light text-white mb-6 leading-tight select-none pointer-events-none">
-            Return to Stillness.
+            <span className="inline-block animate-slide-up opacity-0" style={{ animationDelay: '0.2s', animationFillMode: 'forwards' }}>Return to Stillness.</span>
             <br />
-            <span className="font-semibold">Practice with Structure.</span>
+            <span className="inline-block font-semibold animate-slide-up opacity-0" style={{ animationDelay: '0.4s', animationFillMode: 'forwards' }}>Practice with Structure.</span>
           </h1>
 
-          <p className="font-lora text-lg md:text-xl text-white/90 max-w-3xl mx-auto leading-relaxed select-none">
+          <p className="font-lora text-lg md:text-xl text-white/90 max-w-3xl mx-auto leading-relaxed select-none animate-fade-in opacity-0" style={{ animationDelay: '0.6s', animationFillMode: 'forwards' }}>
             A structured yoga practice rooted in breath and awareness — designed to calm the mind, restore movement, and
             build lasting inner stability.
           </p>
         </div>
 
-        {/* Scroll indicator */}
+        {/* Scroll indicator with enhanced animation */}
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
-          <div className="w-6 h-10 border-2 border-white/50 rounded-full flex justify-center pt-2">
+          <div className="w-6 h-10 border-2 border-white/50 rounded-full flex justify-center pt-2 hover:border-white/80 transition-colors">
             <div className="w-1.5 h-3 bg-white/70 rounded-full animate-pulse"></div>
           </div>
         </div>
       </section>
 
       {/* Begin with Guidance Section - White Background */}
-      <section className="py-16 md:py-24 bg-white">
-        <div className="container mx-auto px-4 text-center max-w-4xl">
-          <div className="inline-block px-4 py-1.5 bg-emerald-100 text-emerald-700 text-xs font-medium rounded-full mb-6 border border-emerald-200">
-            <Sparkles className="inline-block mr-1 h-3 w-3 md:h-4 md:w-4" />
+      <section className="py-16 md:py-24 bg-white relative overflow-hidden">
+        {/* Decorative background elements */}
+        <div className="absolute top-0 left-0 w-96 h-96 bg-emerald-100/50 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2 animate-float-slow" />
+        <div className="absolute bottom-0 right-0 w-80 h-80 bg-purple-100/50 rounded-full blur-3xl translate-x-1/2 translate-y-1/2 animate-float-gentle" style={{ animationDelay: '3s' }} />
+        
+        <div className="container mx-auto px-4 text-center max-w-4xl relative z-10">
+          <div className="inline-block px-4 py-1.5 bg-emerald-100 text-emerald-700 text-xs font-medium rounded-full mb-6 border border-emerald-200 hover-lift cursor-default">
+            <Sparkles className="inline-block mr-1 h-3 w-3 md:h-4 md:w-4 animate-pulse" />
             Your Journey Starts Here
           </div>
           
@@ -282,11 +307,11 @@ export default function Home() {
           
           <Button
             size="lg"
-            className="bg-gradient-to-r from-purple-600 to-teal-500 hover:from-purple-700 hover:to-teal-600 text-white px-10 py-6 text-lg md:text-xl font-lora shadow-2xl hover:shadow-3xl transition-all duration-300 rounded-xl hover:scale-105"
+            className="bg-gradient-to-r from-purple-600 to-teal-500 hover:from-purple-700 hover:to-teal-600 text-white px-10 py-6 text-lg md:text-xl font-lora shadow-2xl hover:shadow-3xl transition-all duration-300 rounded-xl hover:scale-105 animate-gradient magnetic-hover group"
             onClick={handleEnroll}
           >
             <div className="flex flex-col items-center gap-2">
-              <span className="font-semibold">Attend 7 Days FREE</span>
+              <span className="font-semibold group-hover:tracking-wide transition-all">Attend 7 Days FREE</span>
               <span className="text-xs sm:text-sm font-normal opacity-90">
                 Live sessions with no cost and open to beginners
               </span>
@@ -343,60 +368,60 @@ export default function Home() {
 
           <div className="max-w-6xl mx-auto overflow-x-auto scrollbar-hide">
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 pb-4">
-              <Card className="border-white/20 hover:shadow-xl transition-all duration-300 group bg-white/95 backdrop-blur-sm rounded-xl">
+              <Card className="border-white/20 hover:shadow-xl transition-all duration-300 group bg-white/95 backdrop-blur-sm rounded-xl hover-lift tilt-card">
                 <CardContent className="p-4">
                   <div className="flex flex-col items-center text-center">
-                    <div className="p-2.5 rounded-full bg-emerald-100 group-hover:bg-emerald-200 transition-colors mb-3">
+                    <div className="p-2.5 rounded-full bg-emerald-100 group-hover:bg-emerald-200 transition-colors mb-3 group-hover:scale-110 duration-300">
                       <BookOpen className="h-6 w-6 text-emerald-600" />
                     </div>
                     <h3 className="font-playfair text-sm font-semibold text-emerald-800 leading-tight">Bhagavad Gita Study</h3>
                   </div>
                 </CardContent>
               </Card>
-              <Card className="border-white/20 hover:shadow-xl transition-all duration-300 group bg-white/95 backdrop-blur-sm rounded-xl">
+              <Card className="border-white/20 hover:shadow-xl transition-all duration-300 group bg-white/95 backdrop-blur-sm rounded-xl hover-lift tilt-card">
                 <CardContent className="p-4">
                   <div className="flex flex-col items-center text-center">
-                    <div className="p-2.5 rounded-full bg-emerald-100 group-hover:bg-emerald-200 transition-colors mb-3">
+                    <div className="p-2.5 rounded-full bg-emerald-100 group-hover:bg-emerald-200 transition-colors mb-3 group-hover:scale-110 duration-300">
                       <Users className="h-6 w-6 text-emerald-600" />
                     </div>
                     <h3 className="font-playfair text-sm font-semibold text-emerald-800 leading-tight">Yoga for Health</h3>
                   </div>
                 </CardContent>
               </Card>
-              <Card className="border-white/20 hover:shadow-xl transition-all duration-300 group bg-white/95 backdrop-blur-sm rounded-xl">
+              <Card className="border-white/20 hover:shadow-xl transition-all duration-300 group bg-white/95 backdrop-blur-sm rounded-xl hover-lift tilt-card">
                 <CardContent className="p-4">
                   <div className="flex flex-col items-center text-center">
-                    <div className="p-2.5 rounded-full bg-emerald-100 group-hover:bg-emerald-200 transition-colors mb-3">
+                    <div className="p-2.5 rounded-full bg-emerald-100 group-hover:bg-emerald-200 transition-colors mb-3 group-hover:scale-110 duration-300">
                       <Dumbbell className="h-6 w-6 text-emerald-600" />
                     </div>
                     <h3 className="font-playfair text-sm font-semibold text-emerald-800 leading-tight">Muscle Training</h3>
                   </div>
                 </CardContent>
               </Card>
-              <Card className="border-white/20 hover:shadow-xl transition-all duration-300 group bg-white/95 backdrop-blur-sm rounded-xl">
+              <Card className="border-white/20 hover:shadow-xl transition-all duration-300 group bg-white/95 backdrop-blur-sm rounded-xl hover-lift tilt-card">
                 <CardContent className="p-4">
                   <div className="flex flex-col items-center text-center">
-                    <div className="p-2.5 rounded-full bg-emerald-100 group-hover:bg-emerald-200 transition-colors mb-3">
+                    <div className="p-2.5 rounded-full bg-emerald-100 group-hover:bg-emerald-200 transition-colors mb-3 group-hover:scale-110 duration-300">
                       <Utensils className="h-6 w-6 text-emerald-600" />
                     </div>
                     <h3 className="font-playfair text-sm font-semibold text-emerald-800 leading-tight">Natural Diet Plans</h3>
                   </div>
                 </CardContent>
               </Card>
-              <Card className="border-white/20 hover:shadow-xl transition-all duration-300 group bg-white/95 backdrop-blur-sm rounded-xl">
+              <Card className="border-white/20 hover:shadow-xl transition-all duration-300 group bg-white/95 backdrop-blur-sm rounded-xl hover-lift tilt-card">
                 <CardContent className="p-4">
                   <div className="flex flex-col items-center text-center">
-                    <div className="p-2.5 rounded-full bg-emerald-100 group-hover:bg-emerald-200 transition-colors mb-3">
+                    <div className="p-2.5 rounded-full bg-emerald-100 group-hover:bg-emerald-200 transition-colors mb-3 group-hover:scale-110 duration-300">
                       <Brain className="h-6 w-6 text-emerald-600" />
                     </div>
                     <h3 className="font-playfair text-sm font-semibold text-emerald-800 leading-tight">Mental Wellness</h3>
                   </div>
                 </CardContent>
               </Card>
-              <Card className="border-white/20 hover:shadow-xl transition-all duration-300 group bg-white/95 backdrop-blur-sm rounded-xl">
+              <Card className="border-white/20 hover:shadow-xl transition-all duration-300 group bg-white/95 backdrop-blur-sm rounded-xl hover-lift tilt-card">
                 <CardContent className="p-4">
                   <div className="flex flex-col items-center text-center">
-                    <div className="p-2.5 rounded-full bg-emerald-100 group-hover:bg-emerald-200 transition-colors mb-3">
+                    <div className="p-2.5 rounded-full bg-emerald-100 group-hover:bg-emerald-200 transition-colors mb-3 group-hover:scale-110 duration-300">
                       <Calendar className="h-6 w-6 text-emerald-600" />
                     </div>
                     <h3 className="font-playfair text-sm font-semibold text-emerald-800 leading-tight">Flexible Batches</h3>
@@ -431,15 +456,17 @@ export default function Home() {
           {subscriptionPages.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 mb-8 md:mb-12 max-w-5xl mx-auto">
               {subscriptionPages.map((page) => (
-                <Card key={page.id} className="border border-emerald-200/60 hover:shadow-xl transition-all duration-300 group bg-white rounded-2xl overflow-hidden">
+                <Card key={page.id} className="border border-emerald-200/60 hover:shadow-xl transition-all duration-500 group bg-white rounded-2xl overflow-hidden hover-lift">
                   <div className="relative h-44 overflow-hidden">
                     <Image
                       src={page.hero_image_url || "/images/logo.png"}
                       alt={page.title}
                       fill
-                      className="object-cover group-hover:scale-105 transition-transform duration-500"
+                      className="object-cover group-hover:scale-110 transition-transform duration-700"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent group-hover:from-black/60 transition-all duration-300"></div>
+                    {/* Hover shimmer effect */}
+                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full" style={{ transition: 'transform 0.8s ease' }} />
                   </div>
                   <CardContent className="p-5">
                     <h3 className="font-playfair text-lg font-semibold text-emerald-800 leading-tight mb-2">{page.title}</h3>
@@ -665,8 +692,12 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="py-12 sm:py-16 bg-gradient-to-b from-emerald-50/30 to-white">
-        <div className="container mx-auto px-4 sm:px-6">
+      <section className="py-12 sm:py-16 bg-gradient-to-b from-emerald-50/30 to-white relative overflow-hidden">
+        {/* Animated background elements */}
+        <div className="absolute top-10 left-10 w-32 h-32 bg-yellow-200/30 rounded-full blur-2xl animate-float-slow" />
+        <div className="absolute bottom-10 right-10 w-40 h-40 bg-indigo-200/30 rounded-full blur-2xl animate-float-gentle" style={{ animationDelay: '2s' }} />
+        
+        <div className="container mx-auto px-4 sm:px-6 relative z-10">
           <div className="text-center mb-8 sm:mb-12">
             <h2 className="font-playfair text-2xl sm:text-3xl font-semibold text-emerald-800 mb-2 sm:mb-3">
               Flexible Batches
@@ -678,8 +709,8 @@ export default function Home() {
 
           <div className="grid sm:grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 max-w-4xl mx-auto">
             {/* Morning Batch */}
-            <div className="border-emerald-200/40 hover:shadow-lg transition-all duration-300">
-              <div className="h-1 bg-gradient-to-r from-yellow-400 to-orange-400"></div>
+            <div className="border-emerald-200/40 hover:shadow-lg transition-all duration-300 hover-lift group">
+              <div className="h-1 bg-gradient-to-r from-yellow-400 to-orange-400 group-hover:h-2 transition-all duration-300"></div>
               <CardContent className="p-4 sm:p-6">
                 <div className="flex items-center gap-2 mb-3 sm:mb-4">
                   <div className="p-2 rounded-full bg-yellow-100">
@@ -703,8 +734,8 @@ export default function Home() {
             </div>
 
             {/* Evening Batch */}
-            <div className="border-emerald-200/40 hover:shadow-lg transition-all duration-300">
-              <div className="h-1 bg-gradient-to-r from-indigo-400 to-purple-400"></div>
+            <div className="border-emerald-200/40 hover:shadow-lg transition-all duration-300 hover-lift group">
+              <div className="h-1 bg-gradient-to-r from-indigo-400 to-purple-400 group-hover:h-2 transition-all duration-300"></div>
               <CardContent className="p-4 sm:p-6">
                 <div className="flex items-center gap-2 mb-3 sm:mb-4">
                   <div className="p-2 rounded-full bg-indigo-100">
@@ -729,11 +760,15 @@ export default function Home() {
           </div>
         </div>
       </section>
-      <section className="py-10 md:py-14 bg-gradient-to-br from-emerald-50 via-white to-teal-50/30">
-        <div className="container mx-auto px-4">
+      <section className="py-10 md:py-14 bg-gradient-to-br from-emerald-50 via-white to-teal-50/30 relative overflow-hidden">
+        {/* Animated decorative elements */}
+        <div className="absolute top-0 right-0 w-72 h-72 bg-green-200/20 rounded-full blur-3xl animate-float-slow" />
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-teal-200/20 rounded-full blur-3xl animate-float-gentle" style={{ animationDelay: '1.5s' }} />
+        
+        <div className="container mx-auto px-4 relative z-10">
           <div className="max-w-3xl mx-auto text-center">
             <div className="mb-4">
-              <span className="inline-block px-4 py-1.5 bg-green-100 text-green-700 rounded-full text-xs font-medium mb-3">
+              <span className="inline-block px-4 py-1.5 bg-green-100 text-green-700 rounded-full text-xs font-medium mb-3 hover-lift cursor-default">
                 Join Our Community
               </span>
               <h2 className="font-playfair text-2xl md:text-3xl font-semibold text-emerald-800 mb-3">
@@ -745,8 +780,8 @@ export default function Home() {
               </p>
             </div>
 
-            <div className="inline-flex items-center gap-3 bg-white px-6 py-3 rounded-full shadow-md hover:shadow-lg transition-all duration-300 border border-emerald-100">
-              <MessageCircle className="h-5 w-5 text-green-600" />
+            <div className="inline-flex items-center gap-3 bg-white px-6 py-3 rounded-full shadow-md hover:shadow-xl transition-all duration-300 border border-emerald-100 hover-lift group magnetic-hover">
+              <MessageCircle className="h-5 w-5 text-green-600 group-hover:scale-110 transition-transform duration-300" />
               <a
                 href="https://whatsapp.com/channel/0029Vb6wVWi0lwgtLZg26b04"
                 target="_blank"
@@ -760,7 +795,21 @@ export default function Home() {
           </div>
         </div>
       </section>
-      <footer className="bg-gradient-to-r from-purple-800 via-purple-700 to-teal-600 text-white py-12">
+      <footer className="bg-gradient-to-r from-purple-800 via-purple-700 to-teal-600 text-white py-12 relative overflow-hidden">
+        {/* Animated background pattern */}
+        <div className="absolute inset-0 opacity-10">
+          {[...Array(6)].map((_, i) => (
+            <div
+              key={i}
+              className="absolute w-32 h-32 rounded-full bg-white/20 animate-float-gentle"
+              style={{
+                left: `${15 + i * 15}%`,
+                top: `${20 + (i % 2) * 40}%`,
+                animationDelay: `${i * 0.5}s`,
+              }}
+            />
+          ))}
+        </div>
         <div className="container mx-auto px-6">
           <div className="grid md:grid-cols-3 gap-8 md:gap-12">
             {/* Brand Column */}
