@@ -17,89 +17,38 @@ import {
   Disc3,
   Sparkles
 } from "lucide-react"
+import { getSupabaseBrowserClient } from "@/lib/supabase"
 
 interface BandMember {
   id: number
   name: string
   role: string
   instrument: string
-  image: string
+  image_url: string
   bio: string
+  display_order: number
+  is_active: boolean
 }
 
-// INSTRUCTIONS: To add band member photos from Google Drive:
-// 1. Right-click on the image in Google Drive
-// 2. Select "Get link" and make sure it's set to "Anyone with the link"
-// 3. Copy the file ID from the URL (the long string between /d/ and /view)
-// 4. Use this format: https://drive.google.com/uc?export=view&id=YOUR_FILE_ID
-// Example: If your link is https://drive.google.com/file/d/1ABC123xyz/view
-// Your image URL would be: https://drive.google.com/uc?export=view&id=1ABC123xyz
-
-const bandMembers: BandMember[] = [
-  {
-    id: 1,
-    name: "Member Name",
-    role: "Lead Vocalist",
-    instrument: "Vocals & Harmonium",
-    // Replace with Google Drive URL: https://drive.google.com/uc?export=view&id=YOUR_FILE_ID
-    image: "",
-    bio: "Bringing soulful melodies that connect the heart to the divine."
-  },
-  {
-    id: 2,
-    name: "Member Name",
-    role: "Percussionist",
-    instrument: "Tabla & Mridangam",
-    // Replace with Google Drive URL: https://drive.google.com/uc?export=view&id=YOUR_FILE_ID
-    image: "",
-    bio: "Creating rhythms that resonate with the pulse of the universe."
-  },
-  {
-    id: 3,
-    name: "Member Name",
-    role: "Instrumentalist",
-    instrument: "Flute & Violin",
-    // Replace with Google Drive URL: https://drive.google.com/uc?export=view&id=YOUR_FILE_ID
-    image: "",
-    bio: "Weaving melodies that transport listeners to a state of peace."
-  },
-  {
-    id: 4,
-    name: "Member Name",
-    role: "Backing Vocals",
-    instrument: "Vocals & Tanpura",
-    // Replace with Google Drive URL: https://drive.google.com/uc?export=view&id=YOUR_FILE_ID
-    image: "",
-    bio: "Providing the harmonic foundation that grounds our spiritual journey."
-  }
-]
-
-const albums = [
-  {
-    id: 1,
-    title: "Divine Echoes",
-    year: "2024",
-    tracks: 8,
-    image: "/placeholder.svg?height=300&width=300&query=spiritual album cover sacred geometry"
-  },
-  {
-    id: 2,
-    title: "Sacred Rhythms",
-    year: "2023",
-    tracks: 10,
-    image: "/placeholder.svg?height=300&width=300&query=meditation music album cover lotus"
-  },
-  {
-    id: 3,
-    title: "Inner Peace",
-    year: "2022",
-    tracks: 12,
-    image: "/placeholder.svg?height=300&width=300&query=yoga music album cover peaceful"
-  }
-]
+interface Album {
+  id: number
+  title: string
+  year: string
+  tracks: number
+  image_url: string
+  spotify_link: string
+  youtube_link: string
+  display_order: number
+  is_active: boolean
+}
 
 export default function SwarasyaPage() {
   const [scrolled, setScrolled] = useState(false)
+  const [bandMembers, setBandMembers] = useState<BandMember[]>([])
+  const [albums, setAlbums] = useState<Album[]>([])
+  const [loading, setLoading] = useState(true)
+  
+  const supabase = getSupabaseBrowserClient()
 
   useEffect(() => {
     const handleScroll = () => {
@@ -108,6 +57,40 @@ export default function SwarasyaPage() {
     window.addEventListener("scroll", handleScroll)
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Fetch band members
+        const { data: membersData } = await supabase
+          .from("swarasya_members")
+          .select("*")
+          .eq("is_active", true)
+          .order("display_order", { ascending: true })
+        
+        if (membersData) {
+          setBandMembers(membersData)
+        }
+
+        // Fetch albums
+        const { data: albumsData } = await supabase
+          .from("swarasya_albums")
+          .select("*")
+          .eq("is_active", true)
+          .order("display_order", { ascending: true })
+        
+        if (albumsData) {
+          setAlbums(albumsData)
+        }
+      } catch (error) {
+        console.error("Error fetching Swarasya data:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [supabase])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-stone-900 via-stone-800 to-stone-900">
@@ -222,85 +205,107 @@ export default function SwarasyaPage() {
       </section>
 
       {/* Band Members Section */}
-      <section className="py-20 bg-stone-800/50">
-        <div className="container mx-auto px-6 max-w-7xl">
-          <div className="text-center mb-12">
-            <div className="inline-block px-3 py-1.5 bg-amber-500/20 text-amber-400 text-xs font-medium rounded-full mb-4 border border-amber-500/30">
-              <Users className="inline-block mr-1 h-3 w-3" />
-              The Artists
+      {bandMembers.length > 0 && (
+        <section className="py-20 bg-stone-800/50">
+          <div className="container mx-auto px-6 max-w-7xl">
+            <div className="text-center mb-12">
+              <div className="inline-block px-3 py-1.5 bg-amber-500/20 text-amber-400 text-xs font-medium rounded-full mb-4 border border-amber-500/30">
+                <Users className="inline-block mr-1 h-3 w-3" />
+                The Artists
+              </div>
+              <h2 className="font-playfair text-3xl md:text-4xl font-semibold text-white mb-4">
+                Meet Our Musicians
+              </h2>
+              <p className="text-stone-400 max-w-2xl mx-auto font-lora">
+                Talented artists united by a shared love for spiritual music and a mission to spread peace through melody.
+              </p>
             </div>
-            <h2 className="font-playfair text-3xl md:text-4xl font-semibold text-white mb-4">
-              Meet Our Musicians
-            </h2>
-            <p className="text-stone-400 max-w-2xl mx-auto font-lora">
-              Talented artists united by a shared love for spiritual music and a mission to spread peace through melody.
-            </p>
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {bandMembers.map((member) => (
-              <Card key={member.id} className="bg-stone-900/80 border-amber-900/30 overflow-hidden group hover:shadow-xl hover:shadow-amber-500/10 transition-all duration-300">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {bandMembers.map((member) => (
+                <Card key={member.id} className="bg-stone-900/80 border-amber-900/30 overflow-hidden group hover:shadow-xl hover:shadow-amber-500/10 transition-all duration-300">
+                  <div className="relative aspect-square overflow-hidden">
+                    {member.image_url ? (
+                      <Image
+                        src={member.image_url}
+                        alt={member.name}
+                        fill
+                        className="object-cover group-hover:scale-105 transition-transform duration-500"
+                        unoptimized
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-stone-700 flex items-center justify-center">
+                        <Users className="h-16 w-16 text-stone-500" />
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-stone-900 via-transparent to-transparent"></div>
+                  </div>
+                  <CardContent className="p-5">
+                    <h3 className="font-playfair text-xl font-semibold text-white mb-1">{member.name}</h3>
+                    <p className="text-amber-400 text-sm font-medium mb-2">{member.role}</p>
+                    <div className="flex items-center gap-2 text-stone-400 text-sm mb-3">
+                      <Mic2 className="h-4 w-4" />
+                      <span>{member.instrument}</span>
+                    </div>
+                    <p className="text-stone-400 text-sm font-lora leading-relaxed">{member.bio}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Albums Section */}
+      {albums.length > 0 && (
+        <section className="py-20">
+          <div className="container mx-auto px-6 max-w-6xl">
+            <div className="text-center mb-12">
+              <div className="inline-block px-3 py-1.5 bg-amber-500/20 text-amber-400 text-xs font-medium rounded-full mb-4 border border-amber-500/30">
+                <Disc3 className="inline-block mr-1 h-3 w-3" />
+                Discography
+              </div>
+              <h2 className="font-playfair text-3xl md:text-4xl font-semibold text-white mb-4">
+                Our Albums
+              </h2>
+              <p className="text-stone-400 max-w-2xl mx-auto font-lora">
+                Collections of spiritual music crafted to accompany your meditation, yoga practice, and moments of reflection.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {albums.map((album) => (
+              <Card key={album.id} className="bg-stone-800/50 border-amber-900/30 overflow-hidden group hover:shadow-xl hover:shadow-amber-500/10 transition-all duration-300">
                 <div className="relative aspect-square overflow-hidden">
-                  {member.image ? (
+                  {album.image_url ? (
                     <Image
-                      src={member.image}
-                      alt={member.name}
+                      src={album.image_url}
+                      alt={album.title}
                       fill
                       className="object-cover group-hover:scale-105 transition-transform duration-500"
                       unoptimized
                     />
                   ) : (
                     <div className="w-full h-full bg-stone-700 flex items-center justify-center">
-                      <Users className="h-16 w-16 text-stone-500" />
+                      <Disc3 className="h-16 w-16 text-stone-500" />
                     </div>
                   )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-stone-900 via-transparent to-transparent"></div>
-                </div>
-                <CardContent className="p-5">
-                  <h3 className="font-playfair text-xl font-semibold text-white mb-1">{member.name}</h3>
-                  <p className="text-amber-400 text-sm font-medium mb-2">{member.role}</p>
-                  <div className="flex items-center gap-2 text-stone-400 text-sm mb-3">
-                    <Mic2 className="h-4 w-4" />
-                    <span>{member.instrument}</span>
-                  </div>
-                  <p className="text-stone-400 text-sm font-lora leading-relaxed">{member.bio}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Albums Section */}
-      <section className="py-20">
-        <div className="container mx-auto px-6 max-w-6xl">
-          <div className="text-center mb-12">
-            <div className="inline-block px-3 py-1.5 bg-amber-500/20 text-amber-400 text-xs font-medium rounded-full mb-4 border border-amber-500/30">
-              <Disc3 className="inline-block mr-1 h-3 w-3" />
-              Discography
-            </div>
-            <h2 className="font-playfair text-3xl md:text-4xl font-semibold text-white mb-4">
-              Our Albums
-            </h2>
-            <p className="text-stone-400 max-w-2xl mx-auto font-lora">
-              Collections of spiritual music crafted to accompany your meditation, yoga practice, and moments of reflection.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {albums.map((album) => (
-              <Card key={album.id} className="bg-stone-800/50 border-amber-900/30 overflow-hidden group hover:shadow-xl hover:shadow-amber-500/10 transition-all duration-300">
-                <div className="relative aspect-square overflow-hidden">
-                  <Image
-                    src={album.image}
-                    alt={album.title}
-                    fill
-                    className="object-cover group-hover:scale-105 transition-transform duration-500"
-                  />
                   <div className="absolute inset-0 bg-gradient-to-t from-stone-900/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <Button size="lg" className="bg-amber-500 hover:bg-amber-600 text-stone-900 rounded-full">
-                      <Play className="h-5 w-5" />
-                    </Button>
+                    {album.spotify_link || album.youtube_link ? (
+                      <Button 
+                        size="lg" 
+                        className="bg-amber-500 hover:bg-amber-600 text-stone-900 rounded-full"
+                        asChild
+                      >
+                        <Link href={album.spotify_link || album.youtube_link} target="_blank">
+                          <Play className="h-5 w-5" />
+                        </Link>
+                      </Button>
+                    ) : (
+                      <Button size="lg" className="bg-amber-500 hover:bg-amber-600 text-stone-900 rounded-full">
+                        <Play className="h-5 w-5" />
+                      </Button>
+                    )}
                   </div>
                 </div>
                 <CardContent className="p-5">
@@ -312,9 +317,10 @@ export default function SwarasyaPage() {
                 </CardContent>
               </Card>
             ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Connection to Yoga Section */}
       <section className="py-20 bg-gradient-to-r from-amber-900/30 via-stone-800/50 to-amber-900/30">
