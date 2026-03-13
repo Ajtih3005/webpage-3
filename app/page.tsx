@@ -809,7 +809,6 @@ export default function Home() {
                 with like-minded souls on the path to wellness.
               </p>
             </ScrollReveal>
-            </div>
 
             <ScrollReveal animation="zoom-in" delay={300}>
               <div className="inline-flex items-center gap-3 bg-white px-6 py-3 rounded-full shadow-md hover:shadow-xl transition-all duration-300 border border-emerald-100 hover-lift group magnetic-hover">
