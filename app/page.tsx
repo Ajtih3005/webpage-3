@@ -352,25 +352,29 @@ export default function Home() {
 
         <div className="container mx-auto px-4 relative z-10">
           {/* What You Will Gain - Image Only */}
-          <div className="text-center mb-8">
-            <div className="max-w-4xl mx-auto">
-              <Image
-                src="/images/chatgpt-20image-20feb-203-2c-202026-2c-2006-47-09-20pm.png"
-                alt="What You Will Gain - Yoga Benefits including Karma Yoga, Astanga Yoga, Jnana Yoga, and Bhakti Yoga"
-                width={1000}
-                height={600}
-                className="w-full h-auto rounded-xl shadow-2xl border-2 border-white/20"
-                priority
-              />
+          <ScrollReveal animation="zoom-in" delay={0}>
+            <div className="text-center mb-8">
+              <div className="max-w-4xl mx-auto">
+                <Image
+                  src="/images/chatgpt-20image-20feb-203-2c-202026-2c-2006-47-09-20pm.png"
+                  alt="What You Will Gain - Yoga Benefits including Karma Yoga, Astanga Yoga, Jnana Yoga, and Bhakti Yoga"
+                  width={1000}
+                  height={600}
+                  className="w-full h-auto rounded-xl shadow-2xl border-2 border-white/20 hover:scale-[1.02] transition-transform duration-500"
+                  priority
+                />
+              </div>
             </div>
-          </div>
+          </ScrollReveal>
 
           {/* Divider */}
-          <div className="flex items-center justify-center my-8">
-            <div className="h-px w-24 bg-white/30"></div>
-            <Sparkles className="h-6 w-6 text-white/60 mx-4" />
-            <div className="h-px w-24 bg-white/30"></div>
-          </div>
+          <ScrollReveal animation="fade-up" delay={100}>
+            <div className="flex items-center justify-center my-8">
+              <div className="h-px w-24 bg-white/30"></div>
+              <Sparkles className="h-6 w-6 text-white/60 mx-4 animate-pulse" />
+              <div className="h-px w-24 bg-white/30"></div>
+            </div>
+          </ScrollReveal>
 
           {/* The Path We Follow */}
           <ScrollReveal animation="fade-up" delay={0}>
@@ -386,66 +390,27 @@ export default function Home() {
 
           <div className="max-w-6xl mx-auto overflow-x-auto scrollbar-hide">
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 pb-4">
-              <Card className="border-white/20 hover:shadow-xl transition-all duration-300 group bg-white/95 backdrop-blur-sm rounded-xl hover-lift tilt-card">
-                <CardContent className="p-4">
-                  <div className="flex flex-col items-center text-center">
-                    <div className="p-2.5 rounded-full bg-emerald-100 group-hover:bg-emerald-200 transition-colors mb-3 group-hover:scale-110 duration-300">
-                      <BookOpen className="h-6 w-6 text-emerald-600" />
-                    </div>
-                    <h3 className="font-playfair text-sm font-semibold text-emerald-800 leading-tight">Bhagavad Gita Study</h3>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="border-white/20 hover:shadow-xl transition-all duration-300 group bg-white/95 backdrop-blur-sm rounded-xl hover-lift tilt-card">
-                <CardContent className="p-4">
-                  <div className="flex flex-col items-center text-center">
-                    <div className="p-2.5 rounded-full bg-emerald-100 group-hover:bg-emerald-200 transition-colors mb-3 group-hover:scale-110 duration-300">
-                      <Users className="h-6 w-6 text-emerald-600" />
-                    </div>
-                    <h3 className="font-playfair text-sm font-semibold text-emerald-800 leading-tight">Yoga for Health</h3>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="border-white/20 hover:shadow-xl transition-all duration-300 group bg-white/95 backdrop-blur-sm rounded-xl hover-lift tilt-card">
-                <CardContent className="p-4">
-                  <div className="flex flex-col items-center text-center">
-                    <div className="p-2.5 rounded-full bg-emerald-100 group-hover:bg-emerald-200 transition-colors mb-3 group-hover:scale-110 duration-300">
-                      <Dumbbell className="h-6 w-6 text-emerald-600" />
-                    </div>
-                    <h3 className="font-playfair text-sm font-semibold text-emerald-800 leading-tight">Muscle Training</h3>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="border-white/20 hover:shadow-xl transition-all duration-300 group bg-white/95 backdrop-blur-sm rounded-xl hover-lift tilt-card">
-                <CardContent className="p-4">
-                  <div className="flex flex-col items-center text-center">
-                    <div className="p-2.5 rounded-full bg-emerald-100 group-hover:bg-emerald-200 transition-colors mb-3 group-hover:scale-110 duration-300">
-                      <Utensils className="h-6 w-6 text-emerald-600" />
-                    </div>
-                    <h3 className="font-playfair text-sm font-semibold text-emerald-800 leading-tight">Natural Diet Plans</h3>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="border-white/20 hover:shadow-xl transition-all duration-300 group bg-white/95 backdrop-blur-sm rounded-xl hover-lift tilt-card">
-                <CardContent className="p-4">
-                  <div className="flex flex-col items-center text-center">
-                    <div className="p-2.5 rounded-full bg-emerald-100 group-hover:bg-emerald-200 transition-colors mb-3 group-hover:scale-110 duration-300">
-                      <Brain className="h-6 w-6 text-emerald-600" />
-                    </div>
-                    <h3 className="font-playfair text-sm font-semibold text-emerald-800 leading-tight">Mental Wellness</h3>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="border-white/20 hover:shadow-xl transition-all duration-300 group bg-white/95 backdrop-blur-sm rounded-xl hover-lift tilt-card">
-                <CardContent className="p-4">
-                  <div className="flex flex-col items-center text-center">
-                    <div className="p-2.5 rounded-full bg-emerald-100 group-hover:bg-emerald-200 transition-colors mb-3 group-hover:scale-110 duration-300">
-                      <Calendar className="h-6 w-6 text-emerald-600" />
-                    </div>
-                    <h3 className="font-playfair text-sm font-semibold text-emerald-800 leading-tight">Flexible Batches</h3>
-                  </div>
-                </CardContent>
-              </Card>
+              {[
+                { icon: BookOpen, title: "Bhagavad Gita Study" },
+                { icon: Users, title: "Yoga for Health" },
+                { icon: Dumbbell, title: "Muscle Training" },
+                { icon: Utensils, title: "Natural Diet Plans" },
+                { icon: Brain, title: "Mental Wellness" },
+                { icon: Calendar, title: "Flexible Batches" },
+              ].map((item, index) => (
+                <ScrollReveal key={index} animation="zoom-in" delay={index * 80}>
+                  <Card className="border-white/20 hover:shadow-xl transition-all duration-300 group bg-white/95 backdrop-blur-sm rounded-xl hover-lift tilt-card">
+                    <CardContent className="p-4">
+                      <div className="flex flex-col items-center text-center">
+                        <div className="p-2.5 rounded-full bg-emerald-100 group-hover:bg-emerald-200 transition-all duration-300 mb-3 group-hover:scale-110 group-hover:rotate-6">
+                          <item.icon className="h-6 w-6 text-emerald-600" />
+                        </div>
+                        <h3 className="font-playfair text-sm font-semibold text-emerald-800 leading-tight">{item.title}</h3>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </ScrollReveal>
+              ))}
             </div>
           </div>
         </div>
@@ -640,8 +605,9 @@ export default function Home() {
             <div className="hidden lg:block relative">
               <div className="grid lg:grid-cols-6 gap-6 max-w-6xl mx-auto">
                 {teamMembers.slice(0, 6).map((member, index) => (
-                  <div key={member.id} className="relative z-10">
-                    <div className="transition-all duration-200 hover:scale-105 hover:shadow-lg hover:shadow-white/20">
+                  <ScrollReveal key={member.id} animation="zoom-in" delay={index * 100}>
+                    <div className="relative z-10">
+                      <div className="transition-all duration-300 hover:scale-110 hover:shadow-lg hover:shadow-white/20 hover:-translate-y-2">
                       <div className="relative mb-4">
                         <div className="w-28 h-28 mx-auto rounded-full overflow-hidden border-4 border-white/30 shadow-xl hover:border-white/50 transition-all duration-200">
                           <Image
@@ -656,8 +622,9 @@ export default function Home() {
                         <h3 className="text-white font-semibold text-base drop-shadow-md">{member.name}</h3>
                         <p className="text-white/80 text-sm mt-1 drop-shadow-sm">{member.role}</p>
                       </div>
+                      </div>
                     </div>
-                  </div>
+                  </ScrollReveal>
                 ))}
               </div>
             </div>
@@ -713,19 +680,31 @@ export default function Home() {
       )}
 
       <section className="relative py-8 md:py-10 overflow-hidden bg-gradient-to-br from-green-800 via-emerald-700 to-green-900">
-        <div className="container mx-auto px-4 text-center">
-          <div className="inline-block mb-2 md:mb-3 px-3 bg-white/20 backdrop-blur-sm rounded-full text-white font-medium border border-white/30 text-xs">
-            <Star className="inline-block h-3 w-3 mr-1" />
-            What Our Students Say
-          </div>
+        {/* Animated floating orbs */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-5 left-10 w-32 h-32 bg-white/5 rounded-full blur-2xl animate-float-slow" />
+          <div className="absolute bottom-5 right-10 w-40 h-40 bg-emerald-300/10 rounded-full blur-2xl animate-float-gentle" style={{ animationDelay: '1.5s' }} />
+        </div>
+        
+        <div className="container mx-auto px-4 text-center relative z-10">
+          <ScrollReveal animation="fade-down" delay={0}>
+            <div className="inline-block mb-2 md:mb-3 px-3 bg-white/20 backdrop-blur-sm rounded-full text-white font-medium border border-white/30 text-xs">
+              <Star className="inline-block h-3 w-3 mr-1 animate-pulse" />
+              What Our Students Say
+            </div>
+          </ScrollReveal>
 
-          <h2 className="text-lg sm:text-xl md:text-2xl font-bold mb-3 text-white">
-            Transformative Experiences
-          </h2>
+          <ScrollReveal animation="fade-up" delay={100}>
+            <h2 className="text-lg sm:text-xl md:text-2xl font-bold mb-3 text-white">
+              Transformative Experiences
+            </h2>
+          </ScrollReveal>
 
-          <div className="max-w-5xl mx-auto">
-            <ReviewCarousel />
-          </div>
+          <ScrollReveal animation="zoom-in" delay={200}>
+            <div className="max-w-5xl mx-auto">
+              <ReviewCarousel />
+            </div>
+          </ScrollReveal>
         </div>
       </section>
 
@@ -817,16 +796,23 @@ export default function Home() {
                 </span>
               </div>
             </ScrollReveal>
+              
+            <ScrollReveal animation="fade-up" delay={100}>
               <h2 className="font-playfair text-2xl md:text-3xl font-semibold text-emerald-800 mb-3">
                 Connect, Share, and Grow Together
               </h2>
+            </ScrollReveal>
+            
+            <ScrollReveal animation="fade-up" delay={200}>
               <p className="font-lora text-sm md:text-base text-emerald-700/80 mb-6 max-w-xl mx-auto">
                 Join yoga enthusiasts in our WhatsApp community. Share your journey, get daily inspiration, and connect
                 with like-minded souls on the path to wellness.
               </p>
+            </ScrollReveal>
             </div>
 
-            <div className="inline-flex items-center gap-3 bg-white px-6 py-3 rounded-full shadow-md hover:shadow-xl transition-all duration-300 border border-emerald-100 hover-lift group magnetic-hover">
+            <ScrollReveal animation="zoom-in" delay={300}>
+              <div className="inline-flex items-center gap-3 bg-white px-6 py-3 rounded-full shadow-md hover:shadow-xl transition-all duration-300 border border-emerald-100 hover-lift group magnetic-hover">
               <MessageCircle className="h-5 w-5 text-green-600 group-hover:scale-110 transition-transform duration-300" />
               <a
                 href="https://whatsapp.com/channel/0029Vb6wVWi0lwgtLZg26b04"
@@ -836,8 +822,9 @@ export default function Home() {
               >
                 Join WhatsApp Community
               </a>
-              <ArrowRight className="h-4 w-4 text-emerald-600" />
-            </div>
+              <ArrowRight className="h-4 w-4 text-emerald-600 group-hover:translate-x-1 transition-transform" />
+              </div>
+            </ScrollReveal>
           </div>
         </div>
       </section>
@@ -859,22 +846,25 @@ export default function Home() {
         <div className="container mx-auto px-6 relative z-10">
           <div className="grid md:grid-cols-3 gap-8 md:gap-12">
             {/* Brand Column */}
-            <div>
-              <div className="flex items-center gap-3 mb-4 group">
-                <div className="relative h-14 w-14 rounded-full overflow-hidden group-hover:scale-105 transition-transform duration-300">
-                  <Image src="/images/logo.png" alt="Sthavishtah" fill className="object-cover" />
+            <ScrollReveal animation="fade-right" delay={0}>
+              <div>
+                <div className="flex items-center gap-3 mb-4 group">
+                  <div className="relative h-14 w-14 rounded-full overflow-hidden group-hover:scale-110 group-hover:rotate-6 transition-all duration-300">
+                    <Image src="/images/logo.png" alt="Sthavishtah" fill className="object-cover" />
+                  </div>
+                  <span className="font-playfair text-xl font-semibold">STHAVISHTAH YOGA</span>
                 </div>
-                <span className="font-playfair text-xl font-semibold">STHAVISHTAH YOGA</span>
-              </div>
               <p className="text-white/80 text-sm leading-relaxed mb-4">
                 Nurturing mind, body, and spirit through authentic yoga practices and natural wellness approaches.
               </p>
               <p className="text-white/60 text-xs">© 2026 STHAVISHTAH YOGA. All rights reserved.</p>
-            </div>
+              </div>
+            </ScrollReveal>
 
             {/* Contact Column */}
-            <div>
-              <h3 className="font-playfair text-lg font-semibold mb-4">Contact Us</h3>
+            <ScrollReveal animation="fade-up" delay={100}>
+              <div>
+                <h3 className="font-playfair text-lg font-semibold mb-4">Contact Us</h3>
               <div className="space-y-3 text-sm">
                 <p className="flex items-start gap-2">
                   <span className="text-white/80">Email:</span>
@@ -887,32 +877,35 @@ export default function Home() {
                 <p className="flex items-start gap-2">
                   <span className="text-white/80">Address:</span>
                   <span className="text-white">Bengaluru, India</span>
-                </p>
+                  </p>
+                </div>
               </div>
-            </div>
+            </ScrollReveal>
 
             {/* Quick Links Column */}
-            <div>
-              <h3 className="font-playfair text-lg font-semibold mb-4">Quick Links</h3>
+            <ScrollReveal animation="fade-left" delay={200}>
+              <div>
+                <h3 className="font-playfair text-lg font-semibold mb-4">Quick Links</h3>
               <nav className="space-y-2 text-sm">
-                <Link href="/user/login" className="flex items-center gap-2 hover:text-white/80 transition-colors group">
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                  Login
-                </Link>
-                <Link href="/user/register" className="flex items-center gap-2 hover:text-white/80 transition-colors group">
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                  Register
-                </Link>
-                <Link href="/instructors" className="flex items-center gap-2 hover:text-white/80 transition-colors group">
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                  Instructors
-                </Link>
-                <Link href="/admin" className="flex items-center gap-2 hover:text-white/80 transition-colors group">
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                  Admin
-                </Link>
-              </nav>
-            </div>
+                  <Link href="/user/login" className="flex items-center gap-2 hover:text-white/80 transition-colors group">
+                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                    Login
+                  </Link>
+                  <Link href="/user/register" className="flex items-center gap-2 hover:text-white/80 transition-colors group">
+                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                    Register
+                  </Link>
+                  <Link href="/instructors" className="flex items-center gap-2 hover:text-white/80 transition-colors group">
+                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                    Instructors
+                  </Link>
+                  <Link href="/admin" className="flex items-center gap-2 hover:text-white/80 transition-colors group">
+                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                    Admin
+                  </Link>
+                </nav>
+              </div>
+            </ScrollReveal>
           </div>
         </div>
       </footer>
