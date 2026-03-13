@@ -728,7 +728,7 @@ export default function LiveSessionPage({ params }: LiveSessionProps) {
             />
           )}
 
-          <div className="relative z-30 bg-gray-800 py-1.5 md:py-4 px-2 md:px-6">
+          <div className="relative z-30 bg-gradient-to-r from-purple-900 via-violet-800 to-purple-900 py-1.5 md:py-4 px-2 md:px-6">
             <div className="flex flex-col md:flex-row items-center justify-between gap-1.5 md:gap-4 max-w-7xl mx-auto">
               {/* Camera controls */}
               <div className="flex items-center gap-1.5 md:gap-3 w-full md:w-auto justify-center md:justify-start">
