@@ -195,10 +195,6 @@ export default function SwarasyaPage() {
                   className="object-contain bg-white p-4"
                 />
               </div>
-              <div className="absolute -bottom-6 -right-6 bg-amber-500 text-stone-900 px-6 py-4 rounded-xl shadow-xl">
-                <p className="text-2xl font-bold">10+</p>
-                <p className="text-sm font-medium">Years of Harmony</p>
-              </div>
             </div>
           </div>
         </div>
