@@ -827,6 +827,161 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* Avatar Stack + CTA Section */}
+      <section className="py-16 md:py-24 bg-gradient-to-br from-stone-900 via-emerald-950 to-stone-900 relative overflow-hidden">
+        {/* Animated background */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-10 left-1/4 w-72 h-72 bg-emerald-500/10 rounded-full blur-3xl animate-float-slow" />
+          <div className="absolute bottom-10 right-1/4 w-96 h-96 bg-teal-500/10 rounded-full blur-3xl animate-float-gentle" style={{ animationDelay: '2s' }} />
+          <div className="absolute top-1/2 right-10 w-48 h-48 bg-purple-500/10 rounded-full blur-2xl animate-breathe" />
+        </div>
+
+        <div className="container mx-auto px-4 relative z-10">
+          <div className="max-w-4xl mx-auto text-center">
+            <ScrollReveal animation="fade-up" delay={0}>
+              <div className="inline-block px-4 py-2 bg-emerald-500/20 text-emerald-400 text-sm font-medium rounded-full mb-6 border border-emerald-500/30">
+                Join Our Growing Family
+              </div>
+            </ScrollReveal>
+
+            <ScrollReveal animation="fade-up" delay={100}>
+              <h2 className="font-playfair text-3xl md:text-5xl font-bold text-white mb-6 leading-tight">
+                Be Part of a <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-400">Transformative</span> Community
+              </h2>
+            </ScrollReveal>
+
+            <ScrollReveal animation="fade-up" delay={200}>
+              <p className="font-lora text-lg text-white/70 mb-10 max-w-2xl mx-auto">
+                Join hundreds of practitioners who have discovered inner peace, physical wellness, and spiritual growth through our authentic yoga practices.
+              </p>
+            </ScrollReveal>
+
+            {/* Avatar Stack */}
+            <ScrollReveal animation="zoom-in" delay={300}>
+              <div className="flex flex-col items-center gap-6 mb-10">
+                <div className="flex -space-x-4">
+                  {[
+                    "bg-gradient-to-br from-rose-400 to-pink-500",
+                    "bg-gradient-to-br from-amber-400 to-orange-500",
+                    "bg-gradient-to-br from-emerald-400 to-green-500",
+                    "bg-gradient-to-br from-blue-400 to-indigo-500",
+                    "bg-gradient-to-br from-purple-400 to-violet-500",
+                  ].map((gradient, i) => (
+                    <div
+                      key={i}
+                      className={`w-14 h-14 md:w-16 md:h-16 rounded-full ${gradient} border-4 border-stone-900 flex items-center justify-center text-white font-bold text-lg shadow-xl hover:scale-110 hover:z-10 transition-transform duration-300`}
+                      style={{ animationDelay: `${i * 0.1}s` }}
+                    >
+                      {String.fromCharCode(65 + i)}
+                    </div>
+                  ))}
+                  <div className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-emerald-600 border-4 border-stone-900 flex items-center justify-center text-white font-bold text-sm shadow-xl">
+                    500+
+                  </div>
+                </div>
+                <p className="text-white/60 text-sm font-lora">
+                  <span className="text-emerald-400 font-semibold">500+ students</span> have already started their wellness journey
+                </p>
+              </div>
+            </ScrollReveal>
+
+            <ScrollReveal animation="zoom-in" delay={400}>
+              <Button
+                size="lg"
+                onClick={handleEnroll}
+                className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white px-10 py-7 text-lg font-semibold rounded-full shadow-2xl hover:shadow-emerald-500/25 transition-all duration-300 hover:scale-105 group"
+              >
+                Start Your Journey Today
+                <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+              </Button>
+            </ScrollReveal>
+          </div>
+        </div>
+      </section>
+
+      {/* Gradient Cards Section - What We Offer */}
+      <section className="py-16 md:py-24 bg-gradient-to-b from-white to-emerald-50/50 relative overflow-hidden">
+        {/* Decorative elements */}
+        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 via-teal-500 to-purple-500" />
+        <div className="absolute top-20 right-10 w-40 h-40 bg-emerald-200/30 rounded-full blur-3xl animate-float-gentle" />
+        <div className="absolute bottom-20 left-10 w-56 h-56 bg-teal-200/30 rounded-full blur-3xl animate-float-slow" style={{ animationDelay: '1s' }} />
+
+        <div className="container mx-auto px-4 relative z-10">
+          <ScrollReveal animation="fade-up" delay={0}>
+            <div className="text-center mb-12">
+              <div className="inline-block px-4 py-1.5 bg-emerald-100 text-emerald-700 text-xs font-medium rounded-full mb-4 border border-emerald-200">
+                What Makes Us Different
+              </div>
+              <h2 className="font-playfair text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+                Experience Holistic Wellness
+              </h2>
+              <p className="font-lora text-gray-600 max-w-2xl mx-auto">
+                Our programs combine ancient wisdom with modern understanding for complete transformation.
+              </p>
+            </div>
+          </ScrollReveal>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
+            {[
+              {
+                title: "Authentic Practices",
+                description: "Traditional yoga techniques passed down through generations of masters",
+                gradient: "from-rose-500 to-pink-600",
+                icon: Heart,
+                number: "01"
+              },
+              {
+                title: "Expert Guidance",
+                description: "Learn from certified instructors with years of dedicated practice",
+                gradient: "from-amber-500 to-orange-600",
+                icon: Award,
+                number: "02"
+              },
+              {
+                title: "Flexible Schedule",
+                description: "Morning and evening batches designed to fit your lifestyle",
+                gradient: "from-emerald-500 to-teal-600",
+                icon: Clock,
+                number: "03"
+              },
+              {
+                title: "Holistic Approach",
+                description: "Mind, body, and spirit wellness through integrated practices",
+                gradient: "from-blue-500 to-indigo-600",
+                icon: Sparkles,
+                number: "04"
+              },
+            ].map((item, index) => (
+              <ScrollReveal key={index} animation="fade-up" delay={index * 100}>
+                <div className={`group relative bg-gradient-to-br ${item.gradient} rounded-2xl p-6 h-full overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 hover:scale-[1.02]`}>
+                  {/* Hover overlay */}
+                  <div className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-colors duration-300" />
+                  
+                  {/* Number badge */}
+                  <div className="absolute top-4 right-4 text-white/20 font-bold text-4xl font-playfair group-hover:text-white/30 transition-colors">
+                    {item.number}
+                  </div>
+
+                  <div className="relative z-10">
+                    <div className="w-14 h-14 bg-white/20 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 group-hover:bg-white/30 transition-all duration-300">
+                      <item.icon className="h-7 w-7 text-white" />
+                    </div>
+                    <h3 className="font-playfair text-xl font-bold text-white mb-3">{item.title}</h3>
+                    <p className="text-white/80 text-sm font-lora leading-relaxed">{item.description}</p>
+                  </div>
+
+                  {/* Arrow indicator */}
+                  <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <ArrowRight className="h-5 w-5 text-white" />
+                  </div>
+                </div>
+              </ScrollReveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
       <footer className="bg-gradient-to-r from-purple-800 via-purple-700 to-teal-600 text-white py-12 relative overflow-hidden">
         {/* Animated background pattern */}
         <div className="absolute inset-0 opacity-10">
