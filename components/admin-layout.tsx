@@ -27,6 +27,7 @@ import {
   X,
   Brain,
   Ticket,
+  Mic2,
 } from "lucide-react"
 
 interface AdminLayoutProps {
@@ -139,6 +140,12 @@ function AdminLayout({ children }: AdminLayoutProps) {
       href: "/admin/team",
       icon: Users,
       active: pathname.startsWith("/admin/team"),
+    },
+    {
+      title: "Swarasya Band",
+      href: "/admin/swarasya",
+      icon: Mic2,
+      active: pathname.startsWith("/admin/swarasya"),
     },
     {
       title: "Pose Analytics",
