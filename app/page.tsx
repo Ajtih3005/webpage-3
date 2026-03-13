@@ -148,7 +148,7 @@ export default function Home() {
               <Image src="/images/logo.png" alt="Sthavishtah" fill className="object-cover" priority />
             </div>
             <div className="flex flex-col ml-3 px-3 py-1.5 rounded-lg bg-white/80 backdrop-blur-sm shadow-sm">
-              <span className="font-playfair text-lg font-semibold tracking-tight text-purple-700">STHAVISHTAH</span>
+              <span className="font-playfair text-lg font-semibold tracking-tight text-emerald-700">STHAVISHTAH</span>
               <span className="text-[9px] tracking-[0.2em] text-gray-600 uppercase">Yoga & Wellness</span>
             </div>
           </Link>
@@ -169,7 +169,7 @@ export default function Home() {
             </Link>
             <Link
               href="/user/register"
-              className="px-6 py-2.5 bg-gradient-to-r from-purple-600 to-teal-500 text-white text-sm rounded-full hover:from-purple-700 hover:to-teal-600 transition-all hover:shadow-lg font-lora shadow-md"
+              className="px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-500 text-white text-sm rounded-full hover:from-emerald-700 hover:to-teal-600 transition-all hover:shadow-lg font-lora shadow-md"
             >
               Get Started
             </Link>
@@ -178,7 +178,7 @@ export default function Home() {
           {/* Mobile Menu Button */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden p-2 text-purple-800"
+            className="md:hidden p-2 text-emerald-800"
             aria-label="Toggle menu"
           >
             {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
@@ -220,7 +220,7 @@ export default function Home() {
               <Link
                 href="/user/register"
                 onClick={() => setMobileMenuOpen(false)}
-                className="px-6 py-3 bg-gradient-to-r from-purple-600 to-teal-500 text-white text-center rounded-full hover:from-purple-700 hover:to-teal-600 transition-all font-lora"
+                className="px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-500 text-white text-center rounded-full hover:from-emerald-700 hover:to-teal-600 transition-all font-lora"
               >
                 Get Started
               </Link>
@@ -293,7 +293,7 @@ export default function Home() {
       <section className="py-16 md:py-24 bg-white relative overflow-hidden">
         {/* Decorative background elements */}
         <div className="absolute top-0 left-0 w-96 h-96 bg-emerald-100/50 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2 animate-float-slow" />
-        <div className="absolute bottom-0 right-0 w-80 h-80 bg-purple-100/50 rounded-full blur-3xl translate-x-1/2 translate-y-1/2 animate-float-gentle" style={{ animationDelay: '3s' }} />
+        <div className="absolute bottom-0 right-0 w-80 h-80 bg-teal-100/50 rounded-full blur-3xl translate-x-1/2 translate-y-1/2 animate-float-gentle" style={{ animationDelay: '3s' }} />
         
         <div className="container mx-auto px-4 text-center max-w-4xl relative z-10">
           <ScrollReveal animation="fade-down" delay={0}>
@@ -318,7 +318,7 @@ export default function Home() {
           <ScrollReveal animation="zoom-in" delay={300}>
             <Button
             size="lg"
-            className="bg-gradient-to-r from-purple-600 to-teal-500 hover:from-purple-700 hover:to-teal-600 text-white px-10 py-6 text-lg md:text-xl font-lora shadow-2xl hover:shadow-3xl transition-all duration-300 rounded-xl hover:scale-105 animate-gradient magnetic-hover group"
+            className="bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-700 hover:to-teal-600 text-white px-10 py-6 text-lg md:text-xl font-lora shadow-2xl hover:shadow-3xl transition-all duration-300 rounded-xl hover:scale-105 animate-gradient magnetic-hover group"
             onClick={handleEnroll}
           >
             <div className="flex flex-col items-center gap-2">
@@ -391,8 +391,9 @@ export default function Home() {
             </div>
           </ScrollReveal>
 
-          <div className="max-w-6xl mx-auto overflow-x-auto scrollbar-hide">
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 pb-4">
+          <div className="max-w-6xl mx-auto">
+            {/* Main Path Cards - 6 columns */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 pb-6">
               {[
                 { icon: BookOpen, title: "Bhagavad Gita Study" },
                 { icon: Users, title: "Yoga for Health" },
@@ -415,6 +416,35 @@ export default function Home() {
                 </ScrollReveal>
               ))}
             </div>
+
+            {/* What Makes Us Different - 4 horizontal cards */}
+            <ScrollReveal animation="fade-up" delay={200}>
+              <div className="mt-8 pt-8 border-t border-white/20">
+                <h3 className="text-center font-playfair text-xl md:text-2xl font-semibold text-amber-300 mb-6">
+                  What Makes Us Different
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {[
+                    { icon: Heart, title: "Authentic Practices", desc: "Traditional techniques from masters" },
+                    { icon: Award, title: "Expert Guidance", desc: "Certified experienced instructors" },
+                    { icon: Clock, title: "Flexible Schedule", desc: "Morning and evening batches" },
+                    { icon: Sparkles, title: "Holistic Approach", desc: "Mind, body, and spirit wellness" },
+                  ].map((item, index) => (
+                    <div key={index} className="group bg-gradient-to-br from-emerald-600/90 to-teal-700/90 backdrop-blur-sm rounded-xl p-4 border border-white/10 hover:border-amber-400/30 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-emerald-900/20">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-lg bg-amber-400/20 group-hover:bg-amber-400/30 transition-colors">
+                          <item.icon className="h-5 w-5 text-amber-300" />
+                        </div>
+                        <div>
+                          <h4 className="font-playfair text-sm font-semibold text-white">{item.title}</h4>
+                          <p className="text-xs text-white/70 font-lora">{item.desc}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </ScrollReveal>
           </div>
         </div>
       </section>
@@ -785,59 +815,13 @@ export default function Home() {
           </div>
         </div>
       </section>
-      <section className="py-10 md:py-14 bg-gradient-to-br from-emerald-50 via-white to-teal-50/30 relative overflow-hidden">
-        {/* Animated decorative elements */}
-        <div className="absolute top-0 right-0 w-72 h-72 bg-green-200/20 rounded-full blur-3xl animate-float-slow" />
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-teal-200/20 rounded-full blur-3xl animate-float-gentle" style={{ animationDelay: '1.5s' }} />
-        
-        <div className="container mx-auto px-4 relative z-10">
-          <div className="max-w-3xl mx-auto text-center">
-            <ScrollReveal animation="fade-up" delay={0}>
-              <div className="mb-4">
-                <span className="inline-block px-4 py-1.5 bg-green-100 text-green-700 rounded-full text-xs font-medium mb-3 hover-lift cursor-default">
-                  Join Our Community
-                </span>
-              </div>
-            </ScrollReveal>
-              
-            <ScrollReveal animation="fade-up" delay={100}>
-              <h2 className="font-playfair text-2xl md:text-3xl font-semibold text-emerald-800 mb-3">
-                Connect, Share, and Grow Together
-              </h2>
-            </ScrollReveal>
-            
-            <ScrollReveal animation="fade-up" delay={200}>
-              <p className="font-lora text-sm md:text-base text-emerald-700/80 mb-6 max-w-xl mx-auto">
-                Join yoga enthusiasts in our WhatsApp community. Share your journey, get daily inspiration, and connect
-                with like-minded souls on the path to wellness.
-              </p>
-            </ScrollReveal>
-
-            <ScrollReveal animation="zoom-in" delay={300}>
-              <div className="inline-flex items-center gap-3 bg-white px-6 py-3 rounded-full shadow-md hover:shadow-xl transition-all duration-300 border border-emerald-100 hover-lift group magnetic-hover">
-              <MessageCircle className="h-5 w-5 text-green-600 group-hover:scale-110 transition-transform duration-300" />
-              <a
-                href="https://whatsapp.com/channel/0029Vb6wVWi0lwgtLZg26b04"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-lora font-medium text-emerald-800 hover:text-emerald-600 transition-colors text-sm md:text-base"
-              >
-                Join WhatsApp Community
-              </a>
-              <ArrowRight className="h-4 w-4 text-emerald-600 group-hover:translate-x-1 transition-transform" />
-              </div>
-            </ScrollReveal>
-          </div>
-        </div>
-      </section>
-
-      {/* Avatar Stack + CTA Section */}
+      {/* Avatar Stack + CTA Section with Community Link */}
       <section className="py-16 md:py-24 bg-gradient-to-br from-stone-900 via-emerald-950 to-stone-900 relative overflow-hidden">
         {/* Animated background */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute top-10 left-1/4 w-72 h-72 bg-emerald-500/10 rounded-full blur-3xl animate-float-slow" />
           <div className="absolute bottom-10 right-1/4 w-96 h-96 bg-teal-500/10 rounded-full blur-3xl animate-float-gentle" style={{ animationDelay: '2s' }} />
-          <div className="absolute top-1/2 right-10 w-48 h-48 bg-purple-500/10 rounded-full blur-2xl animate-breathe" />
+          <div className="absolute top-1/2 right-10 w-48 h-48 bg-amber-500/10 rounded-full blur-2xl animate-breathe" />
         </div>
 
         <div className="container mx-auto px-4 relative z-10">
@@ -865,11 +849,11 @@ export default function Home() {
               <div className="flex flex-col items-center gap-6 mb-10">
                 <div className="flex -space-x-4">
                   {[
-                    "bg-gradient-to-br from-rose-400 to-pink-500",
-                    "bg-gradient-to-br from-amber-400 to-orange-500",
-                    "bg-gradient-to-br from-emerald-400 to-green-500",
-                    "bg-gradient-to-br from-blue-400 to-indigo-500",
-                    "bg-gradient-to-br from-purple-400 to-violet-500",
+                    "bg-gradient-to-br from-emerald-400 to-emerald-600",
+                    "bg-gradient-to-br from-teal-400 to-teal-600",
+                    "bg-gradient-to-br from-amber-400 to-amber-600",
+                    "bg-gradient-to-br from-emerald-500 to-teal-500",
+                    "bg-gradient-to-br from-teal-500 to-emerald-600",
                   ].map((gradient, i) => (
                     <div
                       key={i}
@@ -879,7 +863,7 @@ export default function Home() {
                       {String.fromCharCode(65 + i)}
                     </div>
                   ))}
-                  <div className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-emerald-600 border-4 border-stone-900 flex items-center justify-center text-white font-bold text-sm shadow-xl">
+                  <div className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-amber-500 border-4 border-stone-900 flex items-center justify-center text-white font-bold text-sm shadow-xl">
                     500+
                   </div>
                 </div>
@@ -890,102 +874,32 @@ export default function Home() {
             </ScrollReveal>
 
             <ScrollReveal animation="zoom-in" delay={400}>
-              <Button
-                size="lg"
-                onClick={handleEnroll}
-                className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white px-10 py-7 text-lg font-semibold rounded-full shadow-2xl hover:shadow-emerald-500/25 transition-all duration-300 hover:scale-105 group"
-              >
-                Start Your Journey Today
-                <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
-              </Button>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                <Button
+                  size="lg"
+                  onClick={handleEnroll}
+                  className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white px-10 py-7 text-lg font-semibold rounded-full shadow-2xl hover:shadow-emerald-500/25 transition-all duration-300 hover:scale-105 group"
+                >
+                  Start Your Journey Today
+                  <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                </Button>
+                
+                <a
+                  href="https://whatsapp.com/channel/0029Vb6wVWi0lwgtLZg26b04"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-6 py-4 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full text-white hover:bg-white/20 transition-all duration-300 hover:scale-105 group"
+                >
+                  <MessageCircle className="h-5 w-5 text-green-400 group-hover:scale-110 transition-transform" />
+                  <span className="font-lora">Join WhatsApp</span>
+                </a>
+              </div>
             </ScrollReveal>
           </div>
         </div>
       </section>
 
-      {/* Gradient Cards Section - What We Offer */}
-      <section className="py-16 md:py-24 bg-gradient-to-b from-white to-emerald-50/50 relative overflow-hidden">
-        {/* Decorative elements */}
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 via-teal-500 to-purple-500" />
-        <div className="absolute top-20 right-10 w-40 h-40 bg-emerald-200/30 rounded-full blur-3xl animate-float-gentle" />
-        <div className="absolute bottom-20 left-10 w-56 h-56 bg-teal-200/30 rounded-full blur-3xl animate-float-slow" style={{ animationDelay: '1s' }} />
-
-        <div className="container mx-auto px-4 relative z-10">
-          <ScrollReveal animation="fade-up" delay={0}>
-            <div className="text-center mb-12">
-              <div className="inline-block px-4 py-1.5 bg-emerald-100 text-emerald-700 text-xs font-medium rounded-full mb-4 border border-emerald-200">
-                What Makes Us Different
-              </div>
-              <h2 className="font-playfair text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-                Experience Holistic Wellness
-              </h2>
-              <p className="font-lora text-gray-600 max-w-2xl mx-auto">
-                Our programs combine ancient wisdom with modern understanding for complete transformation.
-              </p>
-            </div>
-          </ScrollReveal>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
-            {[
-              {
-                title: "Authentic Practices",
-                description: "Traditional yoga techniques passed down through generations of masters",
-                gradient: "from-rose-500 to-pink-600",
-                icon: Heart,
-                number: "01"
-              },
-              {
-                title: "Expert Guidance",
-                description: "Learn from certified instructors with years of dedicated practice",
-                gradient: "from-amber-500 to-orange-600",
-                icon: Award,
-                number: "02"
-              },
-              {
-                title: "Flexible Schedule",
-                description: "Morning and evening batches designed to fit your lifestyle",
-                gradient: "from-emerald-500 to-teal-600",
-                icon: Clock,
-                number: "03"
-              },
-              {
-                title: "Holistic Approach",
-                description: "Mind, body, and spirit wellness through integrated practices",
-                gradient: "from-blue-500 to-indigo-600",
-                icon: Sparkles,
-                number: "04"
-              },
-            ].map((item, index) => (
-              <ScrollReveal key={index} animation="fade-up" delay={index * 100}>
-                <div className={`group relative bg-gradient-to-br ${item.gradient} rounded-2xl p-6 h-full overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 hover:scale-[1.02]`}>
-                  {/* Hover overlay */}
-                  <div className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-colors duration-300" />
-                  
-                  {/* Number badge */}
-                  <div className="absolute top-4 right-4 text-white/20 font-bold text-4xl font-playfair group-hover:text-white/30 transition-colors">
-                    {item.number}
-                  </div>
-
-                  <div className="relative z-10">
-                    <div className="w-14 h-14 bg-white/20 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 group-hover:bg-white/30 transition-all duration-300">
-                      <item.icon className="h-7 w-7 text-white" />
-                    </div>
-                    <h3 className="font-playfair text-xl font-bold text-white mb-3">{item.title}</h3>
-                    <p className="text-white/80 text-sm font-lora leading-relaxed">{item.description}</p>
-                  </div>
-
-                  {/* Arrow indicator */}
-                  <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    <ArrowRight className="h-5 w-5 text-white" />
-                  </div>
-                </div>
-              </ScrollReveal>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <footer className="bg-gradient-to-r from-purple-800 via-purple-700 to-teal-600 text-white py-12 relative overflow-hidden">
+      <footer className="bg-gradient-to-r from-emerald-900 via-emerald-800 to-teal-800 text-white py-12 relative overflow-hidden">
         {/* Animated background pattern */}
         <div className="absolute inset-0 opacity-10">
           {[...Array(6)].map((_, i) => (
