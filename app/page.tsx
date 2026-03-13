@@ -25,6 +25,9 @@ import {
   Star,
   Zap,
   MessageCircle,
+  Heart,
+  Award,
+  Clock,
 } from "lucide-react"
 import { useState, useEffect } from "react"
 import ReviewCarousel from "@/components/review-carousel"
