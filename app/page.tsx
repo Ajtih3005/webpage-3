@@ -29,6 +29,7 @@ import {
 import { useState, useEffect } from "react"
 import ReviewCarousel from "@/components/review-carousel"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
+import { ScrollReveal } from "@/hooks/use-scroll-animation"
 
 interface SubscriptionPage {
   id: string
@@ -292,20 +293,27 @@ export default function Home() {
         <div className="absolute bottom-0 right-0 w-80 h-80 bg-purple-100/50 rounded-full blur-3xl translate-x-1/2 translate-y-1/2 animate-float-gentle" style={{ animationDelay: '3s' }} />
         
         <div className="container mx-auto px-4 text-center max-w-4xl relative z-10">
-          <div className="inline-block px-4 py-1.5 bg-emerald-100 text-emerald-700 text-xs font-medium rounded-full mb-6 border border-emerald-200 hover-lift cursor-default">
-            <Sparkles className="inline-block mr-1 h-3 w-3 md:h-4 md:w-4 animate-pulse" />
-            Your Journey Starts Here
-          </div>
+          <ScrollReveal animation="fade-down" delay={0}>
+            <div className="inline-block px-4 py-1.5 bg-emerald-100 text-emerald-700 text-xs font-medium rounded-full mb-6 border border-emerald-200 hover-lift cursor-default">
+              <Sparkles className="inline-block mr-1 h-3 w-3 md:h-4 md:w-4 animate-pulse" />
+              Your Journey Starts Here
+            </div>
+          </ScrollReveal>
           
-          <h2 className="font-playfair text-3xl md:text-5xl font-semibold text-gray-900 mb-6 leading-tight">
-            Begin with Guidance
-          </h2>
+          <ScrollReveal animation="fade-up" delay={100}>
+            <h2 className="font-playfair text-3xl md:text-5xl font-semibold text-gray-900 mb-6 leading-tight">
+              Begin with Guidance
+            </h2>
+          </ScrollReveal>
           
-          <p className="font-lora text-lg md:text-xl text-gray-600 max-w-2xl mx-auto mb-10 leading-relaxed">
-            Experience the transformative power of structured yoga practice. Start your 7-day free trial and discover a path to lasting wellness with expert guidance.
-          </p>
+          <ScrollReveal animation="fade-up" delay={200}>
+            <p className="font-lora text-lg md:text-xl text-gray-600 max-w-2xl mx-auto mb-10 leading-relaxed">
+              Experience the transformative power of structured yoga practice. Start your 7-day free trial and discover a path to lasting wellness with expert guidance.
+            </p>
+          </ScrollReveal>
           
-          <Button
+          <ScrollReveal animation="zoom-in" delay={300}>
+            <Button
             size="lg"
             className="bg-gradient-to-r from-purple-600 to-teal-500 hover:from-purple-700 hover:to-teal-600 text-white px-10 py-6 text-lg md:text-xl font-lora shadow-2xl hover:shadow-3xl transition-all duration-300 rounded-xl hover:scale-105 animate-gradient magnetic-hover group"
             onClick={handleEnroll}
@@ -316,7 +324,8 @@ export default function Home() {
                 Live sessions with no cost and open to beginners
               </span>
             </div>
-          </Button>
+            </Button>
+          </ScrollReveal>
         </div>
       </section>
 
@@ -334,7 +343,14 @@ export default function Home() {
           <div className="absolute inset-0 bg-gradient-to-b from-emerald-900/80 via-emerald-800/70 to-emerald-900/80"></div>
         </div>
 
-        <div className="container mx-auto px-4 relative">
+        {/* Animated floating elements */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-10 left-10 w-40 h-40 bg-amber-400/10 rounded-full blur-3xl animate-float-slow" />
+          <div className="absolute bottom-20 right-20 w-60 h-60 bg-emerald-400/10 rounded-full blur-3xl animate-float-gentle" style={{ animationDelay: '2s' }} />
+          <div className="absolute top-1/2 right-10 w-32 h-32 bg-teal-400/10 rounded-full blur-2xl animate-breathe" />
+        </div>
+
+        <div className="container mx-auto px-4 relative z-10">
           {/* What You Will Gain - Image Only */}
           <div className="text-center mb-8">
             <div className="max-w-4xl mx-auto">
@@ -357,14 +373,16 @@ export default function Home() {
           </div>
 
           {/* The Path We Follow */}
-          <div className="text-center mb-6">
-            <h2 className="font-playfair text-2xl md:text-3xl font-semibold text-amber-300 mb-2 drop-shadow-lg">
-              The Path We Practiced and Passed On
-            </h2>
-            <p className="font-lora text-amber-100/90 max-w-2xl mx-auto drop-shadow-md text-sm md:text-base">
-              Holistic wellness practices inspired by nature's wisdom.
-            </p>
-          </div>
+          <ScrollReveal animation="fade-up" delay={0}>
+            <div className="text-center mb-6">
+              <h2 className="font-playfair text-2xl md:text-3xl font-semibold text-amber-300 mb-2 drop-shadow-lg">
+                The Path We Practiced and Passed On
+              </h2>
+              <p className="font-lora text-amber-100/90 max-w-2xl mx-auto drop-shadow-md text-sm md:text-base">
+                Holistic wellness practices inspired by nature's wisdom.
+              </p>
+            </div>
+          </ScrollReveal>
 
           <div className="max-w-6xl mx-auto overflow-x-auto scrollbar-hide">
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 pb-4">
@@ -437,26 +455,36 @@ export default function Home() {
       <section className="py-10 md:py-16 relative overflow-hidden bg-gradient-to-br from-emerald-800 via-teal-700 to-emerald-900">
         {/* Subtle Pattern Overlay */}
         <div className="absolute inset-0 opacity-5 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgdmlld0JveD0iMCAwIDYwIDYwIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMSI+PHBhdGggZD0iTTM2IDM0di00aC0ydjRoLTR2Mmg0djRoMnYtNGg0di0ySDZ6bT0iLz48L2c+PC9nPjwvc3ZnPg==')]"></div>
+        
+        {/* Animated floating orbs */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-20 left-1/4 w-48 h-48 bg-teal-400/15 rounded-full blur-3xl animate-float-gentle" />
+          <div className="absolute bottom-10 right-1/4 w-64 h-64 bg-emerald-300/10 rounded-full blur-3xl animate-float-slow" style={{ animationDelay: '3s' }} />
+          <div className="absolute top-1/2 left-10 w-32 h-32 bg-cyan-400/10 rounded-full blur-2xl animate-breathe" style={{ animationDelay: '1s' }} />
+        </div>
 
         <div className="container mx-auto px-4 relative">
-          <div className="text-center mb-6 md:mb-10">
-            <div className="inline-block px-3 py-1.5 bg-white/20 backdrop-blur-sm text-white text-xs font-medium rounded-full mb-3 shadow-sm border border-white/30">
-              <Package className="inline-block mr-1 h-3 w-3 md:h-4 md:w-4" />
-              Wellness Programs
+          <ScrollReveal animation="fade-up" delay={0}>
+            <div className="text-center mb-6 md:mb-10">
+              <div className="inline-block px-3 py-1.5 bg-white/20 backdrop-blur-sm text-white text-xs font-medium rounded-full mb-3 shadow-sm border border-white/30">
+                <Package className="inline-block mr-1 h-3 w-3 md:h-4 md:w-4" />
+                Wellness Programs
+              </div>
+              <h2 className="font-playfair text-2xl sm:text-3xl md:text-4xl font-bold mb-2 md:mb-3 text-white">
+                Discover Our Transformative Programs
+              </h2>
+              <p className="text-center text-white/90 max-w-2xl mx-auto text-sm md:text-base font-lora">
+                Explore our carefully crafted subscription programs designed to nurture your mind, body, and spirit on
+                your wellness journey.
+              </p>
             </div>
-            <h2 className="font-playfair text-2xl sm:text-3xl md:text-4xl font-bold mb-2 md:mb-3 text-white">
-              Discover Our Transformative Programs
-            </h2>
-            <p className="text-center text-white/90 max-w-2xl mx-auto text-sm md:text-base font-lora">
-              Explore our carefully crafted subscription programs designed to nurture your mind, body, and spirit on
-              your wellness journey.
-            </p>
-          </div>
+          </ScrollReveal>
 
           {subscriptionPages.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 mb-8 md:mb-12 max-w-5xl mx-auto">
-              {subscriptionPages.map((page) => (
-                <Card key={page.id} className="border border-emerald-200/60 hover:shadow-xl transition-all duration-500 group bg-white rounded-2xl overflow-hidden hover-lift">
+              {subscriptionPages.map((page, index) => (
+                <ScrollReveal key={page.id} animation="fade-up" delay={index * 150}>
+                <Card className="border border-emerald-200/60 hover:shadow-xl transition-all duration-500 group bg-white rounded-2xl overflow-hidden hover-lift">
                   <div className="relative h-44 overflow-hidden">
                     <Image
                       src={page.hero_image_url || "/images/logo.png"}
@@ -480,6 +508,7 @@ export default function Home() {
                     </Button>
                   </CardContent>
                 </Card>
+                </ScrollReveal>
               ))}
             </div>
           ) : (
@@ -585,19 +614,27 @@ export default function Home() {
           {/* Decorative Pattern Overlay */}
           <div className="absolute inset-0 opacity-10 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgdmlld0JveD0iMCAwIDYwIDYwIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMSI+PHBhdGggZD0iTTM2IDM0di00aC0ydjRoLTR2Mmg0djRoMnYtNGg0di0ySDZ6bT0iLz48L2c+PC9nPjwvc3ZnPg==')] -z-10"></div>
 
-          <div className="container mx-auto px-4 relative">
-            <div className="text-center mb-12">
-              <span className="inline-block px-4 py-1.5 bg-white/15 backdrop-blur-sm text-white text-xs font-medium mb-4 shadow-md border border-white/20">
-                <Users className="inline-block mr-1 h-4 w-4" />
-                Our Team
-              </span>
-              <h2 className="text-2xl sm:text-3xl font-bold mb-3 md:mb-4 text-white drop-shadow-lg">
-                Meet Our Dedicated Instructors
-              </h2>
-              <p className="text-white/90 max-w-2xl mx-auto drop-shadow-md mb-6">
-                Experienced practitioners committed to guiding your wellness journey with wisdom and compassion.
-              </p>
-            </div>
+          {/* Animated floating elements */}
+          <div className="absolute inset-0 overflow-hidden pointer-events-none">
+            <div className="absolute top-10 right-20 w-40 h-40 bg-white/5 rounded-full blur-2xl animate-float-slow" />
+            <div className="absolute bottom-20 left-20 w-56 h-56 bg-teal-400/10 rounded-full blur-3xl animate-float-gentle" style={{ animationDelay: '2s' }} />
+          </div>
+
+          <div className="container mx-auto px-4 relative z-10">
+            <ScrollReveal animation="fade-up" delay={0}>
+              <div className="text-center mb-12">
+                <span className="inline-block px-4 py-1.5 bg-white/15 backdrop-blur-sm text-white text-xs font-medium mb-4 shadow-md border border-white/20">
+                  <Users className="inline-block mr-1 h-4 w-4" />
+                  Our Team
+                </span>
+                <h2 className="text-2xl sm:text-3xl font-bold mb-3 md:mb-4 text-white drop-shadow-lg">
+                  Meet Our Dedicated Instructors
+                </h2>
+                <p className="text-white/90 max-w-2xl mx-auto drop-shadow-md mb-6">
+                  Experienced practitioners committed to guiding your wellness journey with wisdom and compassion.
+                </p>
+              </div>
+            </ScrollReveal>
 
             {/* Desktop view - show first 6 members */}
             <div className="hidden lg:block relative">
@@ -698,19 +735,22 @@ export default function Home() {
         <div className="absolute bottom-10 right-10 w-40 h-40 bg-indigo-200/30 rounded-full blur-2xl animate-float-gentle" style={{ animationDelay: '2s' }} />
         
         <div className="container mx-auto px-4 sm:px-6 relative z-10">
-          <div className="text-center mb-8 sm:mb-12">
-            <h2 className="font-playfair text-2xl sm:text-3xl font-semibold text-emerald-800 mb-2 sm:mb-3">
-              Flexible Batches
-            </h2>
-            <p className="font-lora text-sm text-emerald-700/70 max-w-xl mx-auto px-4">
-              Choose from our flexible schedule designed to harmonize with your natural rhythms.
-            </p>
-          </div>
+          <ScrollReveal animation="fade-up" delay={0}>
+            <div className="text-center mb-8 sm:mb-12">
+              <h2 className="font-playfair text-2xl sm:text-3xl font-semibold text-emerald-800 mb-2 sm:mb-3">
+                Flexible Batches
+              </h2>
+              <p className="font-lora text-sm text-emerald-700/70 max-w-xl mx-auto px-4">
+                Choose from our flexible schedule designed to harmonize with your natural rhythms.
+              </p>
+            </div>
+          </ScrollReveal>
 
           <div className="grid sm:grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 max-w-4xl mx-auto">
             {/* Morning Batch */}
-            <div className="border-emerald-200/40 hover:shadow-lg transition-all duration-300 hover-lift group">
-              <div className="h-1 bg-gradient-to-r from-yellow-400 to-orange-400 group-hover:h-2 transition-all duration-300"></div>
+            <ScrollReveal animation="fade-right" delay={100}>
+              <div className="border-emerald-200/40 hover:shadow-lg transition-all duration-300 hover-lift group">
+                <div className="h-1 bg-gradient-to-r from-yellow-400 to-orange-400 group-hover:h-2 transition-all duration-300"></div>
               <CardContent className="p-4 sm:p-6">
                 <div className="flex items-center gap-2 mb-3 sm:mb-4">
                   <div className="p-2 rounded-full bg-yellow-100">
@@ -728,14 +768,16 @@ export default function Home() {
                   )}
                 </div>
                 <Badge variant="outline" className="border-yellow-300 text-yellow-700 bg-yellow-50 text-xs">
-                  Energizing Flow
-                </Badge>
-              </CardContent>
-            </div>
+                    Energizing Flow
+                  </Badge>
+                </CardContent>
+              </div>
+            </ScrollReveal>
 
             {/* Evening Batch */}
-            <div className="border-emerald-200/40 hover:shadow-lg transition-all duration-300 hover-lift group">
-              <div className="h-1 bg-gradient-to-r from-indigo-400 to-purple-400 group-hover:h-2 transition-all duration-300"></div>
+            <ScrollReveal animation="fade-left" delay={200}>
+              <div className="border-emerald-200/40 hover:shadow-lg transition-all duration-300 hover-lift group">
+                <div className="h-1 bg-gradient-to-r from-indigo-400 to-purple-400 group-hover:h-2 transition-all duration-300"></div>
               <CardContent className="p-4 sm:p-6">
                 <div className="flex items-center gap-2 mb-3 sm:mb-4">
                   <div className="p-2 rounded-full bg-indigo-100">
@@ -753,10 +795,11 @@ export default function Home() {
                   )}
                 </div>
                 <Badge variant="outline" className="border-indigo-300 text-indigo-700 bg-indigo-50 text-xs">
-                  Calming Practice
-                </Badge>
-              </CardContent>
-            </div>
+                    Calming Practice
+                  </Badge>
+                </CardContent>
+              </div>
+            </ScrollReveal>
           </div>
         </div>
       </section>
@@ -767,10 +810,13 @@ export default function Home() {
         
         <div className="container mx-auto px-4 relative z-10">
           <div className="max-w-3xl mx-auto text-center">
-            <div className="mb-4">
-              <span className="inline-block px-4 py-1.5 bg-green-100 text-green-700 rounded-full text-xs font-medium mb-3 hover-lift cursor-default">
-                Join Our Community
-              </span>
+            <ScrollReveal animation="fade-up" delay={0}>
+              <div className="mb-4">
+                <span className="inline-block px-4 py-1.5 bg-green-100 text-green-700 rounded-full text-xs font-medium mb-3 hover-lift cursor-default">
+                  Join Our Community
+                </span>
+              </div>
+            </ScrollReveal>
               <h2 className="font-playfair text-2xl md:text-3xl font-semibold text-emerald-800 mb-3">
                 Connect, Share, and Grow Together
               </h2>
