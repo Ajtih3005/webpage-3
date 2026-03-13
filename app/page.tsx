@@ -712,7 +712,7 @@ export default function Home() {
         </section>
       )}
 
-      <section className="relative py-8 md:py-10 overflow-hidden bg-gradient-to-br from-green-800 via-emerald-700 to-green-900">
+      <section className="relative py-8 md:py-10 overflow-hidden bg-gradient-to-br from-emerald-800 via-teal-700 to-emerald-900">
         {/* Animated floating orbs */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute top-5 left-10 w-32 h-32 bg-white/5 rounded-full blur-2xl animate-float-slow" />
@@ -741,10 +741,10 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="py-12 sm:py-16 bg-gradient-to-b from-emerald-50/30 to-white relative overflow-hidden">
+      <section className="py-12 sm:py-16 bg-gradient-to-b from-emerald-50 via-white to-teal-50/30 relative overflow-hidden">
         {/* Animated background elements */}
-        <div className="absolute top-10 left-10 w-32 h-32 bg-yellow-200/30 rounded-full blur-2xl animate-float-slow" />
-        <div className="absolute bottom-10 right-10 w-40 h-40 bg-indigo-200/30 rounded-full blur-2xl animate-float-gentle" style={{ animationDelay: '2s' }} />
+        <div className="absolute top-10 left-10 w-32 h-32 bg-amber-200/30 rounded-full blur-2xl animate-float-slow" />
+        <div className="absolute bottom-10 right-10 w-40 h-40 bg-teal-200/30 rounded-full blur-2xl animate-float-gentle" style={{ animationDelay: '2s' }} />
         
         <div className="container mx-auto px-4 sm:px-6 relative z-10">
           <ScrollReveal animation="fade-up" delay={0}>
@@ -789,24 +789,24 @@ export default function Home() {
             {/* Evening Batch */}
             <ScrollReveal animation="fade-left" delay={200}>
               <div className="border-emerald-200/40 hover:shadow-lg transition-all duration-300 hover-lift group">
-                <div className="h-1 bg-gradient-to-r from-indigo-400 to-purple-400 group-hover:h-2 transition-all duration-300"></div>
+                <div className="h-1 bg-gradient-to-r from-teal-400 to-emerald-500 group-hover:h-2 transition-all duration-300"></div>
               <CardContent className="p-4 sm:p-6">
                 <div className="flex items-center gap-2 mb-3 sm:mb-4">
-                  <div className="p-2 rounded-full bg-indigo-100">
-                    <Moon className="h-4 w-4 sm:h-5 sm:w-5 text-indigo-600" />
+                  <div className="p-2 rounded-full bg-teal-100">
+                    <Moon className="h-4 w-4 sm:h-5 sm:w-5 text-teal-600" />
                   </div>
                   <h3 className="font-playfair text-lg sm:text-xl font-semibold text-emerald-800">Evening Batches</h3>
                 </div>
                 <div className="space-y-2 mb-4">
                   {[{ time: "5:30 PM - 6:30 PM" }, { time: "6:40 PM - 7:40 PM" }, { time: "7:50 PM - 8:50 PM" }].map(
                     (slot, i) => (
-                      <div key={i} className="flex items-center p-2 bg-stone-50 rounded-lg">
+                      <div key={i} className="flex items-center p-2 bg-teal-50/50 rounded-lg">
                         <span className="font-lora font-semibold text-emerald-800 text-sm">{slot.time}</span>
                       </div>
                     ),
                   )}
                 </div>
-                <Badge variant="outline" className="border-indigo-300 text-indigo-700 bg-indigo-50 text-xs">
+                <Badge variant="outline" className="border-teal-300 text-teal-700 bg-teal-50 text-xs">
                     Calming Practice
                   </Badge>
                 </CardContent>
@@ -815,8 +815,41 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* Wave Divider with Quote */}
+      <section className="relative py-16 bg-gradient-to-b from-white via-emerald-50 to-emerald-100 overflow-hidden">
+        {/* Decorative floating elements */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-10 left-1/4 w-24 h-24 bg-amber-300/20 rounded-full blur-2xl animate-float-gentle" />
+          <div className="absolute bottom-10 right-1/4 w-32 h-32 bg-teal-300/20 rounded-full blur-2xl animate-float-slow" style={{ animationDelay: '1s' }} />
+        </div>
+        
+        <div className="container mx-auto px-4 relative z-10">
+          <ScrollReveal animation="fade-up" delay={0}>
+            <div className="max-w-3xl mx-auto text-center">
+              <div className="inline-block mb-6">
+                <Sparkles className="h-8 w-8 text-amber-500 animate-pulse" />
+              </div>
+              <blockquote className="font-playfair text-2xl md:text-3xl lg:text-4xl text-emerald-800 leading-relaxed mb-6 italic">
+                "Yoga is the journey of the self, through the self, to the self."
+              </blockquote>
+              <p className="font-lora text-emerald-600 text-lg">— Bhagavad Gita</p>
+            </div>
+          </ScrollReveal>
+        </div>
+        
+        {/* Bottom wave SVG */}
+        <div className="absolute bottom-0 left-0 w-full overflow-hidden leading-none">
+          <svg className="relative block w-full h-16" viewBox="0 0 1200 120" preserveAspectRatio="none">
+            <path d="M0,0V46.29c47.79,22.2,103.59,32.17,158,28,70.36-5.37,136.33-33.31,206.8-37.5C438.64,32.43,512.34,53.67,583,72.05c69.27,18,138.3,24.88,209.4,13.08,36.15-6,69.85-17.84,104.45-29.34C989.49,25,1113-14.29,1200,52.47V0Z" opacity=".25" className="fill-emerald-950"></path>
+            <path d="M0,0V15.81C13,36.92,27.64,56.86,47.69,72.05,99.41,111.27,165,111,224.58,91.58c31.15-10.15,60.09-26.07,89.67-39.8,40.92-19,84.73-46,130.83-49.67,36.26-2.85,70.9,9.42,98.6,31.56,31.77,25.39,62.32,62,103.63,73,40.44,10.79,81.35-6.69,119.13-24.28s75.16-39,116.92-43.05c59.73-5.85,113.28,22.88,168.9,38.84,30.2,8.66,59,6.17,87.09-7.5,22.43-10.89,48-26.93,60.65-49.24V0Z" opacity=".5" className="fill-emerald-950"></path>
+            <path d="M0,0V5.63C149.93,59,314.09,71.32,475.83,42.57c43-7.64,84.23-20.12,127.61-26.46,59-8.63,112.48,12.24,165.56,35.4C827.93,77.22,886,95.24,951.2,90c86.53-7,172.46-45.71,248.8-84.81V0Z" className="fill-emerald-950"></path>
+          </svg>
+        </div>
+      </section>
+
       {/* Avatar Stack + CTA Section with Community Link */}
-      <section className="py-16 md:py-24 bg-gradient-to-br from-stone-900 via-emerald-950 to-stone-900 relative overflow-hidden">
+      <section className="py-16 md:py-24 bg-gradient-to-br from-emerald-950 via-emerald-900 to-teal-900 relative overflow-hidden">
         {/* Animated background */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute top-10 left-1/4 w-72 h-72 bg-emerald-500/10 rounded-full blur-3xl animate-float-slow" />
