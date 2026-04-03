@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { notFound, useSearchParams, useRouter } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
@@ -29,6 +29,11 @@ import {
   Home,
   FileText,
   User,
+  Award,
+  Shield,
+  Gift,
+  ArrowRight,
+  MousePointer,
 } from "lucide-react"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { Logo } from "@/components/logo"
@@ -104,6 +109,9 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null)
   const [referralDiscounts, setReferralDiscounts] = useState<{ [key: string]: number }>({})
   const [userId, setUserId] = useState<string | null>(null)
+  const [activeSection, setActiveSection] = useState(0)
+  const [hoveredPlan, setHoveredPlan] = useState<string | null>(null)
+  const plansRef = useRef<HTMLDivElement>(null)
 
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -166,6 +174,16 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
     window.scrollTo(0, 0)
     fetchPageData()
   }, [params.slug])
+
+  // Auto-cycle through content sections for preview
+  useEffect(() => {
+    if (contentSections.length > 0) {
+      const interval = setInterval(() => {
+        setActiveSection((prev) => (prev + 1) % contentSections.length)
+      }, 5000)
+      return () => clearInterval(interval)
+    }
+  }, [contentSections.length])
 
   const fetchPageData = async () => {
     const supabase = getSupabaseBrowserClient()
@@ -255,23 +273,29 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
   const getCardIcon = (iconName: string) => {
     switch (iconName) {
       case "users":
-        return <Users className="h-5 w-5" />
+        return <Users className="h-6 w-6" />
       case "clock":
-        return <Clock className="h-5 w-5" />
+        return <Clock className="h-6 w-6" />
       case "star":
-        return <Star className="h-5 w-5" />
+        return <Star className="h-6 w-6" />
       case "check":
-        return <CheckCircle className="h-5 w-5" />
+        return <CheckCircle className="h-6 w-6" />
       case "calendar":
-        return <Calendar className="h-5 w-5" />
+        return <Calendar className="h-6 w-6" />
       case "play":
-        return <PlayCircle className="h-5 w-5" />
+        return <PlayCircle className="h-6 w-6" />
       case "book":
-        return <BookOpen className="h-5 w-5" />
+        return <BookOpen className="h-6 w-6" />
       case "trending":
-        return <TrendingUp className="h-5 w-5" />
+        return <TrendingUp className="h-6 w-6" />
+      case "award":
+        return <Award className="h-6 w-6" />
+      case "shield":
+        return <Shield className="h-6 w-6" />
+      case "gift":
+        return <Gift className="h-6 w-6" />
       default:
-        return <div className="text-lg">{iconName}</div>
+        return <div className="text-xl">{iconName}</div>
     }
   }
 
@@ -313,41 +337,27 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
   }
 
   const handleSubscribeClick = (planId: string) => {
-    console.log("[v0] Subscribe button clicked for plan:", planId)
-
     const isLoggedIn = !!userId
-    console.log("[v0] User logged in status:", isLoggedIn)
 
     if (isLoggedIn) {
-      console.log("[v0] User is logged in, redirecting to payment page")
       router.push(`/user/subscribe?plan=${planId}`)
     } else {
-      console.log("[v0] User not logged in, showing auth modal on category page")
       setSelectedPlanId(planId)
       setShowAuthModal(true)
     }
   }
 
   const handleAuthChoice = (choice: "login" | "register") => {
-    console.log("[v0] Auth choice selected:", choice)
-    console.log("[v0] Selected plan ID:", selectedPlanId)
-
     if (selectedPlanId) {
       sessionStorage.setItem("pendingSubscriptionPlan", selectedPlanId)
-      console.log("[v0] Stored pending plan in sessionStorage:", selectedPlanId)
 
       const returnUrl = `/user/subscribe?plan=${selectedPlanId}`
-      console.log("[v0] Return URL to payment page:", returnUrl)
 
       if (choice === "login") {
-        console.log("[v0] Redirecting to login page")
         router.push(`/user/login?redirect=${encodeURIComponent(returnUrl)}`)
       } else {
-        console.log("[v0] Redirecting to register page")
         router.push(`/user/register?redirect=${encodeURIComponent(returnUrl)}`)
       }
-    } else {
-      console.error("[v0] No plan ID selected!")
     }
   }
 
@@ -357,30 +367,26 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
     return plan.price - baseDiscount - referralDiscount
   }
 
+  const scrollToPlans = () => {
+    plansRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+  }
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-rose-50">
-        <div className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-purple-100 shadow-sm">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+        <div className="fixed top-0 left-0 right-0 z-50 bg-slate-900/95 backdrop-blur-md border-b border-purple-500/20">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-            <div className="flex items-center">
-              <Logo className="h-8 w-auto" />
-            </div>
-            <Skeleton className="h-10 w-32" />
+            <Logo className="h-8 w-auto" />
+            <Skeleton className="h-10 w-32 bg-purple-800/50" />
           </div>
         </div>
 
         <div className="container mx-auto px-4 py-8 pt-32">
-          <Skeleton className="h-8 w-32 mb-6" />
-          <Skeleton className="h-96 w-full mb-8 rounded-3xl" />
+          <Skeleton className="h-8 w-32 mb-6 bg-purple-800/50" />
+          <Skeleton className="h-[500px] w-full mb-8 rounded-3xl bg-purple-800/50" />
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             {[1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-32 rounded-2xl" />
-            ))}
-          </div>
-          <Skeleton className="h-48 w-full mb-6 rounded-2xl" />
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {[1, 2].map((i) => (
-              <Skeleton key={i} className="h-64 rounded-2xl" />
+              <Skeleton key={i} className="h-40 rounded-2xl bg-purple-800/50" />
             ))}
           </div>
         </div>
@@ -393,23 +399,39 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-rose-50 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
+      {/* Animated Background Effects */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-96 h-96 bg-gradient-to-br from-purple-400/20 to-pink-400/20 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-gradient-to-br from-rose-400/20 to-orange-400/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-gradient-to-br from-pink-300/10 to-purple-300/10 rounded-full blur-3xl animate-pulse delay-500"></div>
+        <div className="absolute top-0 left-1/4 w-[600px] h-[600px] bg-purple-500/20 rounded-full blur-[120px] animate-pulse"></div>
+        <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-pink-500/20 rounded-full blur-[100px] animate-pulse delay-1000"></div>
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-indigo-500/10 rounded-full blur-[150px] animate-pulse delay-500"></div>
+        
+        {/* Floating particles */}
+        <div className="absolute inset-0">
+          {[...Array(20)].map((_, i) => (
+            <div
+              key={i}
+              className="absolute w-1 h-1 bg-white/20 rounded-full animate-float"
+              style={{
+                left: `${Math.random() * 100}%`,
+                top: `${Math.random() * 100}%`,
+                animationDelay: `${Math.random() * 5}s`,
+                animationDuration: `${5 + Math.random() * 10}s`,
+              }}
+            />
+          ))}
+        </div>
       </div>
 
-      <div className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-purple-100 shadow-sm">
+      {/* Header */}
+      <div className="fixed top-0 left-0 right-0 z-50 bg-slate-900/80 backdrop-blur-xl border-b border-purple-500/20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <div className="flex items-center">
-            <Logo className="h-8 w-auto" />
-          </div>
+          <Logo className="h-8 w-auto" />
           <Link href={getBackLink()}>
             <Button
               variant="outline"
               size="sm"
-              className="border-purple-300 text-purple-600 hover:bg-purple-50 bg-transparent"
+              className="border-purple-500/50 text-purple-300 hover:bg-purple-500/20 bg-transparent backdrop-blur-sm"
             >
               {getBackIcon()}
               {getBackText()}
@@ -419,72 +441,91 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
       </div>
 
       <div className="relative z-10">
-        <div className="relative h-[500px] overflow-hidden">
+        {/* Hero Section */}
+        <div className="relative min-h-[600px] overflow-hidden">
           <Image
             src={
-              page.hero_image_url || `/placeholder.svg?height=500&width=1200&query=${encodeURIComponent(page.title)}`
+              page.hero_image_url || `/placeholder.svg?height=600&width=1200&query=${encodeURIComponent(page.title)}`
             }
             alt={page.title}
             fill
             className="object-cover"
             priority
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-purple-900/80 via-pink-900/60 to-rose-900/80" />
+          <div className="absolute inset-0 bg-gradient-to-b from-slate-900/60 via-purple-900/70 to-slate-900" />
 
-          <div className="absolute top-6 right-6">
-            <div className="bg-white/20 backdrop-blur-sm rounded-full px-4 py-2 text-white font-bold flex items-center text-sm">
-              <Crown className="mr-2 h-4 w-4" />
-              Premium Experience
-            </div>
-          </div>
-
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="text-center text-white max-w-4xl px-4">
-              <div className="inline-flex items-center bg-gradient-to-r from-yellow-400 to-orange-400 text-black px-4 py-2 rounded-full text-sm font-bold mb-6 shadow-lg">
-                <Sparkles className="mr-2 h-4 w-4" />
-                Transform Your Life
-                <Flame className="ml-2 h-4 w-4" />
+          {/* Hero Content */}
+          <div className="absolute inset-0 flex items-center justify-center pt-16">
+            <div className="text-center text-white max-w-5xl px-4">
+              {/* Premium Badge */}
+              <div className="inline-flex items-center bg-gradient-to-r from-amber-400 via-orange-400 to-amber-400 text-slate-900 px-6 py-2 rounded-full text-sm font-bold mb-8 shadow-2xl shadow-amber-500/30 animate-shimmer">
+                <Crown className="mr-2 h-4 w-4" />
+                Premium Experience
+                <Sparkles className="ml-2 h-4 w-4" />
               </div>
 
-              <h1 className="text-4xl md:text-6xl font-black mb-6 leading-tight">
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-pink-300 to-purple-300">
+              <h1 className="text-5xl md:text-7xl font-black mb-6 leading-tight tracking-tight">
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-purple-200 to-pink-200">
                   {page.title}
                 </span>
               </h1>
 
-              <p className="text-xl md:text-2xl opacity-95 font-light mb-8 leading-relaxed">{page.subtitle}</p>
+              <p className="text-xl md:text-2xl text-purple-100/90 font-light mb-10 leading-relaxed max-w-3xl mx-auto">
+                {page.subtitle}
+              </p>
 
-              <div className="flex justify-center items-center">
+              {/* CTA Buttons */}
+              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
                 <Button
                   size="lg"
-                  className="bg-gradient-to-r from-yellow-400 to-orange-400 hover:from-yellow-500 hover:to-orange-500 text-black font-bold text-lg px-8 py-4 h-auto shadow-2xl"
+                  onClick={scrollToPlans}
+                  className="bg-gradient-to-r from-amber-400 via-orange-400 to-amber-400 hover:from-amber-500 hover:via-orange-500 hover:to-amber-500 text-slate-900 font-bold text-lg px-10 py-6 h-auto shadow-2xl shadow-amber-500/30 transition-all duration-300 hover:scale-105 group"
                 >
-                  <Zap className="mr-2 h-5 w-5" />
-                  Start Now - Limited Time
+                  <Zap className="mr-2 h-5 w-5 group-hover:animate-pulse" />
+                  Get Started Now
+                  <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
                 </Button>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  onClick={() => {
+                    const introSection = document.getElementById("introduction")
+                    introSection?.scrollIntoView({ behavior: "smooth" })
+                  }}
+                  className="border-2 border-purple-400/50 text-purple-200 hover:bg-purple-500/20 font-semibold text-lg px-8 py-6 h-auto backdrop-blur-sm bg-white/5"
+                >
+                  <PlayCircle className="mr-2 h-5 w-5" />
+                  Learn More
+                </Button>
+              </div>
+
+              {/* Scroll indicator */}
+              <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
+                <MousePointer className="h-6 w-6 text-purple-300/70" />
               </div>
             </div>
           </div>
-
-          <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 animate-bounce">
-            <ChevronDown className="h-6 w-6 text-white" />
-          </div>
         </div>
 
-        <div className="container mx-auto px-4 py-12">
+        <div className="container mx-auto px-4 py-16">
+          {/* Stats Cards */}
           {infoCards.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12 -mt-10 relative z-10">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-20 -mt-20 relative z-20">
               {infoCards.map((card, index) => (
                 <Card
                   key={card.id}
-                  className="text-center hover:shadow-xl transition-all duration-300 bg-white/90 backdrop-blur-sm border-0 shadow-lg hover:scale-105 group"
+                  className="group relative overflow-hidden border-0 bg-gradient-to-br from-slate-800/90 to-purple-900/50 backdrop-blur-xl shadow-2xl hover:shadow-purple-500/20 transition-all duration-500 hover:-translate-y-2"
+                  style={{ animationDelay: `${index * 100}ms` }}
                 >
-                  <CardContent className="pt-6 pb-6 px-6">
-                    <div className="w-16 h-16 bg-gradient-to-br from-purple-100 to-pink-100 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
-                      <div className="text-purple-600">{getCardIcon(card.icon)}</div>
+                  {/* Glow effect */}
+                  <div className="absolute inset-0 bg-gradient-to-br from-purple-500/0 to-pink-500/0 group-hover:from-purple-500/10 group-hover:to-pink-500/10 transition-all duration-500" />
+                  
+                  <CardContent className="relative pt-8 pb-8 px-6 text-center">
+                    <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-lg shadow-purple-500/30 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
+                      <div className="text-white">{getCardIcon(card.icon)}</div>
                     </div>
-                    <h3 className="font-bold text-lg mb-2 text-gray-900">{card.title}</h3>
-                    <p className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600">
+                    <h3 className="font-bold text-lg mb-2 text-purple-100">{card.title}</h3>
+                    <p className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-400">
                       {card.value}
                     </p>
                   </CardContent>
@@ -493,139 +534,188 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
             </div>
           )}
 
-          <Card className="mb-10 border-0 shadow-xl bg-gradient-to-br from-white to-purple-50/50 backdrop-blur-sm">
-            <CardHeader className="text-center pb-6">
-              <div className="inline-flex items-center bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-4 py-2 rounded-full text-sm font-bold mb-4 mx-auto">
-                <Heart className="mr-2 h-4 w-4" />
-                Why Choose This Program?
-              </div>
-              <CardTitle className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600 mb-4">
-                {page.introduction_title}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-lg leading-relaxed text-gray-700 text-center max-w-3xl mx-auto">
-                {page.introduction_content}
-              </p>
-            </CardContent>
-          </Card>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div className="space-y-6">
-              <div className="text-center lg:text-left">
-                <div className="inline-flex items-center bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-4 py-2 rounded-full text-sm font-bold mb-4">
-                  <BookOpen className="mr-2 h-4 w-4" />
-                  What You'll Master
+          {/* Introduction Section */}
+          <div id="introduction" className="mb-20 scroll-mt-24">
+            <Card className="border-0 shadow-2xl bg-gradient-to-br from-slate-800/80 to-purple-900/40 backdrop-blur-xl overflow-hidden">
+              <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-purple-500/20 to-transparent rounded-full blur-3xl" />
+              
+              <CardHeader className="text-center pb-8 relative">
+                <div className="inline-flex items-center bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-5 py-2 rounded-full text-sm font-bold mb-6 mx-auto shadow-lg shadow-emerald-500/30">
+                  <Heart className="mr-2 h-4 w-4" />
+                  Why Choose This Program?
                 </div>
-                <h2 className="text-3xl font-black text-gray-900 mb-6">Your Learning Journey</h2>
+                <CardTitle className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-300 via-pink-300 to-purple-300 mb-4">
+                  {page.introduction_title}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="relative">
+                <p className="text-lg leading-relaxed text-purple-100/80 text-center max-w-3xl mx-auto">
+                  {page.introduction_content}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Two Column Layout */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+            {/* Content Sections */}
+            <div className="space-y-6">
+              <div className="text-center lg:text-left mb-8">
+                <div className="inline-flex items-center bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-5 py-2 rounded-full text-sm font-bold mb-4 shadow-lg shadow-emerald-500/30">
+                  <BookOpen className="mr-2 h-4 w-4" />
+                  What You&apos;ll Master
+                </div>
+                <h2 className="text-3xl font-black text-white mb-2">Your Learning Journey</h2>
+                <p className="text-purple-200/70">Explore the comprehensive curriculum designed for transformation</p>
               </div>
+
+              {/* Progress indicator */}
+              {contentSections.length > 0 && (
+                <div className="flex gap-1 mb-6">
+                  {contentSections.map((_, idx) => (
+                    <div
+                      key={idx}
+                      className={`h-1 flex-1 rounded-full transition-all duration-500 ${
+                        idx === activeSection
+                          ? "bg-gradient-to-r from-purple-500 to-pink-500"
+                          : idx < activeSection
+                          ? "bg-purple-500/50"
+                          : "bg-slate-700"
+                      }`}
+                    />
+                  ))}
+                </div>
+              )}
 
               {contentSections.map((section, index) => (
-                <Collapsible key={section.id}>
+                <Collapsible key={section.id} open={openSections.includes(section.id)}>
                   <CollapsibleTrigger
                     onClick={() => toggleSection(section.id)}
-                    className="flex items-center justify-between w-full p-5 bg-white/80 backdrop-blur-sm rounded-xl shadow-md hover:shadow-lg transition-all duration-300 border border-transparent hover:border-purple-200 group"
+                    className={`flex items-center justify-between w-full p-5 rounded-xl transition-all duration-300 group ${
+                      openSections.includes(section.id)
+                        ? "bg-gradient-to-r from-purple-600/30 to-pink-600/30 shadow-lg shadow-purple-500/10"
+                        : "bg-slate-800/50 hover:bg-slate-800/80"
+                    } backdrop-blur-sm border border-purple-500/20 hover:border-purple-500/40`}
                   >
-                    <div className="flex items-center">
-                      <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white font-bold text-sm mr-3 group-hover:scale-110 transition-transform">
+                    <div className="flex items-center gap-4">
+                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg transition-all duration-300 ${
+                        openSections.includes(section.id)
+                          ? "bg-gradient-to-br from-purple-500 to-pink-500 shadow-lg shadow-purple-500/30 scale-110"
+                          : "bg-slate-700 group-hover:bg-gradient-to-br group-hover:from-purple-500 group-hover:to-pink-500"
+                      }`}>
                         {index + 1}
                       </div>
-                      <h3 className="font-bold text-base text-left text-gray-900">{section.title}</h3>
+                      <h3 className="font-bold text-lg text-left text-white">{section.title}</h3>
                     </div>
-                    {openSections.includes(section.id) ? (
-                      <ChevronDown className="h-5 w-5 text-purple-600" />
-                    ) : (
-                      <ChevronRight className="h-5 w-5 text-purple-600" />
-                    )}
+                    <div className={`transition-transform duration-300 ${openSections.includes(section.id) ? "rotate-180" : ""}`}>
+                      <ChevronDown className="h-5 w-5 text-purple-400" />
+                    </div>
                   </CollapsibleTrigger>
-                  <CollapsibleContent className="px-5 pb-5 bg-white/80 backdrop-blur-sm rounded-b-xl border-x border-b border-purple-100">
-                    <p className="text-gray-700 leading-relaxed text-base pt-3">{section.content}</p>
+                  <CollapsibleContent className="px-5 py-4 mt-2 bg-slate-800/30 backdrop-blur-sm rounded-xl border border-purple-500/10">
+                    <p className="text-purple-100/80 leading-relaxed pl-16">{section.content}</p>
                   </CollapsibleContent>
                 </Collapsible>
               ))}
             </div>
 
-            <div className="space-y-5">
-              <div className="text-center lg:text-left">
-                <div className="inline-flex items-center bg-gradient-to-r from-yellow-500 to-orange-500 text-white px-4 py-2 rounded-full text-sm font-bold mb-4">
+            {/* Plans Section */}
+            <div ref={plansRef} className="space-y-6 scroll-mt-24">
+              <div className="text-center lg:text-left mb-8">
+                <div className="inline-flex items-center bg-gradient-to-r from-amber-400 to-orange-400 text-slate-900 px-5 py-2 rounded-full text-sm font-bold mb-4 shadow-lg shadow-amber-500/30">
                   <Crown className="mr-2 h-4 w-4" />
                   Choose Your Plan
                 </div>
-                <h2 className="text-3xl font-black text-gray-900 mb-6">Investment in Yourself</h2>
+                <h2 className="text-3xl font-black text-white mb-2">Investment in Yourself</h2>
+                <p className="text-purple-200/70">Select the perfect plan to begin your transformation</p>
               </div>
 
               {linkedPlans.map((linkedPlan, index) => (
                 <Card
                   key={linkedPlan.id}
-                  className="hover:shadow-lg transition-all duration-300 border-0 shadow-md hover:scale-102 bg-gradient-to-br from-white to-yellow-50/50 backdrop-blur-sm relative overflow-hidden group"
+                  className={`relative overflow-hidden border-0 transition-all duration-500 cursor-pointer ${
+                    hoveredPlan === linkedPlan.id || index === 0
+                      ? "bg-gradient-to-br from-slate-800 via-purple-900/50 to-slate-800 shadow-2xl shadow-purple-500/20 scale-[1.02]"
+                      : "bg-slate-800/60 hover:bg-slate-800/80"
+                  } backdrop-blur-xl`}
+                  onMouseEnter={() => setHoveredPlan(linkedPlan.id)}
+                  onMouseLeave={() => setHoveredPlan(null)}
                 >
+                  {/* Popular badge */}
                   {index === 0 && (
-                    <div className="absolute -top-1 -right-1 z-10">
-                      <Badge className="bg-gradient-to-r from-yellow-400 to-orange-400 text-black px-2 py-1 text-xs font-bold shadow-md">
+                    <div className="absolute -top-px -right-px">
+                      <div className="bg-gradient-to-r from-amber-400 via-orange-400 to-amber-400 text-slate-900 px-4 py-1 text-xs font-bold rounded-bl-xl rounded-tr-xl flex items-center shadow-lg">
                         <Star className="mr-1 h-3 w-3" />
-                        POPULAR
-                      </Badge>
+                        MOST POPULAR
+                      </div>
                     </div>
                   )}
 
-                  <CardHeader className="pb-2">
+                  {/* Glow effect */}
+                  <div className={`absolute inset-0 bg-gradient-to-br from-purple-500/0 to-pink-500/0 transition-all duration-500 ${
+                    hoveredPlan === linkedPlan.id ? "from-purple-500/10 to-pink-500/10" : ""
+                  }`} />
+
+                  <CardHeader className="pb-3 relative">
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
-                        <CardTitle className="text-lg font-bold text-gray-900 mb-2">
+                        <CardTitle className="text-xl font-bold text-white mb-2">
                           {linkedPlan.subscriptions.name}
                         </CardTitle>
-                        <CardDescription className="text-sm text-gray-600">
+                        <CardDescription className="text-sm text-purple-200/70">
                           {linkedPlan.subscriptions.description}
                         </CardDescription>
                       </div>
-                      <div className="text-right ml-3">
+                      <div className="text-right ml-4">
                         <div className="flex flex-col items-end">
                           {linkedPlan.subscriptions.has_discount || referralDiscounts[linkedPlan.subscription_id] ? (
                             <>
-                              <div className="text-sm text-gray-400 line-through">
+                              <div className="text-sm text-purple-400/60 line-through">
                                 ₹{linkedPlan.subscriptions.price}
                               </div>
-                              <div className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-600 to-orange-600">
-                                ₹{calculateFinalPrice(linkedPlan.subscriptions).toFixed(2)}
+                              <div className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-400">
+                                ₹{calculateFinalPrice(linkedPlan.subscriptions).toFixed(0)}
                               </div>
-                              {linkedPlan.subscriptions.has_discount && (
-                                <Badge variant="secondary" className="text-xs mt-1 bg-green-100 text-green-700">
-                                  {linkedPlan.subscriptions.discount_percentage}% OFF
-                                </Badge>
-                              )}
-                              {referralDiscounts[linkedPlan.subscription_id] && (
-                                <Badge variant="secondary" className="text-xs mt-1 bg-purple-100 text-purple-700">
-                                  Referral {referralDiscounts[linkedPlan.subscription_id]}% OFF
-                                </Badge>
-                              )}
+                              <div className="flex flex-wrap justify-end gap-1 mt-1">
+                                {linkedPlan.subscriptions.has_discount && (
+                                  <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-xs">
+                                    {linkedPlan.subscriptions.discount_percentage}% OFF
+                                  </Badge>
+                                )}
+                                {referralDiscounts[linkedPlan.subscription_id] && (
+                                  <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30 text-xs">
+                                    +{referralDiscounts[linkedPlan.subscription_id]}% Referral
+                                  </Badge>
+                                )}
+                              </div>
                             </>
                           ) : (
-                            <div className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-600 to-orange-600">
+                            <div className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-400">
                               ₹{linkedPlan.subscriptions.price}
                             </div>
                           )}
                         </div>
-                        <div className="text-xs text-gray-500 font-medium mt-1">
+                        <div className="text-xs text-purple-300/60 font-medium mt-2 flex items-center justify-end gap-1">
+                          <Calendar className="h-3 w-3" />
                           {linkedPlan.subscriptions.duration_days} days
                         </div>
                       </div>
                     </div>
                   </CardHeader>
 
-                  <CardContent className="pt-0">
+                  <CardContent className="pt-0 relative">
                     {linkedPlan.subscriptions.features && linkedPlan.subscriptions.features.length > 0 && (
-                      <div className="space-y-2 mb-4">
-                        {linkedPlan.subscriptions.features.slice(0, 3).map((feature, idx) => (
-                          <div key={idx} className="flex items-center gap-2">
-                            <div className="w-4 h-4 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-full flex items-center justify-center flex-shrink-0">
-                              <CheckCircle className="h-2.5 w-2.5 text-white" />
+                      <div className="space-y-2 mb-5">
+                        {linkedPlan.subscriptions.features.slice(0, 4).map((feature, idx) => (
+                          <div key={idx} className="flex items-center gap-3">
+                            <div className="w-5 h-5 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm shadow-emerald-500/30">
+                              <CheckCircle className="h-3 w-3 text-white" />
                             </div>
-                            <span className="text-gray-700 text-sm">{feature}</span>
+                            <span className="text-purple-100/80 text-sm">{feature}</span>
                           </div>
                         ))}
-                        {linkedPlan.subscriptions.features.length > 3 && (
-                          <div className="text-xs text-gray-500 ml-6">
-                            +{linkedPlan.subscriptions.features.length - 3} more features
+                        {linkedPlan.subscriptions.features.length > 4 && (
+                          <div className="text-xs text-purple-400/60 ml-8">
+                            +{linkedPlan.subscriptions.features.length - 4} more features included
                           </div>
                         )}
                       </div>
@@ -633,52 +723,79 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
 
                     <Button
                       onClick={() => handleSubscribeClick(linkedPlan.subscriptions.id)}
-                      className="w-full h-10 text-sm font-bold bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white shadow-md hover:shadow-lg transition-all duration-300"
+                      className={`w-full h-12 font-bold transition-all duration-300 group ${
+                        index === 0
+                          ? "bg-gradient-to-r from-amber-400 via-orange-400 to-amber-400 hover:from-amber-500 hover:via-orange-500 hover:to-amber-500 text-slate-900 shadow-lg shadow-amber-500/30"
+                          : "bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white shadow-lg shadow-purple-500/20"
+                      }`}
                     >
-                      <Zap className="mr-2 h-4 w-4" />
-                      Choose Plan
+                      <Zap className="mr-2 h-4 w-4 group-hover:animate-pulse" />
+                      Choose This Plan
+                      <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
                     </Button>
                   </CardContent>
                 </Card>
               ))}
+
+              {/* Trust badges */}
+              <div className="flex flex-wrap justify-center gap-4 mt-8 pt-6 border-t border-purple-500/20">
+                <div className="flex items-center gap-2 text-purple-300/70 text-sm">
+                  <Shield className="h-4 w-4" />
+                  Secure Payment
+                </div>
+                <div className="flex items-center gap-2 text-purple-300/70 text-sm">
+                  <Award className="h-4 w-4" />
+                  Quality Guaranteed
+                </div>
+                <div className="flex items-center gap-2 text-purple-300/70 text-sm">
+                  <Heart className="h-4 w-4" />
+                  24/7 Support
+                </div>
+              </div>
             </div>
           </div>
 
+          {/* Comparison Table */}
           {comparisonFeatures.length > 0 && linkedPlans.length > 0 && (
-            <div className="mt-16 mb-12">
-              <div className="text-center mb-8">
-                <div className="inline-flex items-center bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-4 py-2 rounded-full text-sm font-bold mb-4">
+            <div className="mt-24 mb-16">
+              <div className="text-center mb-12">
+                <div className="inline-flex items-center bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-5 py-2 rounded-full text-sm font-bold mb-4 shadow-lg shadow-indigo-500/30">
                   <TrendingUp className="mr-2 h-4 w-4" />
                   Compare Plans
                 </div>
-                <h2 className="text-3xl font-black text-gray-900 mb-2">Find Your Perfect Match</h2>
-                <p className="text-gray-600">Compare features across all plans to make the best choice</p>
+                <h2 className="text-4xl font-black text-white mb-3">Find Your Perfect Match</h2>
+                <p className="text-purple-200/70 text-lg">Compare features across all plans to make the best choice</p>
               </div>
 
-              <Card className="border-0 shadow-2xl bg-white/95 backdrop-blur-sm overflow-hidden">
+              <Card className="border-0 shadow-2xl bg-slate-800/60 backdrop-blur-xl overflow-hidden">
                 <CardContent className="p-0">
                   <div className="overflow-x-auto">
                     <table className="w-full">
                       <thead>
-                        <tr className="bg-gradient-to-r from-purple-600 to-pink-600">
-                          <th className="text-left p-4 text-white font-bold text-sm sticky left-0 bg-gradient-to-r from-purple-600 to-pink-600 z-10">
+                        <tr className="bg-gradient-to-r from-purple-600 via-pink-600 to-purple-600">
+                          <th className="text-left p-5 text-white font-bold text-sm sticky left-0 bg-gradient-to-r from-purple-600 to-purple-600 z-10 min-w-[200px]">
                             Features
                           </th>
-                          {linkedPlans.map((plan) => (
-                            <th key={plan.id} className="text-center p-4 text-white font-bold text-sm min-w-[150px]">
-                              <div className="flex flex-col items-center">
-                                <span className="mb-1">{plan.subscriptions.name}</span>
+                          {linkedPlans.map((plan, idx) => (
+                            <th key={plan.id} className="text-center p-5 text-white font-bold text-sm min-w-[160px]">
+                              <div className="flex flex-col items-center gap-2">
+                                {idx === 0 && (
+                                  <Badge className="bg-amber-400/20 text-amber-300 border-amber-400/30 text-xs mb-1">
+                                    Recommended
+                                  </Badge>
+                                )}
+                                <span className="text-lg">{plan.subscriptions.name}</span>
                                 {plan.subscriptions.has_discount || referralDiscounts[plan.subscription_id] ? (
                                   <div className="flex flex-col items-center">
                                     <span className="text-xs font-normal opacity-60 line-through">
                                       ₹{plan.subscriptions.price}
                                     </span>
-                                    <span className="text-xs font-bold opacity-90">
-                                      ₹{calculateFinalPrice(plan.subscriptions).toFixed(2)}
+                                    <span className="text-sm font-bold text-amber-300">
+                                      ₹{calculateFinalPrice(plan.subscriptions).toFixed(0)}
                                     </span>
                                   </div>
                                 ) : (
-                                  <span className="text-xs font-normal opacity-90">₹{plan.subscriptions.price}</span>
+                                  <span className="text-sm font-normal text-amber-300">₹{plan.subscriptions.price}</span>
                                 )}
                               </div>
                             </th>
@@ -689,15 +806,15 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
                         {comparisonFeatures.map((feature, index) => (
                           <tr
                             key={feature.id}
-                            className={`border-b border-gray-200 hover:bg-purple-50/50 transition-colors ${
-                              index % 2 === 0 ? "bg-gray-50/50" : "bg-white"
+                            className={`border-b border-purple-500/10 hover:bg-purple-500/5 transition-colors ${
+                              index % 2 === 0 ? "bg-slate-800/30" : "bg-slate-800/10"
                             }`}
                           >
-                            <td className="p-4 font-medium text-gray-900 text-sm sticky left-0 bg-inherit z-10">
+                            <td className="p-4 font-medium text-white text-sm sticky left-0 bg-inherit z-10">
                               <div>
                                 <div className="font-semibold">{feature.feature_name}</div>
                                 {feature.feature_description && (
-                                  <div className="text-xs text-gray-500 mt-1">{feature.feature_description}</div>
+                                  <div className="text-xs text-purple-300/60 mt-1">{feature.feature_description}</div>
                                 )}
                               </div>
                             </td>
@@ -706,17 +823,17 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
                               return (
                                 <td key={plan.id} className="p-4 text-center">
                                   {value?.custom_value ? (
-                                    <span className="text-sm font-semibold text-purple-600">{value.custom_value}</span>
+                                    <span className="text-sm font-semibold text-amber-400">{value.custom_value}</span>
                                   ) : value?.is_included ? (
                                     <div className="flex justify-center">
-                                      <div className="w-6 h-6 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-full flex items-center justify-center">
+                                      <div className="w-7 h-7 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-full flex items-center justify-center shadow-lg shadow-emerald-500/30">
                                         <CheckCircle className="h-4 w-4 text-white" />
                                       </div>
                                     </div>
                                   ) : (
                                     <div className="flex justify-center">
-                                      <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center">
-                                        <span className="text-gray-400 text-lg">×</span>
+                                      <div className="w-7 h-7 bg-slate-700/50 rounded-full flex items-center justify-center">
+                                        <span className="text-slate-500 text-lg">-</span>
                                       </div>
                                     </div>
                                   )}
@@ -731,18 +848,17 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
                 </CardContent>
               </Card>
 
-              <div className="text-center mt-8">
-                <p className="text-gray-600 mb-4">Ready to start your transformation?</p>
+              {/* Bottom CTA */}
+              <div className="text-center mt-12">
+                <p className="text-purple-200/70 mb-6 text-lg">Ready to begin your transformation journey?</p>
                 <Button
                   size="lg"
-                  onClick={() => {
-                    const plansSection = document.querySelector(".space-y-5")
-                    plansSection?.scrollIntoView({ behavior: "smooth", block: "center" })
-                  }}
-                  className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold px-8 py-4 h-auto shadow-lg"
+                  onClick={scrollToPlans}
+                  className="bg-gradient-to-r from-amber-400 via-orange-400 to-amber-400 hover:from-amber-500 hover:via-orange-500 hover:to-amber-500 text-slate-900 font-bold text-lg px-10 py-6 h-auto shadow-2xl shadow-amber-500/30 transition-all duration-300 hover:scale-105 group"
                 >
-                  <Zap className="mr-2 h-4 w-4" />
+                  <Zap className="mr-2 h-5 w-5 group-hover:animate-pulse" />
                   Choose Your Plan Now
+                  <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
                 </Button>
               </div>
             </div>
@@ -750,11 +866,12 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
         </div>
       </div>
 
+      {/* Auth Modal */}
       <Dialog open={showAuthModal} onOpenChange={setShowAuthModal}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md bg-slate-900 border-purple-500/20">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-center">Welcome to Your Journey</DialogTitle>
-            <DialogDescription className="text-center pt-2">
+            <DialogTitle className="text-2xl font-bold text-center text-white">Welcome to Your Journey</DialogTitle>
+            <DialogDescription className="text-center pt-2 text-purple-200/70">
               To subscribe to this plan, please choose an option below
             </DialogDescription>
           </DialogHeader>
@@ -762,25 +879,25 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
           <div className="space-y-4 py-6">
             <Button
               onClick={() => handleAuthChoice("register")}
-              className="w-full h-14 text-lg font-bold bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-lg"
+              className="w-full h-14 text-lg font-bold bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white shadow-lg shadow-purple-500/30"
             >
               <Users className="mr-2 h-5 w-5" />
-              Join Your Journey
+              Create Account
             </Button>
 
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-gray-300" />
+                <span className="w-full border-t border-purple-500/30" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="bg-white px-4 text-gray-500">Already have an account?</span>
+                <span className="bg-slate-900 px-4 text-purple-300/70">Already have an account?</span>
               </div>
             </div>
 
             <Button
               onClick={() => handleAuthChoice("login")}
               variant="outline"
-              className="w-full h-14 text-lg font-bold border-2 border-purple-600 text-purple-600 hover:bg-purple-50"
+              className="w-full h-14 text-lg font-bold border-2 border-purple-500/50 text-purple-300 hover:bg-purple-500/20 bg-transparent"
             >
               <User className="mr-2 h-5 w-5" />
               Login
@@ -788,6 +905,27 @@ export default function SubscriptionCategoryPage({ params }: { params: { slug: s
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Custom animations */}
+      <style jsx global>{`
+        @keyframes float {
+          0%, 100% { transform: translateY(0) translateX(0); opacity: 0.2; }
+          25% { transform: translateY(-20px) translateX(10px); opacity: 0.5; }
+          50% { transform: translateY(-10px) translateX(-10px); opacity: 0.3; }
+          75% { transform: translateY(-30px) translateX(5px); opacity: 0.4; }
+        }
+        .animate-float {
+          animation: float linear infinite;
+        }
+        @keyframes shimmer {
+          0% { background-position: -200% center; }
+          100% { background-position: 200% center; }
+        }
+        .animate-shimmer {
+          background-size: 200% auto;
+          animation: shimmer 3s linear infinite;
+        }
+      `}</style>
     </div>
   )
 }
