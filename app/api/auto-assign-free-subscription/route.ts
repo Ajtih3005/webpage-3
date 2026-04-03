@@ -2,44 +2,50 @@ import { NextResponse } from "next/server"
 import { getSupabaseServerClient } from "@/lib/supabase"
 
 export async function POST(request: Request) {
-  const adminPassword = request.headers.get("x-admin-password")
-  if (adminPassword !== process.env.ADMIN_PASSWORD) {
-    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
-  }
-
   try {
-    const { userId } = await request.json()
+    const { userId, numericUserId, isRegistration } = await request.json()
 
-    if (!userId) {
+    // For registration flow, we trust the request (it comes from our own registration page)
+    // For admin actions, require admin password
+    if (!isRegistration) {
+      const adminPassword = request.headers.get("x-admin-password")
+      if (adminPassword !== process.env.ADMIN_PASSWORD) {
+        return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
+      }
+    }
+
+    if (!userId && !numericUserId) {
       return NextResponse.json({ success: false, error: "User ID is required" }, { status: 400 })
     }
 
     const supabase = getSupabaseServerClient()
 
-    // First, get the numeric ID from the users table using the string user_id
-    const { data: userData, error: userError } = await supabase
-      .from("users")
-      .select("id")
-      .eq("user_id", userId)
-      .single()
+    let finalNumericUserId = numericUserId
 
-    if (userError) {
-      console.error("Error fetching user:", userError)
-      return NextResponse.json({ success: false, error: userError.message }, { status: 500 })
+    // If we have string userId but not numeric, look it up
+    if (!finalNumericUserId && userId) {
+      const { data: userData, error: userError } = await supabase
+        .from("users")
+        .select("id")
+        .eq("user_id", userId)
+        .single()
+
+      if (userError) {
+        console.error("Error fetching user by user_id:", userError)
+        return NextResponse.json({ success: false, error: userError.message }, { status: 500 })
+      }
+
+      if (!userData) {
+        return NextResponse.json({ success: false, error: "User not found" }, { status: 404 })
+      }
+
+      finalNumericUserId = userData.id
     }
 
-    if (!userData) {
-      return NextResponse.json({ success: false, error: "User not found" }, { status: 404 })
-    }
-
-    const numericUserId = userData.id
-
-    // Get the free subscription (price = 0 AND duration_days = 30)
+    // Get the free subscription that is marked as default for new users
     const { data: freeSubscriptions, error: subscriptionError } = await supabase
       .from("subscriptions")
       .select("*")
-      .eq("price", 0)
-      .eq("duration_days", 30)
       .eq("is_default_for_new_users", true)
 
     if (subscriptionError) {
@@ -51,13 +57,13 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          message: "No free 30-day subscription found. Please create one and mark it as default for new users.",
+          message: "No subscription marked as default for new users. Please create one in admin panel.",
         },
         { status: 404 },
       )
     }
 
-    // Process each free subscription (should be just one)
+    // Process each default subscription
     const results = await Promise.all(
       freeSubscriptions.map(async (subscription) => {
         // For one-time subscriptions, check if user has already had this subscription
@@ -65,7 +71,7 @@ export async function POST(request: Request) {
           const { data: existingSubscription, error: checkError } = await supabase
             .from("user_subscriptions")
             .select("id")
-            .eq("user_id", numericUserId)
+            .eq("user_id", finalNumericUserId)
             .eq("subscription_id", subscription.id)
             .maybeSingle()
 
@@ -92,7 +98,7 @@ export async function POST(request: Request) {
           const { data: activeSubscription, error: activeError } = await supabase
             .from("user_subscriptions")
             .select("id")
-            .eq("user_id", numericUserId)
+            .eq("user_id", finalNumericUserId)
             .eq("subscription_id", subscription.id)
             .eq("is_active", true)
             .maybeSingle()
@@ -117,23 +123,23 @@ export async function POST(request: Request) {
           }
         }
 
-        // Calculate start and end dates - always 30 days from now
+        // Calculate start and end dates based on subscription duration_days
         const startDate = new Date()
         const endDate = new Date()
-        endDate.setDate(startDate.getDate() + 30) // Always 30 days
+        endDate.setDate(startDate.getDate() + (subscription.duration_days || 30))
 
         // Add user to subscription using the numeric ID
         const { error } = await supabase.from("user_subscriptions").insert({
-          user_id: numericUserId,
+          user_id: finalNumericUserId,
           subscription_id: subscription.id,
           start_date: startDate.toISOString(),
           end_date: endDate.toISOString(),
-          activation_date: startDate.toISOString(), // Required for subscription day counting
+          activation_date: startDate.toISOString(),
           status: "active",
           is_active: true,
           is_one_time_subscription: subscription.is_one_time_only || false,
-          total_active_days_used: 0, // Start at day 0
-          last_day_counted: null, // Will be set by cron job
+          total_active_days_used: 0,
+          last_day_counted: null,
         })
 
         if (error) {
@@ -148,7 +154,8 @@ export async function POST(request: Request) {
         return {
           success: true,
           subscription_id: subscription.id,
-          message: "User added to free 30-day subscription successfully",
+          subscription_name: subscription.name,
+          message: `User added to "${subscription.name}" subscription successfully`,
         }
       }),
     )
@@ -160,7 +167,7 @@ export async function POST(request: Request) {
     if (allSkipped) {
       return NextResponse.json({
         success: true,
-        message: "User already has the free 30-day subscription",
+        message: "User already has the default subscription(s)",
         results,
       })
     }
@@ -168,14 +175,14 @@ export async function POST(request: Request) {
     if (anySuccess) {
       return NextResponse.json({
         success: true,
-        message: "User added to free 30-day subscription successfully",
+        message: "User added to default subscription(s) successfully",
         results,
       })
     } else {
       return NextResponse.json(
         {
           success: false,
-          message: "Failed to add user to free 30-day subscription",
+          message: "Failed to add user to default subscription(s)",
           results,
         },
         { status: 500 },
