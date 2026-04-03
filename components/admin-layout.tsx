@@ -157,9 +157,14 @@ function AdminLayout({ children }: AdminLayoutProps) {
       title: "Subscriptions",
       href: "/admin/subscriptions",
       icon: Package,
-      active: pathname.startsWith("/admin/subscriptions"),
+      active: pathname.startsWith("/admin/subscriptions") && !pathname.startsWith("/admin/subscription-pages"),
     },
-    
+    {
+      title: "Subscription Pages",
+      href: "/admin/subscription-pages",
+      icon: Layers,
+      active: pathname.startsWith("/admin/subscription-pages"),
+    },
     {
       title: "Referral Codes",
       href: "/admin/referral-codes",
