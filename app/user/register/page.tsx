@@ -251,7 +251,6 @@ export default function UserRegister() {
         password: hashedPassword,
         country,
         referral_code: referralCode && referralValidation?.isValid ? referralCode.toUpperCase() : null,
-        email_verified: false,
         created_at: new Date().toISOString(),
       }
 
