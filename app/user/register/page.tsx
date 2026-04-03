@@ -282,13 +282,18 @@ export default function UserRegister() {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ userId }),
+          body: JSON.stringify({ 
+            userId, // string user_id like "USR-xxxx"
+            numericUserId: data[0].id, // numeric id from database
+            isRegistration: true // bypass admin password check for registration
+          }),
         })
 
         if (!response.ok) {
           console.error("Failed to assign free subscription:", await response.text())
         } else {
-          console.log("Successfully assigned free 30-day subscription to new user")
+          const result = await response.json()
+          console.log("Successfully assigned default subscription to new user:", result)
         }
       } catch (subscriptionError) {
         console.error("Error assigning free subscription:", subscriptionError)
