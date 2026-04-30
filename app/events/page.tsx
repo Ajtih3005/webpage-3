@@ -51,6 +51,8 @@ interface BookerInfo {
   phone: string
 }
 
+const PLATFORM_FEE_RATE = 0.025 // 2.5% platform fee
+
 export default function EventsPage() {
   const [events, setEvents] = useState<Event[]>([])
   const [loading, setLoading] = useState(true)
@@ -217,13 +219,26 @@ export default function EventsPage() {
     setAttendees(updated)
   }
 
-  const getTotalPrice = () => {
+  const getBasePriceTotal = () => {
     if (!selectedEvent) return 0
     const basePrice = selectedEvent.ticket_price * attendees.length
     if (referralApplied && referralDiscount > 0) {
       return Math.round(basePrice * (1 - referralDiscount / 100))
     }
     return basePrice
+  }
+
+  const getPlatformFee = () => {
+    const base = getBasePriceTotal()
+    if (base <= 0) return 0
+    return parseFloat((base * PLATFORM_FEE_RATE).toFixed(2))
+  }
+
+  const getTotalPrice = () => {
+    const base = getBasePriceTotal()
+    if (base <= 0) return 0
+    const fee = getPlatformFee()
+    return parseFloat((base + fee).toFixed(2))
   }
 
   const getOriginalPrice = () => {
@@ -558,13 +573,21 @@ export default function EventsPage() {
 
                 <div className="bg-emerald-50 p-4 rounded-lg">
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-700">Price per ticket</span>
-                    <span className="text-xl font-bold text-emerald-600">
-                      {selectedEvent.ticket_price > 0 ? `₹${selectedEvent.ticket_price}` : "FREE"}
+                    <span className="text-gray-700">Base Price ({attendees.length} ticket{attendees.length > 1 ? 's' : ''})</span>
+                    <span className="text-lg font-semibold text-gray-800">
+                      {getBasePriceTotal() > 0 ? `₹${getBasePriceTotal()}` : "FREE"}
                     </span>
                   </div>
+                  {getBasePriceTotal() > 0 && (
+                    <div className="flex justify-between items-center mt-1">
+                      <span className="text-sm text-gray-500">Platform Fee (2.5%)</span>
+                      <span className="text-sm text-gray-500">
+                        ₹{getPlatformFee().toFixed(2)}
+                      </span>
+                    </div>
+                  )}
                   <div className="flex justify-between items-center mt-2 pt-2 border-t border-emerald-200">
-                    <span className="font-semibold text-gray-900">Total ({attendees.length} ticket{attendees.length > 1 ? 's' : ''})</span>
+                    <span className="font-semibold text-gray-900">Total Payable</span>
                     <span className="text-2xl font-bold text-emerald-600">
                       {getTotalPrice() > 0 ? `₹${getTotalPrice()}` : "FREE"}
                     </span>

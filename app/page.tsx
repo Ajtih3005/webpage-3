@@ -167,6 +167,9 @@ export default function Home() {
             <Link href="/user/login" className="px-4 py-2 text-sm text-gray-700 hover:text-gray-900 transition-colors font-lora bg-white/80 backdrop-blur-sm rounded-full shadow-sm hover:shadow-md border border-white/50">
               Sign In
             </Link>
+            <Link href="/student/login" className="px-4 py-2 text-sm text-emerald-700 hover:text-emerald-900 transition-colors font-lora bg-emerald-50/80 backdrop-blur-sm rounded-full shadow-sm hover:shadow-md border border-emerald-200/50">
+              Student Login
+            </Link>
             <Link
               href="/user/register"
               className="px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-500 text-white text-sm rounded-full hover:from-emerald-700 hover:to-teal-600 transition-all hover:shadow-lg font-lora shadow-md"
@@ -216,6 +219,13 @@ export default function Home() {
                 className="text-gray-700 hover:text-gray-900 py-2 font-lora"
               >
                 Sign In
+              </Link>
+              <Link
+                href="/student/login"
+                onClick={() => setMobileMenuOpen(false)}
+                className="text-emerald-700 hover:text-emerald-900 py-2 font-lora"
+              >
+                Student Login
               </Link>
               <Link
                 href="/user/register"

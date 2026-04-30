@@ -46,6 +46,7 @@ export async function logout() {
             `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/user;`,
             `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/admin;`,
             `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/instructor;`,
+            `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/student;`,
           ]
           clearCommands.forEach((cmd) => {
             document.cookie = cmd
@@ -120,6 +121,89 @@ export function isInstructorLoggedIn(): boolean {
     return !!(instructorId && instructorAuthenticated === "true")
   } catch {
     return false
+  }
+}
+
+/**
+ * 🔍 CHECK STUDENT AUTHENTICATION STATUS
+ * Secure way to check if student is logged in
+ */
+export function isStudentLoggedIn(): boolean {
+  try {
+    if (typeof window === "undefined") return false
+    const studentId = localStorage.getItem("studentId")
+    const studentAuthenticated = localStorage.getItem("studentAuthenticated")
+    return !!(studentId && studentAuthenticated === "true")
+  } catch {
+    return false
+  }
+}
+
+/**
+ * 🎓 GET CURRENT STUDENT ID
+ * Returns the current student's ID if logged in
+ */
+export function getCurrentStudentId(): string | null {
+  try {
+    if (isStudentLoggedIn()) {
+      return localStorage.getItem("studentId")
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 🔐 SET STUDENT AUTHENTICATION
+ * Securely store student authentication data
+ */
+export function setStudentAuth(studentId: string, studentData?: any): void {
+  try {
+    if (typeof window === "undefined") return
+    localStorage.setItem("studentId", studentId)
+    localStorage.setItem("studentAuthenticated", "true")
+
+    if (studentData) {
+      localStorage.setItem("studentData", JSON.stringify(studentData))
+    }
+
+    console.log("✅ Student authentication set")
+  } catch (error) {
+    console.error("❌ Error setting student auth:", error)
+  }
+}
+
+/**
+ * 🧹 CLEAR STUDENT AUTHENTICATION
+ * Clear only student-related authentication data
+ */
+export function clearStudentAuth(): void {
+  try {
+    if (typeof window === "undefined") return
+    localStorage.removeItem("studentId")
+    localStorage.removeItem("studentAuthenticated")
+    localStorage.removeItem("studentData")
+    localStorage.removeItem("studentName")
+    localStorage.removeItem("studentEmail")
+    localStorage.removeItem("studentPhone")
+    console.log("✅ Student authentication cleared")
+  } catch (error) {
+    console.error("❌ Error clearing student auth:", error)
+  }
+}
+
+/**
+ * 🔍 GET STUDENT DATA
+ * Get stored student data if available
+ */
+export function getStudentData(): any | null {
+  try {
+    if (typeof window === "undefined") return null
+    const studentData = localStorage.getItem("studentData")
+    return studentData ? JSON.parse(studentData) : null
+  } catch {
+    return null
   }
 }
 
@@ -270,13 +354,14 @@ export function navigateToHome(): void {
 export function redirectToLogin(returnUrl?: string, userType: "user" | "admin" | "instructor" = "user"): void {
   if (typeof window === "undefined") return
 
-  const loginPaths = {
+  const loginPaths: Record<string, string> = {
     user: "/user/login",
     admin: "/admin/login",
     instructor: "/instructor/login",
+    student: "/student/login",
   }
 
-  const loginPath = loginPaths[userType]
+  const loginPath = loginPaths[userType] || "/user/login"
   const redirectUrl = returnUrl ? `${loginPath}?redirect=${encodeURIComponent(returnUrl)}` : loginPath
 
   window.location.href = redirectUrl
@@ -315,16 +400,17 @@ export function getInstructorData(): any | null {
  * Check if any type of user (user, admin, instructor) is logged in
  */
 export function isAnyUserLoggedIn(): boolean {
-  return isUserLoggedIn() || isAdminLoggedIn() || isInstructorLoggedIn()
+  return isUserLoggedIn() || isAdminLoggedIn() || isInstructorLoggedIn() || isStudentLoggedIn()
 }
 
 /**
  * 🎯 GET CURRENT USER TYPE
  * Returns the type of currently logged in user
  */
-export function getCurrentUserType(): "user" | "admin" | "instructor" | null {
+export function getCurrentUserType(): "user" | "admin" | "instructor" | "student" | null {
   if (isAdminLoggedIn()) return "admin"
   if (isInstructorLoggedIn()) return "instructor"
+  if (isStudentLoggedIn()) return "student"
   if (isUserLoggedIn()) return "user"
   return null
 }
@@ -344,6 +430,8 @@ export function autoRedirectBasedOnAuth(currentPath: string): void {
       redirectToLogin(currentPath, "admin")
     } else if (currentPath.startsWith("/instructor")) {
       redirectToLogin(currentPath, "instructor")
+    } else if (currentPath.startsWith("/student")) {
+      redirectToLogin(currentPath, "student")
     } else if (currentPath.startsWith("/user")) {
       redirectToLogin(currentPath, "user")
     }
@@ -355,6 +443,8 @@ export function autoRedirectBasedOnAuth(currentPath: string): void {
     window.location.href = "/admin/dashboard"
   } else if (userType === "instructor" && !currentPath.startsWith("/instructor")) {
     window.location.href = "/instructor/dashboard"
+  } else if (userType === "student" && !currentPath.startsWith("/student")) {
+    window.location.href = "/student/dashboard"
   } else if (userType === "user" && currentPath.startsWith("/admin")) {
     window.location.href = "/user/dashboard"
   }

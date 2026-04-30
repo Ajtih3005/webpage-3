@@ -13,9 +13,14 @@ export function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
+  // Student routes — let client-side auth handle
+  if (request.nextUrl.pathname.startsWith("/student") && !request.nextUrl.pathname.startsWith("/student/login") && !request.nextUrl.pathname.startsWith("/student/register")) {
+    return NextResponse.next()
+  }
+
   return NextResponse.next()
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/((?!api|_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/admin/:path*", "/student/:path*", "/((?!api|_next/static|_next/image|favicon.ico).*)"],
 }

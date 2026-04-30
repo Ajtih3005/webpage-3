@@ -28,6 +28,8 @@ import {
   Brain,
   Ticket,
   Mic2,
+  Camera,
+  GraduationCap,
 } from "lucide-react"
 
 interface AdminLayoutProps {
@@ -236,6 +238,18 @@ function AdminLayout({ children }: AdminLayoutProps) {
       href: "/admin/tickets",
       icon: Ticket,
       active: pathname.startsWith("/admin/tickets"),
+    },
+    {
+      title: "AICTE Events",
+      href: "/admin/aicte-events",
+      icon: GraduationCap,
+      active: pathname.startsWith("/admin/aicte-events"),
+    },
+    {
+      title: "AICTE Approvals",
+      href: "/admin/aicte-approvals",
+      icon: Camera,
+      active: pathname.startsWith("/admin/aicte-approvals"),
     },
   ]
 

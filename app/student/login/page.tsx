@@ -7,11 +7,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Loader2, ArrowLeft, Phone, Lock, Leaf, User } from "lucide-react"
+import { Loader2, ArrowLeft, Phone, Lock, Leaf, GraduationCap } from "lucide-react"
 import Image from "next/image"
-import { isUserLoggedIn } from "@/lib/auth-client"
+import { isStudentLoggedIn } from "@/lib/auth-client"
 
-export default function LoginPage() {
+export default function StudentLoginPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirectUrl = searchParams.get("redirect")
@@ -22,24 +22,12 @@ export default function LoginPage() {
   const [error, setError] = useState("")
   const [checkingAuth, setCheckingAuth] = useState(true)
 
-  const isFromLink = redirectUrl?.startsWith("/l/")
-
   useEffect(() => {
-    const checkExistingAuth = () => {
-      if (isUserLoggedIn()) {
-        console.log("✅ User already logged in, redirecting...")
-
-        if (redirectUrl) {
-          window.location.href = redirectUrl
-        } else {
-          window.location.href = "/user/dashboard"
-        }
-        return
-      }
-      setCheckingAuth(false)
+    if (isStudentLoggedIn()) {
+      window.location.href = redirectUrl || "/student/dashboard"
+      return
     }
-
-    checkExistingAuth()
+    setCheckingAuth(false)
   }, [redirectUrl])
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -48,77 +36,39 @@ export default function LoginPage() {
     setError("")
 
     try {
-      console.log("[v0] ===== LOGIN ATTEMPT START =====")
-      console.log("[v0] Login attempt for phone:", phone)
-
       if (!phone || !password) {
-        console.log("[v0] Missing phone or password")
         setError("Please enter both phone number and password")
         setLoading(false)
         return
       }
 
-      console.log("[v0] Calling login API route...")
-      const response = await fetch("/api/user/login", {
+      const response = await fetch("/api/student/login", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone, password }),
       })
 
       const result = await response.json()
-      console.log("[v0] Login API response:", result)
 
       if (!response.ok) {
-        console.log("[v0] Login failed:", result.error)
         setError(result.error || "Invalid phone number or password")
         setLoading(false)
         return
       }
 
-      console.log("[v0] Login successful! Setting up session...")
-
       const user = result.user
+      localStorage.setItem("studentId", user.id.toString())
+      localStorage.setItem("studentAuthenticated", "true")
+      localStorage.setItem("studentName", user.name || "Student")
+      localStorage.setItem("studentEmail", user.email || "")
+      localStorage.setItem("studentPhone", user.phone_number || "")
 
-      // Store user data
-      localStorage.setItem("userId", user.id.toString())
-      localStorage.setItem("userAuthenticated", "true")
-      localStorage.setItem("userName", user.name || "User")
-      localStorage.setItem("userEmail", user.email || "")
-      localStorage.setItem("userPhone", user.phone_number || "")
-
-      console.log("[v0] LocalStorage set")
-
-      // Clear form
       setPhone("")
       setPassword("")
 
-      const pendingPlan = sessionStorage.getItem("pendingSubscriptionPlan")
-      console.log("[v0] Checking for pending subscription plan:", pendingPlan)
-
-      if (pendingPlan) {
-        sessionStorage.removeItem("pendingSubscriptionPlan")
-        console.log("[v0] Found pending plan, redirecting to payment for plan:", pendingPlan)
-        window.location.href = `/user/subscribe?plan=${pendingPlan}`
-        return
-      }
-
-      console.log("[v0] No pending plan, checking redirect URL:", redirectUrl)
-
-      // Redirect
-      if (redirectUrl) {
-        console.log("[v0] Redirecting to redirect URL:", redirectUrl)
-        window.location.href = redirectUrl
-      } else {
-        console.log("[v0] No redirect URL, going to dashboard")
-        window.location.href = "/user/dashboard"
-      }
-
-      console.log("[v0] ===== LOGIN ATTEMPT END =====")
+      window.location.href = redirectUrl || "/student/dashboard"
     } catch (err) {
-      console.error("[v0] Login error:", err)
-      console.error("[v0] Error stack:", err instanceof Error ? err.stack : "No stack trace")
+      console.error("Student login error:", err)
       setError("An error occurred during login. Please try again.")
     } finally {
       setLoading(false)
@@ -163,31 +113,21 @@ export default function LoginPage() {
             </div>
           </div>
           <h1 className="text-3xl font-bold text-white mb-2">STHAVISHTAH</h1>
-          <p className="text-white/80 text-sm tracking-widest">YOGA AND WELLNESS</p>
+          <p className="text-white/80 text-sm tracking-widest">STUDENT PORTAL</p>
           <div className="w-24 h-1 bg-white/30 mx-auto mt-3 rounded-full"></div>
         </div>
 
         {/* Login Card */}
         <Card className="nature-card shadow-2xl border-0 animate-slide-up">
           <CardHeader className="text-center pb-4">
-            <CardTitle className="text-2xl font-semibold forest-text-gradient">Welcome Back</CardTitle>
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <GraduationCap className="h-6 w-6 text-emerald-600" />
+              <CardTitle className="text-2xl font-semibold forest-text-gradient">Student Login</CardTitle>
+            </div>
             <CardDescription className="text-gray-600">
-              {isFromLink
-                ? "Please log in to access your requested content"
-                : "Sign in to continue your wellness journey and find your inner peace"}
+              Sign in to access your AICTE points and event submissions
             </CardDescription>
           </CardHeader>
-
-          {isFromLink && (
-            <CardContent className="pb-4">
-              <Alert className="border-green-200 bg-green-50">
-                <Leaf className="h-4 w-4 text-green-600" />
-                <AlertDescription className="text-green-800">
-                  🔗 You'll be automatically redirected to your requested link after logging in.
-                </AlertDescription>
-              </Alert>
-            </CardContent>
-          )}
 
           <form onSubmit={handleLogin}>
             <CardContent className="space-y-6">
@@ -252,32 +192,32 @@ export default function LoginPage() {
                     </>
                   ) : (
                     <>
-                      <User className="mr-2 h-4 w-4" />
+                      <GraduationCap className="mr-2 h-4 w-4" />
                       Sign In
                     </>
                   )}
                 </Button>
               </div>
 
-              <div className="text-center">
+              <div className="text-center space-y-2">
                 <p className="text-sm text-gray-600">
-                  New to our wellness community?{" "}
+                  New student?{" "}
                   <Button
                     variant="link"
                     className="p-0 h-auto text-green-600 hover:text-green-700 font-medium"
-                    onClick={() => router.push(`/user/register${redirectUrl ? `?redirect=${redirectUrl}` : ""}`)}
+                    onClick={() => router.push("/student/register")}
                   >
-                    Join us today
+                    Register here
                   </Button>
                 </p>
-                <p className="text-sm text-gray-500 mt-2">
-                  Are you a student?{" "}
+                <p className="text-sm text-gray-500">
+                  Not a student?{" "}
                   <Button
                     variant="link"
-                    className="p-0 h-auto text-emerald-600 hover:text-emerald-700 font-medium"
-                    onClick={() => router.push("/student/login")}
+                    className="p-0 h-auto text-gray-500 hover:text-gray-700 font-medium"
+                    onClick={() => router.push("/user/login")}
                   >
-                    Student Login
+                    Regular Login
                   </Button>
                 </p>
               </div>
